@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Las Mesas · Café & Bar"
+description = "Web de Las Mesas Café & Bar, con carta consultable, reservas y solicitudes de eventos por WhatsApp, ubicación y horarios."
+version = "1.0.0"
+id = "artifacts/las-mesas"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 20954
+
+[services.development]
+run = "pnpm --filter @workspace/las-mesas run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/las-mesas", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/las-mesas/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "20954"
+BASE_PATH = "/"

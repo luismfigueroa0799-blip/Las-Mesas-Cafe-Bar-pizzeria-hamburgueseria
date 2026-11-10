@@ -1,0 +1,117 @@
+Diseña y desarrolla una página web moderna, elegante y acogedora para [Las Mesas Pizzería Hamburguesería], un restaurante con mesas de billar. Usa el logo adjunto como referencia principal para extraer la paleta de colores y aplicarla de forma coherente en toda la web: fondos, botones, enlaces, detalles, estados hover y elementos destacados. Mantén buen contraste y prioriza la legibilidad.
+
+La experiencia debe transmitir la personalidad del local: un lugar agradable para comer, jugar al billar y reunirse con amigos, familiares o compañeros de trabajo. El diseño debe sentirse sofisticado, pero cercano y acogedor. Utiliza fotografías de alta calidad del restaurante, el billar, los platos y los eventos. Evita sobrecargar la página; prioriza una navegación clara y llamadas a la acción visibles.
+
+ESTRUCTURA DE LA PÁGINA
+
+1. Inicio
+- Crea una sección principal atractiva con una fotografía destacada del local o del billar.
+- Incluye el nombre del restaurante, una frase breve que describa su propuesta y botones de llamada a la acción: “Reserva tu mesa” y “Ver la carta”.
+- Añade una navegación fija con enlaces a las secciones principales.
+
+2. La esencia del local
+- Presenta la historia, el ambiente y lo que hace especial al restaurante.
+- Usa textos breves, cálidos y auténticos, junto con fotografías del espacio o del equipo.
+- El tono debe ser cercano, cuidado y apetecible.
+
+3. El local
+- Muestra fotografías de las mesas de billar, el comedor y otros espacios del restaurante.
+- Incluye una galería visual fácil de recorrer, con imágenes optimizadas y descripciones accesibles.
+- En móviles, presenta la galería en una sola columna.
+
+4. La carta
+- Organiza la carta en categorías claras, por ejemplo: entrantes, platos principales, postres y bebidas.
+- Diseña esta sección para que sea fácil de consultar en móvil.
+- Añade precios si están disponibles y un botón para consultar o descargar la carta completa.
+- No inventes platos ni precios: si no se proporcionan, usa contenido de ejemplo claramente editable.
+
+5. Celebraciones y eventos
+- Explica que los clientes pueden contarnos qué celebración desean y que el restaurante puede preparar una propuesta a medida.
+- Incluye ejemplos como cumpleaños, cenas de empresa y otros eventos.
+- Añade un formulario sencillo para solicitar información, con campos para nombre, contacto, tipo de evento, fecha aproximada, número de personas y detalles.
+- Incluye un botón de llamada a la acción, por ejemplo: “Cuéntanos tu idea”.
+
+6. Reseñas de Google
+- Añade una sección breve que invite a los clientes a compartir su experiencia.
+- Incluye un botón destacado que enlace a [ENLACE A LAS RESEÑAS DE GOOGLE].
+- No inventes reseñas, puntuaciones ni valoraciones.
+
+7. Frase destacada
+- Después de la sección del local o de las mesas de billar, incorpora una frase breve y memorable relacionada con disfrutar, compartir y jugar.
+- Preséntala como un elemento visual destacado, usando la paleta de colores del logo.
+
+8. Reservas
+- Crea un formulario claro para reservar mesa, con campos para nombre, teléfono o email, fecha, hora, número de personas y comentarios opcionales.
+- Incluye validación básica y mensajes claros de error y confirmación.
+- En móvil, el formulario debe ocupar todo el ancho disponible.
+- Añade un botón grande y fácil de tocar.
+
+9. Ubicación y contacto
+- Muestra la dirección, un mapa o enlace a Google Maps, el teléfono y el horario.
+- Incluye botones para abrir la ubicación en Google Maps y llamar directamente desde el móvil.
+- Añade enlaces a las redes sociales oficiales: [INSTAGRAM], [FACEBOOK] y otras si corresponde.
+
+10. Pie de página
+- Incluye el nombre o logo del restaurante, datos de contacto, horario, enlaces a redes sociales y navegación rápida.
+- Añade los enlaces legales correspondientes si están disponibles.
+
+CARACTERÍSTICAS TÉCNICAS Y DE INTERACCIÓN
+
+- Diseño 100 % responsive con enfoque mobile-first.
+- Desplazamiento suave entre secciones.
+- Barra de navegación fija que se reduzca ligeramente al hacer scroll.
+- Menú hamburguesa animado y accesible en dispositivos móviles.
+- Carga diferida (lazy loading) para las imágenes que no estén en la primera vista.
+- Imágenes optimizadas para una carga rápida y con dimensiones adecuadas.
+- Animaciones de entrada sutiles, como fade y slide up, sin perjudicar el rendimiento ni la accesibilidad.
+- Estados hover y focus visibles en botones y enlaces.
+- Formularios con validación básica, etiquetas claras y mensajes de error comprensibles.
+- Botones de llamada directa usando enlaces tel:.
+- Botones y áreas táctiles suficientemente grandes para facilitar el uso en móvil.
+- Buen contraste de color, tipografía legible y navegación accesible mediante teclado.
+- Respeta la preferencia de movimiento reducido del sistema.
+- Mantén una buena velocidad de carga y evita animaciones o efectos innecesarios.
+
+CONTENIDO Y DATOS
+
+Usa estos datos cuando estén disponibles:
+- Nombre: [Las Mesas cafetería Bar]
+- Dirección: [Pintor Antonio Padrón, 59, Las Mesas Bajas
+Las Palmas de Gran Canaria]
+- Teléfono: [+34 928 896 097]
+- Horario: [Lunes a viernes · 18:00 - 23:00
+Sábado · 12:00 - 15:00 y 18:00 - 23:00
+Domingo · 12:00 - 17:00]
+- Enlace de Google Maps: [ENLACE]
+- Enlace a reseñas de Google: [ENLACE]
+- Redes sociales: [ENLACES]
+- Sistema o canal de reservas: [TELÉFONO, FORMULARIO, WHATSAPP O ENLACE]
+
+No inventes información real sobre el restaurante, sus servicios, sus platos, sus precios, sus horarios ni sus opiniones. Si falta algún dato, deja un marcador editable claramente identificado.
+
+El resultado debe ser una web atractiva, fácil de usar y coherente con los colores del logo, que invite a conocer el local, consultar la carta, organizar celebraciones y reservar una mesa.
+Al configurar el proyecto, crea siempre un archivo vercel.json en la raíz para asegurar el despliegue correcto de una SPA (Single Page Application) con Vite.
+
+El archivo debe tener exactamente esta configuración:
+
+framework: "vite"
+outputDirectory: "dist/public"
+rewrites: Una regla que redirija todas las rutas (source: "/(.*)") a /index.html para que el routing del lado del cliente funcione sin errores 404.
+No esperes a que falle el deploy, inclúyelo desde el principio.
+
+
+—--
+
+
+En caso que no se haga el deploy automaticamente
+
+Copia y pega este comando exacto y presiona Enter:
+git commit --allow-empty -m "Despliegue manual Vercel"
+
+
+Luego, empuja ese cambio:
+git push
+
+EN CASO DE QUE TE DE ERROR DE ARVCHIVO BLOQUEADO
+
+rm -f .git/index.lock
