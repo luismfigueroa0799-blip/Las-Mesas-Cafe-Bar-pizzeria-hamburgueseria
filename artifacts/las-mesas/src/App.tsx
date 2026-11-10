@@ -99,7 +99,7 @@ const mapsUrl = 'https://www.google.com/maps/place/C.+Pintor+Antonio+Padr%C3%B3n
 const phone = '+34 928 896 097';
 const phoneHref = 'tel:+34928896097';
 const whatsapp = '34928896097';
-const reviewsUrl = ''; // Añadir aquí el enlace oficial cuando esté disponible.
+const reviewsUrl = 'https://www.google.com/maps/place//data=!4m3!3m2!1s0xc409545c15692dd:0x541a55e1c584b7c7!12e1?source=g.page.m.ia._&laa=nmx-review-solicitation-ia2';
 const instagramUrl = 'https://www.instagram.com/lasmesascafebar/';
 const facebookUrl = ''; // Añadir aquí el perfil oficial cuando esté disponible.
 const hours = [
