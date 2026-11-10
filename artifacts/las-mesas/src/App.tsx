@@ -100,7 +100,7 @@ const phone = '+34 928 896 097';
 const phoneHref = 'tel:+34928896097';
 const whatsapp = '34928896097';
 const reviewsUrl = ''; // Añadir aquí el enlace oficial cuando esté disponible.
-const instagramUrl = ''; // Añadir aquí el perfil oficial cuando esté disponible.
+const instagramUrl = 'https://www.instagram.com/lasmesascafebar/';
 const facebookUrl = ''; // Añadir aquí el perfil oficial cuando esté disponible.
 const hours = [
   ['Lunes–viernes', '18:00–23:00'],
@@ -181,14 +181,10 @@ function App() {
           <div className="hero-actions"><a className="button button-gold" href="#reserva">Reserva tu mesa <ArrowRight size={17} /></a><a className="text-link" href="#carta">Descubre la carta <ArrowDown size={15} /></a></div>
           <div className="hero-meta"><span><MapPin size={15} /> Las Mesas Bajas</span><span><Clock3 size={15} /> Consulta nuestro horario</span></div>
         </div>
-        <div className="hero-art reveal" role="img" aria-label="Ilustración decorativa de una mesa de billar verde, no es una fotografía del local">
-          <div className="art-label">Ilustración<br />del ambiente</div>
-          <div className="billiard">
-            <div className="table-felt"><i className="pocket pocket-a" /><i className="pocket pocket-b" /><i className="pocket pocket-c" /><i className="pocket pocket-d" /><i className="pocket pocket-e" /><i className="pocket pocket-f" /><span className="cue-line" /><b className="ball ball-one" /><b className="ball ball-two" /><b className="ball ball-three" /><b className="ball ball-cue" /></div>
-          </div>
-          <div className="art-caption"><span>ENTRE BOCADOS</span><span>Y UNA PARTIDA</span></div>
-          <span className="hero-stamp">LAS<br />MESAS<br /><b>·</b> 59</span>
-        </div>
+        <figure className="hero-art hero-photo reveal">
+          <img src="/assets/hero-las-mesas.webp" alt="Mesa de billar y comedor de Las Mesas" width="640" height="854" fetchPriority="high" decoding="async" />
+          <figcaption className="hero-photo-caption"><span>LAS MESAS · GRAN CANARIA</span><b>Entre bocados y una partida</b></figcaption>
+        </figure>
         <a className="scroll-cue" href="#esencia" aria-label="Desplazarse a la siguiente sección"><span>BAJA UN POCO</span><ArrowDown size={15} /></a>
       </section>
 
@@ -208,19 +204,23 @@ function App() {
           </div>
           <div className="gallery-grid">
             <figure className="gallery-card gallery-card-tall">
-              <img src="/assets/galeria-billar.jpg" alt="Imagen ilustrativa de una mesa de billar en un café-bar" width="1024" height="1024" loading="lazy" decoding="async" />
-              <figcaption><span>Una partida</span><small>Billar y buenos ratos</small></figcaption>
+              <img src="/assets/local-billar-1.webp" alt="Mesa de billar y mesas del comedor de Las Mesas" width="896" height="1195" loading="lazy" decoding="async" />
+              <figcaption><span>Una partida</span><small>El billar del local</small></figcaption>
             </figure>
             <figure className="gallery-card">
-              <img src="/assets/galeria-carta.jpg" alt="Imagen ilustrativa de pizza, hamburguesa y papas para compartir" width="1024" height="1024" loading="lazy" decoding="async" />
-              <figcaption><span>Algo para compartir</span><small>Sabores de la carta</small></figcaption>
+              <img src="/assets/platos-compartir.jpg" alt="Selección fotografiada de platos para compartir de la carta" width="550" height="440" loading="lazy" decoding="async" />
+              <figcaption><span>Algo para compartir</span><small>Platos de la carta</small></figcaption>
             </figure>
             <figure className="gallery-card">
-              <img src="/assets/galeria-celebracion.jpg" alt="Imagen ilustrativa de una cena de celebración entre amigos" width="1024" height="1024" loading="lazy" decoding="async" />
-              <figcaption><span>Un motivo para juntarse</span><small>Encuentros y celebraciones</small></figcaption>
+              <img src="/assets/hamburguesa-pollo-crispy.jpg" alt="Hamburguesa de pollo crujiente fotografiada en el local" width="550" height="440" loading="lazy" decoding="async" />
+              <figcaption><span>Hamburguesa de pollo</span><small>Un clásico de la carta</small></figcaption>
+            </figure>
+            <figure className="gallery-card">
+              <img src="/assets/brochetas-pollo.jpg" alt="Brochetas de pollo con papas fritas" width="550" height="440" loading="lazy" decoding="async" />
+              <figcaption><span>Brochetas de pollo</span><small>Para disfrutar en compañía</small></figcaption>
             </figure>
           </div>
-          <p className="gallery-disclaimer">Imágenes ilustrativas; aún no se han añadido fotografías reales del local.</p>
+          <p className="gallery-note">Fotografías reales del billar, el comedor y platos de la carta.</p>
           <div className="house-note"><span className="note-mark">LM</span><p>«La mejor jugada<br />es compartir la mesa.»</p><span className="note-rule" /><span className="eyebrow">Las Mesas · Gran Canaria</span></div>
         </div>
       </section>
@@ -251,7 +251,6 @@ function App() {
           <div className="play-number">02 / BILLAR</div>
           <div><p className="eyebrow">Un plan con pausa</p><h2 id="play-title" className="serif">Pide algo.<br /><em>Y que ruede la partida.</em></h2></div>
           <div className="play-copy"><p>La conversación se mueve alrededor de la mesa. Entre plato y plato, una partida convierte una cena cualquiera en un buen recuerdo.</p><a className="button button-gold" href="#reserva">Ven a jugar <ArrowRight size={16} /></a></div>
-          <div className="illustration-disclaimer">Gráfico ilustrativo; no representa una fotografía del local.</div>
         </div>
       </section>
 
@@ -307,7 +306,7 @@ function App() {
             <div className="hours-block"><Clock3 size={21} /><span className="eyebrow">Horario</span>{hours.map(([day, time]) => <div className="hours-row" key={day}><span>{day}</span><strong>{time}</strong></div>)}</div>
             <div className="phone-block"><Phone size={21} /><span className="eyebrow">Llámanos</span><a href={phoneHref} data-testid="link-call-footer">{phone}</a><p>Para consultas y reservas, estamos al otro lado.</p></div>
           </div>
-          <div className="social-editable"><span className="eyebrow">Redes y reseñas</span><p>Los enlaces oficiales están pendientes de facilitarse.</p><span>Instagram: {instagramUrl || 'pendiente de añadir'}</span><span>Facebook: {facebookUrl || 'pendiente de añadir'}</span><span>Reseñas Google: {reviewsUrl || 'pendiente de añadir'}</span></div>
+          <div className="social-editable"><span className="eyebrow">Redes y reseñas</span><p>Instagram oficial disponible; los demás enlaces están pendientes.</p><span>Instagram: <a href={instagramUrl} target="_blank" rel="noreferrer">ver perfil</a></span><span>Facebook: {facebookUrl || 'pendiente de añadir'}</span><span>Reseñas Google: {reviewsUrl || 'pendiente de añadir'}</span></div>
         </div>
       </section>
 
