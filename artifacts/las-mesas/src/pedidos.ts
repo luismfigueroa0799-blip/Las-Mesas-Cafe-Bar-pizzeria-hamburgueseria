@@ -13,14 +13,31 @@
  *  - El flujo no depende del Root Directory, del alias de producción ni de
  *    la autenticación de Vercel.
  *
- * Rellena `webhook` con la URL del flujo de n8n que crea la sesión de pago.
- * Mientras esté vacía, el carrito sigue funcionando y se usa la ruta
- * alternativa /api/checkout (si está desplegada).
+ * ── IMPORTANTE ──────────────────────────────────────────────────────────
+ * La URL de n8n tiene dos variantes para el mismo flujo:
+ *
+ *   PRUEBAS    .../webhook-test/<id>/webhook   ← solo responde UNA llamada
+ *                                              después de pulsar
+ *                                              "Execute workflow" en n8n.
+ *   PRODUCCIÓN .../webhook/<id>/webhook       ← siempre disponible.
+ *
+ * Para pasar a producción cambia la URL de abajo (quitando "-test") o define
+ * la variable de entorno VITE_N8N_WEBHOOK_URL en Vercel.
+ * ─────────────────────────────────────────────────────────────────────────
  */
 export const PEDIDOS = {
   activo: true,
-  /** URL del webhook de n8n que crea la sesión de pago y devuelve { url }. */
-  webhook: '',
+  /**
+   * URL del webhook de n8n que crea la sesión de pago y devuelve { url }.
+   * Se puede sobrescribir con la variable de entorno VITE_N8N_WEBHOOK_URL.
+   */
+  webhook:
+    (import.meta.env?.VITE_N8N_WEBHOOK_URL as string | undefined) ||
+    'https://barcafeteria.app.n8n.cloud/webhook-test/6c8d3a58-72e0-4cce-a773-ddd1382fddbd/webhook',
+
+  /** URL de producción equivalente (mismo flujo, sin el sufijo -test). */
+  webhookProduccion:
+    'https://barcafeteria.app.n8n.cloud/webhook/6c8d3a58-72e0-4cce-a773-ddd1382fddbd/webhook',
 };
 
 /** Precio en euros a partir del texto de la carta ("12,00 €" -> 12). */
@@ -55,5 +72,4 @@ export interface CuerpoPedido {
   direccion?: string;
   codigoPostal?: string;
   ciudad?: string;
-  recargarEn?: string;
 }

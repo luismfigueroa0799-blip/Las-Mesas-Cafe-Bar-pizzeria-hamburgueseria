@@ -218,8 +218,14 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
         }
       }
 
+      // Si falla el webhook de n8n en modo prueba se avisa: hay que pulsar
+      // "Execute workflow" en n8n para que acepte la llamada.
+      const falloN8n = fallos.find((f) => f.startsWith('n8n:'));
+      const detalleN8n = falloN8n?.includes('404') || falloN8n?.includes('not registered');
       setEstado(
-        'No se pudo iniciar el pago. Revisa tus datos e inténtalo de nuevo.',
+        detalleN8n
+          ? 'El pago en pruebas no está disponible ahora mismo. Inténtalo de nuevo en un momento.'
+          : 'No se pudo iniciar el pago. Revisa tus datos e inténtalo de nuevo.',
       );
       if (fallos.length) console.error('[carrito] Fallos:', fallos);
     } catch (error) {

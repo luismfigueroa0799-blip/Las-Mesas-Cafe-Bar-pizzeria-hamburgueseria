@@ -6,6 +6,27 @@ Guía de configuración para conectar el pago de Stripe con el flujo de n8n.
 
 Settings → Environment Variables → añadir:
 
+### URL del webhook de n8n (en el código)
+
+El flujo de checkout **no lo crea el navegador**: se pide la sesión de pago al
+webhook de n8n, que es quien tiene la clave secreta de Stripe.
+
+Está en `src/pedidos.ts`:
+
+```ts
+export const PEDIDOS = {
+  activo: true,
+  webhook: '…/webhook-test/<id>/webhook',   // PRUEBAS
+  webhookProduccion: '…/webhook/<id>/webhook', // PRODUCCIÓN
+};
+```
+
+Se puede sobrescribir con la variable de entorno `VITE_N8N_WEBHOOK_URL`.
+
+> ⚠️ La URL `webhook-test` de n8n **solo responde una llamada** después de
+> pulsar "Execute workflow" en el canvas. Para pruebas hay que pulsar ese
+> botón antes de pagar. En producción usa la URL sin `-test`.
+
 | Variable | Valor | Notas |
 |---|---|---|
 | `STRIPE_SECRET_KEY` | `sk_test_…` | Panel de Stripe → Developers → API keys |
