@@ -3,6 +3,7 @@ import { useCart } from '@/CartContext';
 import { X } from 'lucide-react';
 import { formatearPrecio, precioANumero } from '@/precio';
 import { PEDIDOS } from '@/pedidos';
+import { extraerUrlStripe } from '@/stripe-url';
 
 type TipoEntrega = 'recogida' | 'domicilio';
 
@@ -203,10 +204,12 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
             continue;
           }
 
-          const urlSesion: string =
-            datosRespuesta?.url ?? datosRespuesta?.session?.url ?? '';
+          const urlSesion = extraerUrlStripe(datosRespuesta);
           if (!urlSesion) {
-            fallos.push(`${ruta.etiqueta}: la respuesta no trae url de Stripe`);
+            fallos.push(
+              `${ruta.etiqueta}: la respuesta no trae la url de Stripe. ` +
+                "Contenido recibido: " + texto.slice(0, 220),
+            );
             continue;
           }
 
