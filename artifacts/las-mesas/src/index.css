@@ -168,25 +168,27 @@ h2 { font-family: var(--app-font-serif); font-size: clamp(2.6rem, 5vw, 4.35rem);
 .button-outline:hover { background: #d5b149; border-color: #d5b149; color: #1b1a16; }
 .menu-experience { display: grid; grid-template-columns: 290px 1fr; border-top: 1px solid #464236; border-bottom: 1px solid #464236; min-height: 520px; }
 .category-list { border-right: 1px solid #464236; padding: 14px 22px 24px 0; display: flex; flex-direction: column; }
-.category-tab { display: grid; grid-template-columns: 32px 1fr 18px; gap: 10px; align-items: center; text-align: left; border: 0; background: transparent; color: #a8a394; padding: 13px 12px; min-height: 45px; cursor: pointer; font-size: .8rem; transition: color .2s, background .2s; }
+.category-tab { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 20px; border-radius: 50px; border: 1px solid rgba(255,255,255,.18); background: rgba(255,255,255,.05); color: #fff; cursor: pointer; font-size: .8rem; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; transition: all .2s ease; white-space: nowrap; }
 .category-tab span { font-family: var(--app-font-mono); color: #777262; font-size: .66rem; }
-.category-tab svg { opacity: 0; transform: translateX(-4px); transition: opacity .2s, transform .2s; }
-.category-tab:hover, .category-tab.active { color: #f6f0df; background: #28271f; }
-.category-tab.active { box-shadow: inset 2px 0 #d5b149; }
-.category-tab.active span { color: #d5b149; }
-.category-tab.active svg, .category-tab:hover svg { opacity: 1; transform: none; color: #d5b149; }
+.category-tab svg { width: 20px; height: 20px; opacity: 1; transform: none; color: #d5b149; }
+.category-tab:hover { border-color: var(--dorado); color: var(--dorado-claro); background: rgba(212,170,88,.2); }
+.category-tab.active { border-color: transparent; background: linear-gradient(135deg,var(--dorado-claro),var(--dorado)); color: var(--negro); box-shadow: 0 8px 20px rgba(212,170,88,.35); }
+.category-tab.active span { color: var(--negro); }
+.category-tab.active svg { opacity: 1; transform: none; color: var(--negro); }
 .menu-download-note { color: #817d70; margin: auto 12px 0; font-size: .7rem; line-height: 1.6; max-width: 190px; }
 .menu-panel { padding: 34px 0 28px 48px; animation: rise-in .35s both; }
 .panel-title { display: flex; justify-content: space-between; align-items: end; border-bottom: 1px solid #464236; padding-bottom: 20px; }
 .panel-title .eyebrow { color: #b4a66d; font-size: .65rem; }
 .panel-title h3 { font-family: var(--app-font-serif); font-weight: 500; font-size: 2rem; margin: 8px 0 0; }
 .dish-count { color: #8e897a; font-family: var(--app-font-mono); font-size: .68rem; padding-bottom: 5px; }
-.dish-list { display: grid; grid-template-columns: 1fr 1fr; column-gap: 34px; }
-.dish-row { min-height: 86px; padding: 17px 0 13px; border-bottom: 1px solid #39382f; display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; }
-.dish-name { font-family: var(--app-font-serif); font-size: .98rem; }
-.dish-detail p { color: #aaa597; font-size: .73rem; line-height: 1.55; margin: 5px 0 2px; }
-.dish-detail small { display: block; color: #8e897b; font-size: .64rem; margin-top: 5px; }
-.dish-row strong { color: #d6b64e; font-size: .8rem; white-space: nowrap; font-weight: 600; padding-top: 2px; }
+.dish-list { display: grid; grid-template-columns: 1fr 1fr; column-gap: 24px; row-gap: 20px; }
+.dish-row { min-height: 0; padding: 20px 0; border-bottom: 1px solid rgba(255,255,255,.1); display: flex; flex-direction: column; gap: 12px; transition: transform .2s ease; }
+.dish-row:hover { transform: translateY(-2px); }
+.dish-name { font-family: var(--app-font-serif); font-size: 1.2rem; margin-bottom: 4px; }
+.dish-detail p { color: #aaa597; font-size: .75rem; line-height: 1.4; margin: 0 0 6px; }
+.dish-allergens { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.dish-allergens small { display: inline-block; padding: 4px 8px; background: rgba(255,255,255,.1); border-radius: 4px; font-size: .6rem; color: #d4aa58; }
+.dish-price { align-self: flex-end; color: #d4aa58; font-family: var(--app-font-serif); font-size: 1.1rem; font-weight: bold; white-space: nowrap; }
 .allergen-note { color: #8d8879; font-size: .65rem; line-height: 1.7; margin: 19px 0 0; }
 .allergen-note b { color: #b6a76b; }
 .play-section { background: #d7c99f; color: #25231b; position: relative; overflow: hidden; }

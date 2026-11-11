@@ -212,12 +212,12 @@ function App() {
               <figcaption><span>Algo para compartir</span><small>Platos de la carta</small></figcaption>
             </figure>
             <figure className="gallery-card">
-              <img src="/assets/hamburguesa-pollo-crispy.jpg" alt="Hamburguesa de pollo crujiente fotografiada en el local" width="550" height="440" loading="lazy" decoding="async" />
-              <figcaption><span>Hamburguesa de pollo</span><small>Un clásico de la carta</small></figcaption>
+              <img src="/assets/lagrimas-pollo-crispy.jpg" alt="Lágrimas de pollo crispy" width="550" height="440" loading="lazy" decoding="async" />
+              <figcaption><span>Lágrimas de pollo</span><small>Plato combinado</small></figcaption>
             </figure>
             <figure className="gallery-card">
-              <img src="/assets/brochetas-pollo.jpg" alt="Brochetas de pollo con papas fritas" width="550" height="440" loading="lazy" decoding="async" />
-              <figcaption><span>Brochetas de pollo</span><small>Para disfrutar en compañía</small></figcaption>
+              <img src="/assets/fingers-pollo.jpg" alt="Fingers de pollo" width="550" height="440" loading="lazy" decoding="async" />
+              <figcaption><span>Fingers de pollo</span><small>6 unidades</small></figcaption>
             </figure>
           </div>
           <p className="gallery-note">Fotografías reales del billar, el comedor y platos de la carta.</p>
