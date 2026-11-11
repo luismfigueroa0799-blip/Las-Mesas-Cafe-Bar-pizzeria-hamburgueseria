@@ -42,6 +42,13 @@ function timesForDate(date: string) {
   return timesBetween(18, 23);
 }
 
+// Estado del aviso de pedido (confirmación o cancelación tras el pago).
+type AvisoPedido =
+  | { tipo: 'confirmado'; idPedido: string; total: string; articulos: { name: string; qty: number }[] }
+  | { tipo: 'cancelado' }
+  | { tipo: 'error'; mensaje: string }
+  | null;
+
 function App() {
   const [activeSlug, setActiveSlug] = useState(CATEGORIES[0].slug);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -51,7 +58,8 @@ function App() {
   const [reservationDate, setReservationDate] = useState('');
   const [reservationTime, setReservationTime] = useState('');
   const [cartOpen, setCartOpen] = useState(false);
-  const { cart, addToCart } = useCart();
+  const [avisoPedido, setAvisoPedido] = useState<AvisoPedido>(null);
+  const { cart, addToCart, clearCart } = useCart();
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
   const categories = CATEGORIES;
   const activeCategory = categories.find((c) => c.slug === activeSlug) ?? categories[0];
@@ -64,6 +72,49 @@ function App() {
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
+
+  // Tras volver de Stripe comprobamos el pago y confirmamos el pedido.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const estado = params.get('pedido');
+    const sessionId = params.get('session_id');
+
+    if (estado === 'cancelado') {
+      setAvisoPedido({ tipo: 'cancelado' });
+      window.history.replaceState({}, '', window.location.pathname + '#carta');
+      return;
+    }
+    if (estado !== 'ok' || !sessionId) return;
+
+    let vigente = true;
+    (async () => {
+      try {
+        const respuesta = await fetch(`/api/pedido?session_id=${encodeURIComponent(sessionId)}`);
+        const datos = await respuesta.json();
+        if (!vigente) return;
+        if (!respuesta.ok || !datos.pagado) {
+          setAvisoPedido({ tipo: 'error', mensaje: datos?.error ?? 'No hemos podido confirmar el pago.' });
+        } else {
+          setAvisoPedido({
+            tipo: 'confirmado',
+            idPedido: String(datos.idPedido ?? '').slice(-8).toUpperCase(),
+            total: datos.total ?? '',
+            articulos: Array.isArray(datos.articulos)
+              ? datos.articulos.map((a: { name: string; qty: number }) => ({ name: a.name, qty: a.qty }))
+              : [],
+          });
+        }
+        clearCart();
+      } catch {
+        if (vigente) setAvisoPedido({ tipo: 'error', mensaje: 'No hemos podido confirmar el pago.' });
+      }
+    })();
+
+    window.history.replaceState({}, '', window.location.pathname);
+    return () => {
+      vigente = false;
+    };
+  }, [clearCart]);
 
   function sendWhatsApp(event: FormEvent<HTMLFormElement>, kind: 'reserva' | 'evento') {
     event.preventDefault();
@@ -80,6 +131,49 @@ function App() {
 
   return (
     <main>
+      {avisoPedido && (
+        <div className={`pedido-aviso pedido-aviso-${avisoPedido.tipo}`} role="status" data-testid="pedido-aviso">
+          <div className="pedido-aviso-inner">
+            {avisoPedido.tipo === 'confirmado' && (
+              <>
+                <span className="pedido-aviso-icon" aria-hidden="true">✓</span>
+                <div>
+                  <strong>¡Pedido confirmado!</strong>
+                  <p>
+                    Te hemos enviado la confirmación por correo.
+                    {avisoPedido.idPedido && <> Referencia <b>{avisoPedido.idPedido}</b>.</>}
+                    {avisoPedido.total && <> Total: <b>{avisoPedido.total} €</b>.</>}
+                    {avisoPedido.articulos.length > 0 && (
+                      <> {' '}{avisoPedido.articulos.map((a) => `${a.qty} × ${a.name}`).join(', ')}.</>
+                    )}
+                  </p>
+                </div>
+                <button type="button" onClick={() => setAvisoPedido(null)} aria-label="Cerrar aviso">×</button>
+              </>
+            )}
+            {avisoPedido.tipo === 'cancelado' && (
+              <>
+                <span className="pedido-aviso-icon" aria-hidden="true">!</span>
+                <div>
+                  <strong>Pedido cancelado</strong>
+                  <p>No se ha realizado ningún cobro. Tu carrito sigue intacto.</p>
+                </div>
+                <button type="button" onClick={() => setAvisoPedido(null)} aria-label="Cerrar aviso">×</button>
+              </>
+            )}
+            {avisoPedido.tipo === 'error' && (
+              <>
+                <span className="pedido-aviso-icon" aria-hidden="true">!</span>
+                <div>
+                  <strong>No hemos podido confirmar el pago</strong>
+                  <p>{avisoPedido.mensaje} Si se ha realizado el cargo, escríbenos y lo revisamos.</p>
+                </div>
+                <button type="button" onClick={() => setAvisoPedido(null)} aria-label="Cerrar aviso">×</button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
       <div className="topline"><span>Las Mesas Bajas · Gran Canaria</span><span>Un sitio para compartir algo más que mesa</span><a href={phoneHref} data-testid="link-call-top">{phone}</a></div>
       <header className={compactHeader ? 'site-header compact' : 'site-header'}>
         <a href="#inicio" className="brand" aria-label="Las Mesas, inicio"><img src="/assets/logo-las-mesas.jpeg" alt="Logo de Las Mesas Café & Bar" /></a>

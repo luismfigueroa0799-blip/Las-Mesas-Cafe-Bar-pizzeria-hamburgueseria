@@ -73,8 +73,8 @@ export default async function handler(req: any): Promise<any> {
   const URLSearchParamsCtor = g.URLSearchParams;
   const params = new URLSearchParamsCtor();
   params.set('mode', 'payment');
-  params.set('success_url', `${baseUrl}/?pedido=ok`);
-  params.set('cancel_url', `${baseUrl}/#carta`);
+  params.set('success_url', `${baseUrl}/?pedido=ok&session_id={CHECKOUT_SESSION_ID}`);
+  params.set('cancel_url', `${baseUrl}/?pedido=cancelado#carta`);
   if (body.customerEmail) params.set('customer_email', body.customerEmail);
   if (body.customerName) params.set('metadata[nombreCliente]', body.customerName);
   params.set(

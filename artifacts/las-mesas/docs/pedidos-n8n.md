@@ -97,5 +97,25 @@ curl https://las-mesas-cafe-bar-pizzeria-hamburgueseria-7l1h-cgcz0at74.vercel.ap
 | Endpoint | Método | Función |
 |---|---|---|
 | `/api/checkout` | POST | Crea la sesión de pago en Stripe y devuelve `{ sessionId, url }` |
+| `/api/pedido` | GET | Consulta la sesión en Stripe y confirma si el pago se completó |
 | `/api/webhook` | POST | Recibe eventos de Stripe y los reenvía a n8n |
 | `/api/webhook` | GET | Estado de la configuración (comprueba que las URLs están definidas) |
+
+## 6. Flujo completo del cliente
+
+```
+1. Cliente añade productos → carrito (React Context)
+2. "Pagar con Stripe" → POST /api/checkout
+   └─ Stripe devuelve sessionId + url
+3. Redirección a la página de pago de Stripe
+4. Cliente paga (tarjeta 4242… en pruebas)
+5. Stripe redirige a  /?pedido=ok&session_id=cs_xxx
+6. La web llama a GET /api/pedido?session_id=… 
+   └─ Verifica en Stripe que payment_status = "paid"
+   └─ Muestra el aviso "¡Pedido confirmado!" y vacía el carrito
+7. En paralelo, Stripe envía checkout.session.completed a /api/webhook
+   └─ El webhook reenvía el pedido a n8n
+```
+
+> El paso 6 es una comprobación real en Stripe: si alguien entra manualmente en
+> `?pedido=ok` sin haber pagado, no se muestra la confirmación.
