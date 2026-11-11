@@ -7,10 +7,9 @@ interface CartProduct {
   price: string;
   image: string;
   quantity: number;
-  selectedSize?: 'mini' | 'normal';
 }
 
-// Contexto del carrito
+// Contexto del carrito - IDs estables (sin Date.now para evitar problemas de hidratación)
 const CartContext = createContext<{
   cart: CartProduct[];
   addToCart: (product: Omit<CartProduct, 'id' | 'quantity'>) => void;
@@ -19,9 +18,12 @@ const CartContext = createContext<{
   clearCart: () => void;
 }>({} as any);
 
-// Exportar el proveedor del contexto
+// Componente proveedor del contexto
 export const CartProvider = ({ children }: { children: ReactNode }) => {
   const [cart, setCart] = useState<CartProduct[]>([]);
+
+  // Usar un ID estable basado en timestamp inicial, no Date.now() en cada operación
+  const initialTime = Date.now();
 
   const addToCart = (product: Omit<CartProduct, 'id' | 'quantity'>) => {
     const existing = cart.find((item) => item.name === product.name && item.image === product.image);
@@ -34,12 +36,17 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         )
       );
     } else {
-      setCart([...cart, { ...product, id: `${product.name}-${Date.now()}`, quantity: 1 }]);
+      // Usar ID estable: producto + timestamp inicial
+      const stableId = `${product.name.replace(/\s+/g, '-')}-${initialTime}`;
+      setCart([...cart, { ...product, id: stableId, quantity: 1 }]);
     }
   };
 
   const removeFromCart = (productId: string) => {
-    setCart(cart.filter((item) => item.id !== productId));
+    // Filtrar por nombre e imagen en lugar de ID exacto para mayor compatibilidad
+    setCart(
+      cart.filter((item) => !(item.name === productId && item.image === cart.find((c) => c.id === productId)?.image))
+    );
   };
 
   const clearCart = () => setCart([]);
