@@ -153,4 +153,6 @@ function App() {
 // Exportar getProducts para que pueda ser usado externamente
 export { getProducts };
 
+export const phoneHref = 'tel:+34928896097';
+
 export default App;
