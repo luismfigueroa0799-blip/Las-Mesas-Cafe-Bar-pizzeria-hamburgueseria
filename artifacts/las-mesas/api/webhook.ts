@@ -142,12 +142,40 @@ export default async function handler(req: any): Promise<any> {
   const detalles = (objeto.customer_details ?? {}) as Record<string, any>;
   const metadata = (objeto.metadata ?? {}) as Record<string, any>;
 
+  // Dirección: si Stripe la recogió de forma nativa (envío a domicilio) tiene
+  // prioridad sobre la que rellenó el cliente en el carrito.
+  const envio = (objeto.shipping ?? null) as Record<string, any> | null;
+  const direccionStripe = envio?.address
+    ? {
+        calle: [envio.address.line1, envio.address.line2].filter(Boolean).join(', '),
+        codigoPostal: envio.address.postal_code ?? '',
+        ciudad: envio.address.city ?? '',
+        pais: envio.address.country ?? '',
+      }
+    : null;
+
+  const direccion = {
+    calle: metadata.calle ?? direccionStripe?.calle ?? '',
+    numero: metadata.numero ?? '',
+    piso: metadata.piso ?? '',
+    codigoPostal: metadata.codigoPostal ?? direccionStripe?.codigoPostal ?? '',
+    ciudad: metadata.ciudad ?? direccionStripe?.ciudad ?? '',
+    pais: direccionStripe?.pais ?? 'ES',
+  };
+  const direccionCompleta =
+    metadata.direccion ||
+    [direccion.calle, direccion.numero, direccion.piso, direccion.codigoPostal, direccion.ciudad]
+      .filter(Boolean)
+      .join(', ');
+
   let articulos: unknown = [];
   try {
     articulos = metadata.items ? JSON.parse(metadata.items) : [];
   } catch {
     articulos = [];
   }
+
+  const tipoEntrega = metadata.tipoEntrega ?? (envio ? 'domicilio' : 'recogida');
 
   const pedido = {
     // Identificación
@@ -160,9 +188,18 @@ export default async function handler(req: any): Promise<any> {
     modoPrueba: !livemode,
 
     // Cliente
-    correo: detalles.email ?? objeto.customer_email ?? '',
-    nombre: detalles.name ?? '',
-    telefono: detalles.phone ?? '',
+    correo: metadata.correo ?? detalles.email ?? objeto.customer_email ?? '',
+    nombre: metadata.nombre ?? detalles.name ?? '',
+    telefono: metadata.telefono ?? detalles.phone ?? '',
+
+    // Entrega
+    tipoEntrega,
+    recogida: tipoEntrega === 'recogida',
+    domicilio: tipoEntrega === 'domicilio',
+    direccion: direccionCompleta,
+    direccionDetalle: direccion,
+    modoRecogida: metadata.modoRecogida ?? (tipoEntrega === 'recogida' ? 'recogida' : 'domicilio'),
+    mesa: metadata.mesa ?? '',
 
     // Dinero
     total: objeto.amount_total ? (objeto.amount_total / 100).toFixed(2) : '',
@@ -175,10 +212,6 @@ export default async function handler(req: any): Promise<any> {
 
     // Artículos
     articulos,
-
-    // Recogida
-    modoRecogida: metadata.modoRecogida ?? 'recogida',
-    mesa: metadata.mesa ?? '',
 
     // Contexto
     urlOrigen: metadata.urlOrigen ?? '',

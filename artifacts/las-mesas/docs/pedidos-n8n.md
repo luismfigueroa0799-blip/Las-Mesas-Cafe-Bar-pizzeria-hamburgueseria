@@ -49,12 +49,27 @@ Nodo **Webhook** (Trigger) → nodo de acción (WhatsApp, email, hoja de cálcul
   "modoPrueba": true,
 
   "correo": "cliente@correo.com",
-  "nombre": "Cliente Las Mesas",
-  "telefono": "",
+  "nombre": "Ana Pérez",
+  "telefono": "600 00 00 00",
 
-  "total": "13,00",
+  "tipoEntrega": "domicilio",
+  "recogida": false,
+  "domicilio": true,
+  "direccion": "Calle Mayor, nº 24, 3º B, 35018, Las Palmas de Gran Canaria",
+  "direccionDetalle": {
+    "calle": "Calle Mayor",
+    "numero": "24",
+    "piso": "3º B",
+    "codigoPostal": "35018",
+    "ciudad": "Las Palmas de Gran Canaria",
+    "pais": "ES"
+  },
+  "modoRecogida": "domicilio",
+  "mesa": "",
+
+  "total": "13.00",
   "moneda": "eur",
-  "subtotal": "13,00",
+  "subtotal": "13.00",
   "impuestos": "0.00",
   "metodoPago": "card",
 
@@ -63,9 +78,6 @@ Nodo **Webhook** (Trigger) → nodo de acción (WhatsApp, email, hoja de cálcul
     { "id": "cz-1", "name": "Tropical", "qty": 1, "price": "1,40 €" }
   ],
 
-  "modoRecogida": "recogida",
-  "mesa": "",
-
   "urlOrigen": "https://…/app",
   "restaurante": "Las Mesas · Café & Bar",
   "telefonoRestaurante": "+34 928 896 097",
@@ -73,11 +85,32 @@ Nodo **Webhook** (Trigger) → nodo de acción (WhatsApp, email, hoja de cálcul
 }
 ```
 
+### Ejemplos de envío
+
+**Recogida en local**
+```json
+{ "tipoEntrega": "recogida", "recogida": true, "domicilio": false,
+  "direccion": "", "mesa": "", "modoRecogida": "recogida" }
+```
+
+**Envío a domicilio**
+```json
+{ "tipoEntrega": "domicilio", "recogida": false, "domicilio": true,
+  "direccion": "Calle Mayor, nº 24, 3º B, 35018, Las Palmas",
+  "modoRecogida": "domicilio" }
+```
+
+**Pedido para una mesa (`?mesa=7`)**
+```json
+{ "tipoEntrega": "recogida", "modoRecogida": "mesa", "mesa": "7" }
+```
+
 ### Reglas de enrutado en n8n
 
 - `modoPrueba === true` → avisar solo al equipo (pruebas)
+- `tipoEntrega === "domicilio"` → preparar el reparto con `direccion` y `telefono`
 - `modoRecogida === "mesa"` → el pedido va a la mesa `mesa`; si está vacía, avisar por WhatsApp
-- `modoRecogida === "recogida"` → avisar que el pedido está listo para recoger
+- `tipoEntrega === "recogida"` → avisar que el pedido está listo para recoger
 
 ## 4. Probar el flujo
 
