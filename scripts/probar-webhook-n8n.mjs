@@ -6,25 +6,15 @@
  */
 const WEBHOOK =
   process.env.N8N_WEBHOOK_URL ||
-  'https://barcafeteria.app.n8n.cloud/webhook/6c8d3a58-72e0-4cce-a773-ddd1382fddbd/webhook';
+  'https://barcafeteria.app.n8n.cloud/webhook/crear-pedido-domicilio';
 
-// Cuerpo con el MISMO formato que envía el sitio estático que ya funciona.
+// Contrato EXACTO que espera n8n (verificado contra el webhook real).
+// Solo se envia id y cantidad: n8n recalcula los precios con su lista.
 const pedido = {
-  tipo: 'recoger',
-  mesa: '',
   nombre: 'Luis Test',
-  telefono: '',
-  notas: 'Prueba de contrato',
-  items: [
-    { nombre: 'Burger Pizza', cantidad: 1, precio: 12 },
-    { nombre: 'Tropical', cantidad: 2, precio: 1.4 },
-  ],
-  total: 14.8,
-  // Campos extra que envía nuestra web.
-  email: 'test@example.com',
-  direccion: '',
-  codigoPostal: '',
-  ciudad: '',
+  direccion: 'Calle Mayor 24, 3 B, 35018 Las Palmas de Gran Canaria',
+  cliente_telefono: '600000000',
+  items: [{ id: Number(process.env.PRODUCTO_ID || 1), qty: 1 }],
 };
 
 console.log('Webhook:', WEBHOOK);
@@ -57,8 +47,8 @@ try {
 
 // Buscamos la url de Stripe con el mismo criterio que usa la web.
 const candidatas = [
-  cuerpo?.url,
   cuerpo?.checkout_url,
+  cuerpo?.url,
   cuerpo?.session?.url,
   cuerpo?.data?.url,
   cuerpo?.body?.url,

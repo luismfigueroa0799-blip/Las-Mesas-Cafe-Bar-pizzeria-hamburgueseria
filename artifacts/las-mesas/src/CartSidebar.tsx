@@ -107,44 +107,31 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
       0,
     );
 
-    // Cuerpo con el formato del contrato de n8n (nombre / cantidad / precio).
+    const direccionCompleta =
+      datos.tipoEntrega === 'domicilio'
+        ? [
+            datos.calle.trim(),
+            datos.numero.trim(),
+            datos.piso.trim(),
+            datos.codigoPostal.trim(),
+            datos.ciudad.trim(),
+          ]
+            .filter(Boolean)
+            .join(', ')
+        : '';
+
+    // Contrato EXACTO del webhook de n8n (el mismo que usa el sitio que ya
+    // funciona): nombre, direccion, cliente_telefono e items con { id, qty }.
+    // IMPORTANTE: no se envian precios; n8n los recalcula con su propia lista
+    // de productos, por seguridad.
     const cuerpo = {
-      tipo: mesa ? 'mesa' : datos.tipoEntrega === 'domicilio' ? 'domicilio' : 'recoger',
-      mesa,
       nombre: datos.nombre.trim(),
-      telefono: datos.telefono.trim(),
-      notas: '',
+      direccion: direccionCompleta,
+      cliente_telefono: datos.telefono.trim(),
       items: cart.map((item) => ({
-        nombre: item.name,
-        cantidad: item.quantity,
-        precio: precioANumero(item.price),
-      })),
-      total: Math.round(total * 100) / 100,
-      email: datos.email.trim(),
-      direccion:
-        datos.tipoEntrega === 'domicilio'
-          ? [
-              datos.calle.trim(),
-              datos.numero.trim(),
-              datos.piso.trim(),
-              datos.codigoPostal.trim(),
-              datos.ciudad.trim(),
-            ]
-              .filter(Boolean)
-              .join(', ')
-          : '',
-      codigoPostal: datos.codigoPostal.trim(),
-      ciudad: datos.ciudad.trim(),
-      // Formato alternativo por si el flujo espera el de nuestra API.
-      items_v2: cart.map((item) => ({
         id: item.id,
-        name: item.name,
-        price: item.price,
-        quantity: item.quantity,
+        qty: item.quantity,
       })),
-      customerEmail: datos.email.trim(),
-      customerName: datos.nombre.trim(),
-      urlOrigen: window.location.href,
     };
 
     const rutas: Array<{ etiqueta: string; url: string; body: unknown }> = [];

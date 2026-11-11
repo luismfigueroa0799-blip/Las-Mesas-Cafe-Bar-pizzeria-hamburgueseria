@@ -31,8 +31,8 @@
 /** Identificador del flujo de n8n. */
 const WORKFLOW_ID = '6c8d3a58-72e0-4cce-a773-ddd1382fddbd';
 
-const WEBHOOK_PRODUCCION = `https://barcafeteria.app.n8n.cloud/webhook/${WORKFLOW_ID}/webhook`;
-const WEBHOOK_PRUEBAS = `https://barcafeteria.app.n8n.cloud/webhook-test/${WORKFLOW_ID}/webhook`;
+const WEBHOOK_PRODUCCION = 'https://barcafeteria.app.n8n.cloud/webhook/crear-pedido-domicilio';
+const WEBHOOK_PRUEBAS = 'https://barcafeteria.app.n8n.cloud/webhook-test/crear-pedido-domicilio';
 
 /**
  * Ponlo en true solo si vas a probar y no quieres pasar por producción.

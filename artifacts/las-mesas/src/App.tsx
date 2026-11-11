@@ -4,7 +4,7 @@ import './index.css';
 import { useCart } from '@/CartContext';
 import CartSidebar from '@/CartSidebar';
 import ProductCard from '@/ProductCard';
-import { CATEGORIES, getProducts } from '@/products';
+import { CATEGORIES, categoriasDe, getProducts, type Category, type Product } from '@/products';
 
 const address = 'Pintor Antonio Padrón, 59, Las Mesas Bajas, Las Palmas de Gran Canaria';
 const mapsUrl = 'https://www.google.com/maps/place/C.+Pintor+Antonio+Padr%C3%B3n,+59,+35018+Las+Mesas,+Las+Palmas/@28.0991469,-15.4976894,17z/data=!3m1!4b1!4m6!3m5!1s0xc4094784d2465e5:0x2e61ab7822fd4801!8m2!3d28.0991469!4d-15.4976894!16s%2Fg%2F11bw44jbyw?entry=ttu&g_ep=EgoyMDI2MTEwNC4wIKXMDSoASAFQAw%3D%3D';
@@ -51,6 +51,8 @@ type AvisoPedido =
 
 function App() {
   const [activeSlug, setActiveSlug] = useState(CATEGORIES[0].slug);
+  const [productos, setProductos] = useState<Product[]>([]);
+  const [categorias, setCategorias] = useState<Category[]>(CATEGORIES);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [reservationStatus, setReservationStatus] = useState('');
   const [eventStatus, setEventStatus] = useState('');
@@ -61,9 +63,29 @@ function App() {
   const [avisoPedido, setAvisoPedido] = useState<AvisoPedido>(null);
   const { cart, addToCart, clearCart } = useCart();
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
-  const categories = CATEGORIES;
-  const activeCategory = categories.find((c) => c.slug === activeSlug) ?? categories[0];
-  const productos = getProducts(activeCategory.slug);
+  const activeCategory = categorias.find((c) => c.slug === activeSlug) ?? categorias[0];
+  const productosActivos = productos.filter((p) => p.category_slug === activeCategory.slug);
+
+  // La carta se carga desde Supabase (misma tabla que usa n8n) y, si no esta
+  // configurado, desde el catalogo local.
+  useEffect(() => {
+    let vigente = true;
+    (async () => {
+      const todos = await getProducts();
+      if (!vigente) return;
+      setProductos(todos);
+      const cats = categoriasDe(todos);
+      if (cats.length) {
+        setCategorias(cats);
+        setActiveSlug((previo) =>
+          cats.some((c) => c.slug === previo) ? previo : cats[0].slug,
+        );
+      }
+    })();
+    return () => {
+      vigente = false;
+    };
+  }, []);
   const reservationTimes = timesForDate(reservationDate);
   const minDate = formatLocalDate(new Date());
 
@@ -260,13 +282,13 @@ function App() {
           <div className="menu-heading"><div><p className="eyebrow"><span className="gold-dot" /> Cocina para compartir</p><h2>La carta<span>.</span></h2><p className="section-lede">De un bocado rápido a una pizza para el centro. Aquí empieza el plan.</p></div><a className="button button-outline" href="/assets/carta-las-mesas.pdf" download="carta-las-mesas.pdf" data-testid="link-download-menu">Descargar carta completa <ArrowDown size={16} /></a></div>
           <div className="menu-experience">
             <div className="category-list" role="tablist" aria-label="Categorías de la carta" aria-orientation="vertical">
-              {categories.map((category, index) => <button key={category.slug} className={activeCategory.slug === category.slug ? 'category-tab active' : 'category-tab'} role="tab" tabIndex={activeCategory.slug === category.slug ? 0 : -1} id={`tab-${index}`} aria-selected={activeCategory.slug === category.slug} aria-controls="menu-panel" onClick={() => setActiveSlug(category.slug)} onKeyDown={(e) => { const next = e.key === 'ArrowDown' || e.key === 'ArrowRight' ? (index + 1) % categories.length : e.key === 'ArrowUp' || e.key === 'ArrowLeft' ? (index - 1 + categories.length) % categories.length : -1; if (next >= 0) { e.preventDefault(); document.getElementById(`tab-${next}`)?.focus(); setActiveSlug(categories[next].slug); } }} data-testid={`tab-category-${index}`}><span>{String(index + 1).padStart(2, '0')}</span>{category.name}<ArrowRight size={14} /></button>)}
+              {categorias.map((category, index) => <button key={category.slug} className={activeCategory.slug === category.slug ? 'category-tab active' : 'category-tab'} role="tab" tabIndex={activeCategory.slug === category.slug ? 0 : -1} id={`tab-${index}`} aria-selected={activeCategory.slug === category.slug} aria-controls="menu-panel" onClick={() => setActiveSlug(category.slug)} onKeyDown={(e) => { const next = e.key === 'ArrowDown' || e.key === 'ArrowRight' ? (index + 1) % categorias.length : e.key === 'ArrowUp' || e.key === 'ArrowLeft' ? (index - 1 + categorias.length) % categorias.length : -1; if (next >= 0) { e.preventDefault(); document.getElementById(`tab-${next}`)?.focus(); setActiveSlug(categorias[next].slug); } }} data-testid={`tab-category-${index}`}><span>{String(index + 1).padStart(2, '0')}</span>{category.name}<ArrowRight size={14} /></button>)}
               <p className="menu-download-note">La carta completa, lista para consultar o guardar.</p>
             </div>
-            <div className="menu-panel" role="tabpanel" id="menu-panel" aria-labelledby={`tab-${categories.findIndex((c) => c.slug === activeCategory.slug)}`} key={activeCategory.slug}>
+            <div className="menu-panel" role="tabpanel" id="menu-panel" aria-labelledby={`tab-${categorias.findIndex((c) => c.slug === activeCategory.slug)}`} key={activeCategory.slug}>
               <div className="panel-title"><div><span className="eyebrow">En la mesa</span><h3>{activeCategory.name}</h3></div><span className="dish-count">{String(productos.length).padStart(2, '0')} opciones</span></div>
               <div className="dish-list dish-grid">
-                {productos.map((producto) => (
+                {productosActivos.map((producto) => (
                   <ProductCard
                     key={producto.id}
                     product={producto}
