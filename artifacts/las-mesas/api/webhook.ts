@@ -1,73 +1,97 @@
-// Recibe los eventos de Stripe y los reenvía al webhook de n8n.
-// Variable de entorno: N8N_WEBHOOK_URL.
+// Tipos globales mínimos para que este archivo compile con cualquier tsconfig
+// (sin depender de "lib": ["dom"] ni de @types/node).
+type Global = Record<string, any>;
 
-export default async function handler(req: Request): Promise<Response> {
-  const json = (data: unknown, status = 200) =>
-    new Response(JSON.stringify(data), {
-      status,
-      headers: { 'Content-Type': 'application/json' },
-    });
+const g = globalThis as unknown as Global;
 
-  if (req.method === 'GET') {
-    return json({ status: 'ok', message: 'Webhook de pedidos activo' });
+function entorno(): Record<string, string | undefined> {
+  return (g.process?.env ?? {}) as Record<string, string | undefined>;
+}
+
+function responder(cuerpo: unknown, estado = 200): any {
+  const ResponseCtor = g.Response;
+  return new ResponseCtor(JSON.stringify(cuerpo), {
+    status: estado,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+function log(...args: unknown[]): void {
+  const c = g.console;
+  if (c && typeof c.error === 'function') c.error(...args);
+}
+
+export default async function handler(req: any): Promise<any> {
+  if (req?.method === 'GET') {
+    return responder({ status: 'ok', message: 'Webhook de pedidos activo' });
   }
 
-  if (req.method !== 'POST') {
-    return json({ error: 'Método no permitido' }, 405);
+  if (req?.method && req.method !== 'POST') {
+    return responder({ error: 'Método no permitido' }, 405);
   }
 
-  const webhookUrl = process.env.N8N_WEBHOOK_URL;
-  if (!webhookUrl) {
-    console.warn('N8N_WEBHOOK_URL no configurada: se acepta el evento sin reenviar.');
-    return json({ received: true, forwarded: false });
-  }
-
-  let evento: Record<string, unknown>;
+  let evento: Record<string, any>;
   try {
-    evento = await req.json();
+    evento = (await req.json()) as Record<string, any>;
   } catch {
-    return json({ error: 'Cuerpo no válido' }, 400);
+    return responder({ error: 'Cuerpo no válido' }, 400);
+  }
+
+  const webhookUrl = entorno().N8N_WEBHOOK_URL;
+  if (!webhookUrl) {
+    log('N8N_WEBHOOK_URL no configurada: se acepta el evento sin reenviar.');
+    return responder({ received: true, forwarded: false });
   }
 
   // Solo nos interesan los pedidos completados.
-  const tipo = String(evento.type ?? '');
+  const tipo = String(evento?.type ?? '');
   if (tipo && !tipo.includes('checkout.session.completed')) {
-    return json({ received: true, forwarded: false, ignored: tipo });
+    return responder({ received: true, forwarded: false, ignored: tipo });
   }
 
-  const datos = (evento.data ?? {}) as Record<string, any>;
-  const objeto = (datos.object ?? evento.object ?? {}) as Record<string, any>;
+  const datos = (evento?.data ?? {}) as Record<string, any>;
+  const objeto = (datos.object ?? evento?.object ?? {}) as Record<string, any>;
+  const detalles = (objeto.customer_details ?? {}) as Record<string, any>;
+
+  let articulos: unknown = [];
+  try {
+    articulos = objeto.metadata?.items ? JSON.parse(objeto.metadata.items) : [];
+  } catch {
+    articulos = [];
+  }
 
   const pedido = {
     evento: tipo || 'checkout.session.completed',
     idPedido: objeto.id,
-    fecha: objeto.created ? new Date(objeto.created * 1000).toISOString() : new Date().toISOString(),
-    correo: objeto.customer_details?.email ?? objeto.customer_email ?? '',
-    nombre: objeto.customer_details?.name ?? '',
-    telefono: objeto.customer_details?.phone ?? '',
+    fecha: objeto.created
+      ? new Date(objeto.created * 1000).toISOString()
+      : new Date().toISOString(),
+    correo: detalles.email ?? objeto.customer_email ?? '',
+    nombre: detalles.name ?? '',
+    telefono: detalles.phone ?? '',
     total: objeto.amount_total ? (objeto.amount_total / 100).toFixed(2) : '',
     moneda: objeto.currency ?? 'eur',
-    articulos: (objeto.metadata?.items ? JSON.parse(objeto.metadata.items) : []),
+    articulos,
     metodoPago: objeto.payment_method_types?.[0] ?? '',
     modoRecogida: objeto.metadata?.modoRecogida ?? 'recogida',
     mesa: objeto.metadata?.mesa ?? '',
   };
 
   try {
-    const respuesta = await fetch(webhookUrl, {
+    const respuesta = await g.fetch(webhookUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(pedido),
     });
 
     if (!respuesta.ok) {
-      console.error('n8n respondió con', respuesta.status);
-      return json({ received: true, forwarded: false }, 502);
+      log('n8n respondió con', respuesta.status);
+      return responder({ received: true, forwarded: false }, 502);
     }
 
-    return json({ received: true, forwarded: true });
+    return responder({ received: true, forwarded: true });
   } catch (error) {
-    console.error('Error al enviar a n8n:', error);
-    return json({ received: true, forwarded: false }, 500);
+    log('Error al enviar a n8n:', error);
+    return responder({ received: true, forwarded: false }, 500);
   }
 }

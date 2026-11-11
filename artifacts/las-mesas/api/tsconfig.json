@@ -1,0 +1,14 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["es2022", "dom"],
+    "types": ["node"],
+    "noEmit": false,
+    "emitDeclarationOnly": false,
+    "outDir": "./.api-dist",
+    "rootDir": ".",
+    "incremental": false,
+    "noEmitOnError": true
+  },
+  "include": ["./**/*.ts"]
+}

@@ -1,5 +1,8 @@
-// Creación de la sesión de pago de Stripe (API REST, sin dependencias extra).
-// Variables de entorno: STRIPE_SECRET_KEY y NEXT_PUBLIC_URL.
+// Tipos globales mínimos para que este archivo compile con cualquier tsconfig
+// (sin depender de "lib": ["dom"] ni de @types/node).
+type Global = Record<string, any>;
+
+const g = globalThis as unknown as Global;
 
 interface ItemCarrito {
   id: string;
@@ -10,58 +13,68 @@ interface ItemCarrito {
 
 const STRIPE_API = 'https://api.stripe.com/v1/checkout/sessions';
 
+function entorno(): Record<string, string | undefined> {
+  return (g.process?.env ?? {}) as Record<string, string | undefined>;
+}
+
 function aCentavos(precio: string): number {
-  const limpio = precio.replace(/[^\d,.]/g, '').replace(',', '.');
+  const limpio = String(precio).replace(/[^\d,.]/g, '').replace(',', '.');
   const valor = parseFloat(limpio);
   return Number.isFinite(valor) ? Math.round(valor * 100) : 0;
 }
 
-export default async function handler(req: Request): Promise<Response> {
-  if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Método no permitido' }), {
-      status: 405,
-      headers: { 'Content-Type': 'application/json' },
-    });
+function responder(cuerpo: unknown, estado = 200): any {
+  const ResponseCtor = g.Response;
+  return new ResponseCtor(JSON.stringify(cuerpo), {
+    status: estado,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+function log(...args: unknown[]): void {
+  const c = g.console;
+  if (c && typeof c.error === 'function') c.error(...args);
+}
+
+export default async function handler(req: any): Promise<any> {
+  if (req?.method && req.method !== 'POST') {
+    return responder({ error: 'Método no permitido' }, 405);
   }
 
-  const secretKey = process.env.STRIPE_SECRET_KEY;
+  const secretKey = entorno().STRIPE_SECRET_KEY;
   if (!secretKey) {
-    return new Response(JSON.stringify({ error: 'Falta STRIPE_SECRET_KEY en el servidor' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return responder({ error: 'Falta STRIPE_SECRET_KEY en el servidor' }, 500);
   }
 
   let body: { items?: ItemCarrito[]; customerEmail?: string; customerName?: string };
   try {
-    body = await req.json();
+    body = (await req.json()) as typeof body;
   } catch {
-    return new Response(JSON.stringify({ error: 'Cuerpo de la petición no válido' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return responder({ error: 'Cuerpo de la petición no válido' }, 400);
   }
 
-  const items = (body.items ?? []).filter((item) => item.quantity > 0 && aCentavos(item.price) > 0);
+  const items = (body.items ?? []).filter(
+    (item) => item && item.quantity > 0 && aCentavos(item.price) > 0,
+  );
   if (!items.length) {
-    return new Response(JSON.stringify({ error: 'El carrito está vacío' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return responder({ error: 'El carrito está vacío' }, 400);
   }
 
-  const baseUrl =
-    process.env.NEXT_PUBLIC_URL ||
-    `https://${req.headers.get('host') ?? 'lasmesasbarcafet.com'}`;
+  const headers = req?.headers;
+  const host = headers?.get?.('host') ?? 'lasmesasbarcafet.com';
+  const baseUrl = entorno().NEXT_PUBLIC_URL || `https://${host}`;
 
-  const params = new URLSearchParams();
+  const URLSearchParamsCtor = g.URLSearchParams;
+  const params = new URLSearchParamsCtor();
   params.set('mode', 'payment');
   params.set('success_url', `${baseUrl}/?pedido=ok`);
   params.set('cancel_url', `${baseUrl}/#carta`);
   if (body.customerEmail) params.set('customer_email', body.customerEmail);
   params.set(
     'metadata[items]',
-    JSON.stringify(items.map((i) => ({ id: i.id, name: i.name, qty: i.quantity, price: i.price }))),
+    JSON.stringify(
+      items.map((i) => ({ id: i.id, name: i.name, qty: i.quantity, price: i.price })),
+    ),
   );
 
   items.forEach((item, index) => {
@@ -72,7 +85,7 @@ export default async function handler(req: Request): Promise<Response> {
   });
 
   try {
-    const respuesta = await fetch(STRIPE_API, {
+    const respuesta = await g.fetch(STRIPE_API, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${secretKey}`,
@@ -81,24 +94,18 @@ export default async function handler(req: Request): Promise<Response> {
       body: params.toString(),
     });
 
-    const datos = await respuesta.json();
+    const datos: any = await respuesta.json();
     if (!respuesta.ok) {
-      console.error('Stripe error:', datos);
-      return new Response(
-        JSON.stringify({ error: datos?.error?.message ?? 'Stripe rechazó la sesión' }),
-        { status: 502, headers: { 'Content-Type': 'application/json' } },
+      log('Stripe error:', datos);
+      return responder(
+        { error: datos?.error?.message ?? 'Stripe rechazó la sesión' },
+        502,
       );
     }
 
-    return new Response(JSON.stringify({ sessionId: datos.id, url: datos.url }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return responder({ sessionId: datos.id, url: datos.url });
   } catch (error) {
-    console.error('Error contacting Stripe:', error);
-    return new Response(JSON.stringify({ error: 'No se pudo contactar con Stripe' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    log('Error contacting Stripe:', error);
+    return responder({ error: 'No se pudo contactar con Stripe' }, 500);
   }
 }
