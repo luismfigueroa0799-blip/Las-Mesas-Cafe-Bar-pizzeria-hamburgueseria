@@ -54,7 +54,7 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
       <div className="cart-overlay" onClick={onClose} aria-hidden="true" />
       <aside className="cart-drawer" aria-label="Carrito de compra">
         <header className="cart-drawer-head">
-          <h2 className="font-serif text-xl text-white">Mi pedido</h2>
+          <h2 className="cart-drawer-title">Mi pedido</h2>
           <button type="button" onClick={onClose} aria-label="Cerrar carrito" className="cart-close">
             <X size={20} />
           </button>
