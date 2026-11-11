@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, PropsWithChildren, ReactNode } from 'react';
+import { precioANumero } from '@/precio';
 
 // Definir el tipo para un producto del carrito
 interface CartProduct {
@@ -51,7 +52,9 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
 
   const clearCart = () => setCart([]);
 
-  const total = cart.reduce((sum, item) => sum + parseFloat(item.price) * item.quantity, 0);
+  // OJO: se usa precioANumero (no parseFloat) porque los precios estan en
+  // formato espanol ('9,50 EUR') y parseFloat descartaria los centimos.
+  const total = cart.reduce((sum, item) => sum + precioANumero(item.price) * item.quantity, 0);
 
   return (
     <CartContext.Provider value={{ cart, addToCart, removeFromCart, total, clearCart }}>

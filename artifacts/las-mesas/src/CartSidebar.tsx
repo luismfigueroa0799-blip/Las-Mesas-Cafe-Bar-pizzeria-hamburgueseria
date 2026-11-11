@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useCart } from '@/CartContext';
 import { X } from 'lucide-react';
+import { formatearPrecio } from '@/precio';
 
 type TipoEntrega = 'recogida' | 'domicilio';
 
@@ -197,7 +198,7 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
 
             <div className="cart-total">
               <span>Total</span>
-              <strong>{total.toFixed(2)} €</strong>
+              <strong>{formatearPrecio(total)}</strong>
             </div>
 
             {/* ---- Datos de entrega ---- */}

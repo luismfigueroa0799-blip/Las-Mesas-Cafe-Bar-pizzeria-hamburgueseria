@@ -11,6 +11,9 @@
 //
 // Tipos globales mínimos para que este archivo compile con cualquier tsconfig
 // (sin depender de "lib": ["dom"] ni de @types/node).
+// Margen de ejecucion de la funcion.
+export const maxDuration = 30;
+
 type Global = Record<string, any>;
 
 const g = globalThis as unknown as Global;

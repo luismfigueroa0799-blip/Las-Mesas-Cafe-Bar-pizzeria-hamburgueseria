@@ -2,6 +2,9 @@
 // Se usa en la página de retorno para mostrar la confirmación del pedido.
 // Variables de entorno: STRIPE_SECRET_KEY
 
+// Margen de ejecucion de la funcion.
+export const maxDuration = 30;
+
 type Global = Record<string, any>;
 
 const g = globalThis as unknown as Global;
