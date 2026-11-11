@@ -13,31 +13,51 @@
  *  - El flujo no depende del Root Directory, del alias de producción ni de
  *    la autenticación de Vercel.
  *
- * ── IMPORTANTE ──────────────────────────────────────────────────────────
- * La URL de n8n tiene dos variantes para el mismo flujo:
+ * ── LAS DOS URLs DEL MISMO FLUJO ────────────────────────────────────────
  *
- *   PRUEBAS    .../webhook-test/<id>/webhook   ← solo responde UNA llamada
- *                                              después de pulsar
- *                                              "Execute workflow" en n8n.
- *   PRODUCCIÓN .../webhook/<id>/webhook       ← siempre disponible.
+ *   PRUEBAS    .../webhook-test/<id>/webhook
+ *              Solo responde UNA llamada, y hay que pulsar antes
+ *              "Execute workflow" en el canvas de n8n.
  *
- * Para pasar a producción cambia la URL de abajo (quitando "-test") o define
- * la variable de entorno VITE_N8N_WEBHOOK_URL en Vercel.
+ *   PRODUCCIÓN .../webhook/<id>/webhook
+ *              Siempre disponible, pero el workflow debe estar ACTIVO
+ *              (toggle arriba a la derecha en el editor de n8n).
+ *
+ * Por defecto se usa la de PRODUCCIÓN. Para hacer una prueba puntual con la
+ * de pruebas, pon USAR_WEBHOOK_DE_PRUEBAS = true.
  * ─────────────────────────────────────────────────────────────────────────
  */
+
+/** Identificador del flujo de n8n. */
+const WORKFLOW_ID = '6c8d3a58-72e0-4cce-a773-ddd1382fddbd';
+
+const WEBHOOK_PRODUCCION = `https://barcafeteria.app.n8n.cloud/webhook/${WORKFLOW_ID}/webhook`;
+const WEBHOOK_PRUEBAS = `https://barcafeteria.app.n8n.cloud/webhook-test/${WORKFLOW_ID}/webhook`;
+
+/**
+ * Ponlo en true solo si vas a probar y no quieres pasar por producción.
+ * Recuerda que en modo pruebas hay que pulsar "Execute workflow" en n8n.
+ */
+export const USAR_WEBHOOK_DE_PRUEBAS = false;
+
 export const PEDIDOS = {
   activo: true,
   /**
    * URL del webhook de n8n que crea la sesión de pago y devuelve { url }.
-   * Se puede sobrescribir con la variable de entorno VITE_N8N_WEBHOOK_URL.
+   * Orden de prioridad:
+   *   1. Variable de entorno VITE_N8N_WEBHOOK_URL (configurable en Vercel).
+   *   2. El flag USAR_WEBHOOK_DE_PRUEBAS.
+   *   3. La URL de producción.
    */
   webhook:
     (import.meta.env?.VITE_N8N_WEBHOOK_URL as string | undefined) ||
-    'https://barcafeteria.app.n8n.cloud/webhook-test/6c8d3a58-72e0-4cce-a773-ddd1382fddbd/webhook',
+    (USAR_WEBHOOK_DE_PRUEBAS ? WEBHOOK_PRUEBAS : WEBHOOK_PRODUCCION),
 
-  /** URL de producción equivalente (mismo flujo, sin el sufijo -test). */
-  webhookProduccion:
-    'https://barcafeteria.app.n8n.cloud/webhook/6c8d3a58-72e0-4cce-a773-ddd1382fddbd/webhook',
+  /** URL de producción (el workflow debe estar activo en n8n). */
+  webhookProduccion: WEBHOOK_PRODUCCION,
+
+  /** URL de pruebas (acepta una llamada tras pulsar "Execute workflow"). */
+  webhookPruebas: WEBHOOK_PRUEBAS,
 };
 
 /** Precio en euros a partir del texto de la carta ("12,00 €" -> 12). */

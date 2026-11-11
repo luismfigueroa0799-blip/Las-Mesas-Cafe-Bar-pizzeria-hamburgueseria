@@ -14,18 +14,37 @@ webhook de n8n, que es quien tiene la clave secreta de Stripe.
 Está en `src/pedidos.ts`:
 
 ```ts
+const WORKFLOW_ID = '6c8d3a58-72e0-4cce-a773-ddd1382fddbd';
+const WEBHOOK_PRODUCCION = `https://barcafeteria.app.n8n.cloud/webhook/${WORKFLOW_ID}/webhook`;
+const WEBHOOK_PRUEBAS    = `https://barcafeteria.app.n8n.cloud/webhook-test/${WORKFLOW_ID}/webhook`;
+
+/** Ponlo en true solo para hacer una prueba puntual. */
+export const USAR_WEBHOOK_DE_PRUEBAS = false;
+
 export const PEDIDOS = {
   activo: true,
-  webhook: '…/webhook-test/<id>/webhook',   // PRUEBAS
-  webhookProduccion: '…/webhook/<id>/webhook', // PRODUCCIÓN
+  webhook:
+    (import.meta.env?.VITE_N8N_WEBHOOK_URL as string | undefined) ||
+    (USAR_WEBHOOK_DE_PRUEBAS ? WEBHOOK_PRUEBAS : WEBHOOK_PRODUCCION),
+  webhookProduccion: WEBHOOK_PRODUCCION,
+  webhookPruebas: WEBHOOK_PRUEBAS,
 };
 ```
 
-Se puede sobrescribir con la variable de entorno `VITE_N8N_WEBHOOK_URL`.
+Por defecto se usa la URL de **PRODUCCIÓN**. Para comprobar qué se está
+usando sin desplegar:
 
-> ⚠️ La URL `webhook-test` de n8n **solo responde una llamada** después de
-> pulsar "Execute workflow" en el canvas. Para pruebas hay que pulsar ese
-> botón antes de pagar. En producción usa la URL sin `-test`.
+```bash
+node scripts/ver-config-pedidos.mjs
+```
+
+> ⚠️ Requisitos de n8n:
+> - URL de **producción** (`…/webhook/…`): el workflow debe estar **ACTIVO**
+>   (toggle arriba a la derecha del editor).
+> - URL de **pruebas** (`…/webhook-test/…`): solo responde **una llamada** y
+>   hay que pulsar antes "Execute workflow" en el canvas.
+>
+> Variable opcional en Vercel: `VITE_N8N_WEBHOOK_URL` sobrescribe la URL.
 
 | Variable | Valor | Notas |
 |---|---|---|
