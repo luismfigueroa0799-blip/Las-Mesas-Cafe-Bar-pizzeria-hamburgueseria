@@ -1,8 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { NextResponse } from 'next/server';
 
-// URL del webhook de n8n (debería venir de variables de entorno en producción)
-const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || 'https://n8n.example.com/webhook/las-mesas-pedidos';
+// URL del webhook de n8n - CONFIGURAR EN VERCEL DASHBOARD
+// Esta debe ser la URL pública donde n8n puede recibir los eventos
+const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || 'https://tus-dominio-webhook.n8n.cloud/webhook/las-mesas-pedidos';
 
 export async function POST(req: Request) {
   try {
@@ -48,6 +49,7 @@ export async function GET(req: Request) {
   return NextResponse.json({
     message: 'Webhook endpoint de n8n activo',
     url: N8N_WEBHOOK_URL,
-    method: 'POST'
+    method: 'POST',
+    status: 'ready'
   });
 }
