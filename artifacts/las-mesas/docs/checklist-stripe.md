@@ -4,6 +4,8 @@ El proyecto tiene activada la **Vercel Authentication (SSO)**. Mientras esté ac
 
 - Cualquier visitante de la web es redirigido a `vercel.com/sso-api` → **la web no es pública**
 - **Stripe no puede entregar el webhook** → el pago no llega a n8n
+- **El etch a /api/checkout devuelve 401** y el navegador entra en un bucle de
+  redirecciones → el carrito se queda en 'Redirigiendo al pago seguro…' para siempre
 - Los bots de Google no pueden indexar la web
 
 ## Solución

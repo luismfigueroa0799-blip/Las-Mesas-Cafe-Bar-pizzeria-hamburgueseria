@@ -75,10 +75,17 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
     }
     setCargando(true);
     setEstado('Redirigiendo al pago seguro…');
+
+    // Control de tiempo: si el servidor no responde en 20 s no dejamos el
+    // boton bloqueado para siempre.
+    const controlador = new AbortController();
+    const temporizador = window.setTimeout(() => controlador.abort(), 20000);
+
     try {
       const respuesta = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: controlador.signal,
         body: JSON.stringify({
           items: cart.map((item) => ({
             id: item.id,
@@ -101,20 +108,57 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
           urlOrigen: window.location.href,
         }),
       });
-      const respuestaJson = await respuesta.json();
-      if (!respuesta.ok) throw new Error(respuestaJson.error || 'No se pudo iniciar el pago');
-      if (respuestaJson.url) {
-        window.location.href = respuestaJson.url;
-        return;
+
+      // Leemos el cuerpo como texto: si el servidor devuelve HTML (por ejemplo
+      // la pantalla de login de Vercel) el .json() lanzaria una excepcion poco
+      // descriptiva.
+      const cuerpo = await respuesta.text();
+
+      let respuestaJson: any = null;
+      try {
+        respuestaJson = JSON.parse(cuerpo);
+      } catch {
+        respuestaJson = null;
       }
-      if (!respuestaJson.sessionId) throw new Error('Respuesta de Stripe no válida');
-      window.location.href = `https://checkout.stripe.com/c/pay/${respuestaJson.sessionId}#session_id=${respuestaJson.sessionId}`;
+
+      if (!respuesta.ok) {
+        const mensaje =
+          respuestaJson?.error?.message ||
+          respuestaJson?.error ||
+          respuestaJson?.message ||
+          `El servidor respondio con el codigo ${respuesta.status}.`;
+        throw new Error(mensaje);
+      }
+
+      if (!respuestaJson) {
+        throw new Error('El servidor no devolvio una respuesta valida.');
+      }
+
+      // Stripe devuelve la url de la pasarela de pago. Se usa location.assign
+      // (no stripe.redirectToCheckout, que esta obsoleto).
+      const urlSesion: string = respuestaJson.url ?? '';
+      if (!urlSesion) {
+        throw new Error(
+          respuestaJson.error || 'No se pudo iniciar el pago, revisa tus datos.',
+        );
+      }
+
+      window.location.assign(urlSesion);
     } catch (error) {
-      setEstado(error instanceof Error ? error.message : 'No se pudo iniciar el pago.');
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        setEstado('El servidor no ha respondido. Revisa tu conexion e intentalo de nuevo.');
+      } else {
+        setEstado(
+          error instanceof Error
+            ? error.message
+            : 'No se pudo iniciar el pago, revisa tus datos.',
+        );
+      }
       setCargando(false);
+    } finally {
+      window.clearTimeout(temporizador);
     }
   }
-
   return (
     <>
       <div className="cart-overlay" onClick={onClose} aria-hidden="true" />

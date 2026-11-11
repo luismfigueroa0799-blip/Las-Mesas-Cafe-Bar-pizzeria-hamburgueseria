@@ -172,9 +172,13 @@ export default async function handler(req: any): Promise<any> {
   if (customerId) {
     // Con el customer, Stripe hereda nombre, email, teléfono y dirección.
     params.set('customer', customerId);
+    // OJO: Stripe solo admite customer_update[name], customer_update[address]
+    // y customer_update[shipping]. Para el telefono se usa phone_number_collection.
     params.set('customer_update[name]', 'auto');
-    params.set('customer_update[phone]', 'auto');
     params.set('customer_update[address]', 'auto');
+    if (telefono) {
+      params.set('phone_number_collection[enabled]', 'true');
+    }
   } else if (email) {
     params.set('customer_email', email);
   }
