@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import { useCart } from '@/CartContext';
 import { X } from 'lucide-react';
 import { formatearPrecio, precioANumero } from '@/precio';
-import { PEDIDOS } from '@/pedidos';
 import { extraerUrlStripe } from '@/stripe-url';
 
 type TipoEntrega = 'recogida' | 'domicilio';
@@ -82,9 +81,9 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
   // Ir a la pasarela de pago de Stripe.
   //
   // Patron (igual que el sitio estatico que ya funciona): se pide la sesion
-  // de pago al webhook de n8n, que es quien tiene la clave secreta de Stripe,
-  // y n8n responde { url }. Si esa ruta no esta disponible se intenta la
-  // alternativa /api/checkout.
+    // a nuestra API, que tiene la STRIPE_SECRET_KEY y devuelve la url
+    // de la sesion de pago de Stripe.
+    // Esta web es autonoma: no comparte backend con la app de hamburgueseria.
   async function irAlPago() {
     if (!cart.length) return;
     if (!listo) {
@@ -120,24 +119,10 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
             .join(', ')
         : '';
 
-    // Contrato EXACTO del webhook de n8n (el mismo que usa el sitio que ya
-    // funciona): nombre, direccion, cliente_telefono e items con { id, qty }.
-    // IMPORTANTE: no se envian precios; n8n los recalcula con su propia lista
-    // de productos, por seguridad.
-    const cuerpo = {
-      nombre: datos.nombre.trim(),
-      direccion: direccionCompleta,
-      cliente_telefono: datos.telefono.trim(),
-      items: cart.map((item) => ({
-        id: item.id,
-        qty: item.quantity,
-      })),
-    };
-
+    // Esta web es autonoma: la sesion de pago la crea nuestra propia API.
+    // (La app de hamburgueseria/pizzeria usa su propio webhook de n8n,
+    //  que es un proyecto aparte y no se comparte.)
     const rutas: Array<{ etiqueta: string; url: string; body: unknown }> = [];
-    if (PEDIDOS.webhook) {
-      rutas.push({ etiqueta: 'n8n', url: PEDIDOS.webhook, body: cuerpo });
-    }
     rutas.push({
       etiqueta: '/api/checkout',
       url: '/api/checkout',
@@ -208,16 +193,9 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
         }
       }
 
-      // Si falla el webhook de n8n en modo prueba se avisa: hay que pulsar
-      // "Execute workflow" en n8n para que acepte la llamada.
-      const falloN8n = fallos.find((f) => f.startsWith('n8n:'));
-      const detalleN8n = falloN8n?.includes('404') || falloN8n?.includes('not registered');
       setEstado(
-        detalleN8n
-          ? 'El pago en pruebas no está disponible ahora mismo. Inténtalo de nuevo en un momento.'
-          : 'No se pudo iniciar el pago. Revisa tus datos e inténtalo de nuevo.',
+        'No se pudo iniciar el pago. Revisa tus datos e inténtalo de nuevo.',
       );
-      if (fallos.length) console.error('[carrito] Fallos:', fallos);
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') {
         setEstado('El servidor no ha respondido. Revisa tu conexion e intentalo de nuevo.');

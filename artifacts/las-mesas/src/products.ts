@@ -1,12 +1,10 @@
 /**
- * Catálogo de productos.
+ * Catálogo de productos de la web oficial.
  *
- * Fuente de verdad: la tabla `productos` de Supabase, que es la misma que usa
- * el flujo de n8n. Por eso los `id` que se envían a n8n deben ser los de la
- * base de datos (n8n los usa para recalcular los precios y crear el pedido).
- *
- * Si Supabase no está configurado se usa el catálogo local como respaldo y el
- * pago se tramita por nuestra propia API (/api/checkout).
+ * Esta web es AUTÓNOMA: no comparte base de datos con la app de
+ * hamburguesería/pizzería (que usa Supabase y su propio flujo de n8n).
+ * La carta se mantiene aquí y la sesión de pago la crea nuestra API
+ * /api/checkout, que recalcula los precios con esta misma lista.
  */
 
 export interface Product {
@@ -47,7 +45,7 @@ export const CATEGORIES: Category[] = [
 
 const A = '/assets/';
 
-/** Catálogo local de respaldo (si no hay Supabase configurado). */
+/** Catálogo de la carta. */
 export const PRODUCTS_LOCALES: Product[] = [
   { id: '1', name: 'La suprema', description: 'Queso, huevo, bacon, tomate natural, cebolla y 3 salsas', price: '6,50 €', allergens: 'G* · H · L · S*', image_url: `${A}hamburguesa-pollo-crispy-super.jpg`, category: 'Hamburguesas de carne', category_slug: 'hamburguesas-carne' },
   { id: '2', name: 'La tradicional', description: 'Queso, cebolla y 3 salsas', price: '3,60 €', allergens: 'G* · L · S*', image_url: `${A}hamburguesa-pollo-crispy.jpg`, category: 'Hamburguesas de carne', category_slug: 'hamburguesas-carne' },
@@ -150,58 +148,6 @@ export const PRODUCTS_LOCALES: Product[] = [
   { id: '99', name: 'Dulce Malicia', price: '24,00 €', image_url: null, category: 'Vinos', category_slug: 'vinos' },
 ];
 
-/** Configuración de Supabase (opcional). */
-const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL as string | undefined;
-const SUPABASE_ANON_KEY = import.meta.env?.VITE_SUPABASE_ANON_KEY as string | undefined;
-
-/** Convierte un slug de categoría en un nombre legible. */
-function nombreCategoria(slug: string): string {
-  const encontrada = CATEGORIES.find((c) => c.slug === slug);
-  if (encontrada) return encontrada.name;
-  return slug
-    .split('-')
-    .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
-    .join(' ');
-}
-
-/**
- * Descarga la carta desde Supabase usando su API REST (sin dependencias).
- * Devuelve null si no está configurado o si hay error.
- */
-export async function getProductosRemotos(): Promise<Product[] | null> {
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return null;
-
-  try {
-    const url =
-      `${SUPABASE_URL}/rest/v1/productos` +
-      `?select=*&disponible=eq.true&order=categoria&order=nombre`;
-    const respuesta = await fetch(url, {
-      headers: {
-        apikey: SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-      },
-    });
-    if (!respuesta.ok) return null;
-
-    const filas: any[] = await respuesta.json();
-    if (!Array.isArray(filas) || !filas.length) return null;
-
-    return filas.map((fila) => ({
-      id: String(fila.id),
-      name: String(fila.nombre),
-      description: fila.descripcion ?? undefined,
-      price: `${Number(fila.precio).toFixed(2).replace('.', ',')} €`,
-      allergens: fila.alergenos ?? undefined,
-      image_url: fila.image_url ?? null,
-      category: fila.categoria ?? 'La carta',
-      category_slug: slugCategoria(fila.categoria ?? 'la-carta'),
-      precio_eur: Number(fila.precio),
-    }));
-  } catch {
-    return null;
-  }
-}
-
 /** Genera el slug de una categoría a partir de su nombre. */
 export function slugCategoria(nombre: string): string {
   const normalizado = nombre
@@ -210,7 +156,7 @@ export function slugCategoria(nombre: string): string {
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '');
-  const encontrada = CATEGORIES.find((c) => nombreCategoria(c.slug) === nombre);
+  const encontrada = CATEGORIES.find((c) => c.name === nombre);
   return encontrada ? encontrada.slug : normalizado;
 }
 
@@ -228,24 +174,10 @@ export function categoriasDe(productos: Product[]): Category[] {
   return [...vistas.values()];
 }
 
-/**
- * Devuelve los productos de una categoría.
- * En producción consulta la tabla `productos` de Supabase (misma que usa n8n);
- * si no está configurado, usa el catálogo local.
- */
-export async function getProducts(
-  categorySlug?: string,
-): Promise<Product[]> {
-  const remotos = await getProductosRemotos();
-  const origen = remotos ?? PRODUCTS_LOCALES;
-  if (!categorySlug) return origen;
-  return origen.filter((producto) => producto.category_slug === categorySlug);
-}
-
-/** Versión síncrona con el catálogo local (para render inicial). */
-export function getProductsLocal(categorySlug?: string): Product[] {
+/** Devuelve los productos de una categoría. */
+export function getProducts(categorySlug?: string): Product[] {
   if (!categorySlug) return PRODUCTS_LOCALES;
-  return PRODUCTS_LOCALES.filter((p) => p.category_slug === categorySlug);
+  return PRODUCTS_LOCALES.filter((producto) => producto.category_slug === categorySlug);
 }
 
 /** Iniciales para el marcador de posición elegante cuando no hay foto. */

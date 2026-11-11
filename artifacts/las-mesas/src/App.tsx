@@ -51,8 +51,8 @@ type AvisoPedido =
 
 function App() {
   const [activeSlug, setActiveSlug] = useState(CATEGORIES[0].slug);
-  const [productos, setProductos] = useState<Product[]>([]);
-  const [categorias, setCategorias] = useState<Category[]>(CATEGORIES);
+  const [productos] = useState<Product[]>(() => getProducts());
+  const [categorias, setCategorias] = useState<Category[]>(() => categoriasDe(getProducts()));
   const [mobileOpen, setMobileOpen] = useState(false);
   const [reservationStatus, setReservationStatus] = useState('');
   const [eventStatus, setEventStatus] = useState('');
@@ -66,26 +66,16 @@ function App() {
   const activeCategory = categorias.find((c) => c.slug === activeSlug) ?? categorias[0];
   const productosActivos = productos.filter((p) => p.category_slug === activeCategory.slug);
 
-  // La carta se carga desde Supabase (misma tabla que usa n8n) y, si no esta
-  // configurado, desde el catalogo local.
+  // Categorias derivadas del catalogo de productos.
   useEffect(() => {
-    let vigente = true;
-    (async () => {
-      const todos = await getProducts();
-      if (!vigente) return;
-      setProductos(todos);
-      const cats = categoriasDe(todos);
-      if (cats.length) {
-        setCategorias(cats);
-        setActiveSlug((previo) =>
-          cats.some((c) => c.slug === previo) ? previo : cats[0].slug,
-        );
-      }
-    })();
-    return () => {
-      vigente = false;
-    };
-  }, []);
+    const cats = categoriasDe(productos);
+    if (cats.length) {
+      setCategorias(cats);
+      setActiveSlug((previo) =>
+        cats.some((c) => c.slug === previo) ? previo : cats[0].slug,
+      );
+    }
+  }, [productos]);
   const reservationTimes = timesForDate(reservationDate);
   const minDate = formatLocalDate(new Date());
 
