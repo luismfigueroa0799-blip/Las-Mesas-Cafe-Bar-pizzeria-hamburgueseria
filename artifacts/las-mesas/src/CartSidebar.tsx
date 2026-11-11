@@ -20,6 +20,8 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
     }
     setCargando(true);
     setEstado('Redirigiendo al pago seguro…');
+    // ?mesa=N indica que el pedido es para esa mesa del local.
+    const mesa = new URLSearchParams(window.location.search).get('mesa') ?? '';
     try {
       const respuesta = await fetch('/api/checkout', {
         method: 'POST',
@@ -32,7 +34,9 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
             quantity: item.quantity,
           })),
           customerEmail: email,
-          customerName: 'Cliente Las Mesas',
+          customerName: email,
+          mesa,
+          urlOrigen: window.location.href,
         }),
       });
       const datos = await respuesta.json();

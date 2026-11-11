@@ -46,7 +46,13 @@ export default async function handler(req: any): Promise<any> {
     return responder({ error: 'Falta STRIPE_SECRET_KEY en el servidor' }, 500);
   }
 
-  let body: { items?: ItemCarrito[]; customerEmail?: string; customerName?: string };
+  let body: {
+    items?: ItemCarrito[];
+    customerEmail?: string;
+    customerName?: string;
+    mesa?: string;
+    urlOrigen?: string;
+  };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -70,12 +76,18 @@ export default async function handler(req: any): Promise<any> {
   params.set('success_url', `${baseUrl}/?pedido=ok`);
   params.set('cancel_url', `${baseUrl}/#carta`);
   if (body.customerEmail) params.set('customer_email', body.customerEmail);
+  if (body.customerName) params.set('metadata[nombreCliente]', body.customerName);
   params.set(
     'metadata[items]',
     JSON.stringify(
       items.map((i) => ({ id: i.id, name: i.name, qty: i.quantity, price: i.price })),
     ),
   );
+  // Recogida en mesa (?mesa=N) o para llevar.
+  const mesa = String(body.mesa ?? '').trim();
+  params.set('metadata[modoRecogida]', mesa ? 'mesa' : 'recogida');
+  if (mesa) params.set('metadata[mesa]', mesa);
+  if (body.urlOrigen) params.set('metadata[urlOrigen]', body.urlOrigen);
 
   items.forEach((item, index) => {
     params.set(`line_items[${index}][quantity]`, String(item.quantity));
