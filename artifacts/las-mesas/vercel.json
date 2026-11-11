@@ -1,13 +1,21 @@
 {
   "framework": "vite",
   "outputDirectory": "dist/public",
-  "routes": [
+  "rewrites": [
     {
-      "handle": "filesystem"
-    },
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
+    }
+  ],
+  "headers": [
     {
-      "src": "/.*",
-      "dest": "/index.html"
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, max-age=0"
+        }
+      ]
     }
   ]
 }
