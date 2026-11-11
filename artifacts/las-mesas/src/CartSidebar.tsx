@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useCart } from '@/CartContext';
 import { X } from 'lucide-react';
-import { formatearPrecio } from '@/precio';
+import { formatearPrecio, precioANumero } from '@/precio';
+import { PEDIDOS } from '@/pedidos';
 
 type TipoEntrega = 'recogida' | 'domicilio';
 
@@ -67,7 +68,12 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
     setEstado('');
   }
 
-  // Ir a la pasarela de pago de Stripe
+  // Ir a la pasarela de pago de Stripe.
+  //
+  // Patron (igual que el sitio estatico que ya funciona): se pide la sesion
+  // de pago al webhook de n8n, que es quien tiene la clave secreta de Stripe,
+  // y n8n responde { url }. Si esa ruta no esta disponible se intenta la
+  // alternativa /api/checkout.
   async function irAlPago() {
     if (!cart.length) return;
     if (!listo) {
@@ -77,86 +83,138 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
     setCargando(true);
     setEstado('Redirigiendo al pago seguro…');
 
-    // Control de tiempo: si el servidor no responde en 20 s no dejamos el
-    // boton bloqueado para siempre.
     const controlador = new AbortController();
     const temporizador = window.setTimeout(() => controlador.abort(), 20000);
 
+    const total = cart.reduce(
+      (suma, item) => suma + precioANumero(item.price) * item.quantity,
+      0,
+    );
+
+    // Cuerpo con el formato del contrato de n8n (nombre / cantidad / precio).
+    const cuerpo = {
+      tipo: mesa ? 'mesa' : datos.tipoEntrega === 'domicilio' ? 'domicilio' : 'recoger',
+      mesa,
+      nombre: datos.nombre.trim(),
+      telefono: datos.telefono.trim(),
+      notas: '',
+      items: cart.map((item) => ({
+        nombre: item.name,
+        cantidad: item.quantity,
+        precio: precioANumero(item.price),
+      })),
+      total: Math.round(total * 100) / 100,
+      email: datos.email.trim(),
+      direccion:
+        datos.tipoEntrega === 'domicilio'
+          ? [
+              datos.calle.trim(),
+              datos.numero.trim(),
+              datos.piso.trim(),
+              datos.codigoPostal.trim(),
+              datos.ciudad.trim(),
+            ]
+              .filter(Boolean)
+              .join(', ')
+          : '',
+      codigoPostal: datos.codigoPostal.trim(),
+      ciudad: datos.ciudad.trim(),
+      // Formato alternativo por si el flujo espera el de nuestra API.
+      items_v2: cart.map((item) => ({
+        id: item.id,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+      })),
+      customerEmail: datos.email.trim(),
+      customerName: datos.nombre.trim(),
+      urlOrigen: window.location.href,
+    };
+
+    const rutas: Array<{ etiqueta: string; url: string; body: unknown }> = [];
+    if (PEDIDOS.webhook) {
+      rutas.push({ etiqueta: 'n8n', url: PEDIDOS.webhook, body: cuerpo });
+    }
+    rutas.push({
+      etiqueta: '/api/checkout',
+      url: '/api/checkout',
+      body: {
+        items: cart.map((item) => ({
+          id: item.id,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+        })),
+        customerEmail: datos.email.trim(),
+        customerName: datos.nombre.trim(),
+        telefono: datos.telefono.trim(),
+        tipoEntrega: datos.tipoEntrega,
+        direccion: {
+          calle: datos.calle.trim(),
+          numero: datos.numero.trim(),
+          piso: datos.piso.trim(),
+          codigoPostal: datos.codigoPostal.trim(),
+          ciudad: datos.ciudad.trim(),
+        },
+        mesa,
+        urlOrigen: window.location.href,
+      },
+    });
+
+    const fallos: string[] = [];
+
     try {
-      const respuesta = await fetch('/api/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        signal: controlador.signal,
-        body: JSON.stringify({
-          items: cart.map((item) => ({
-            id: item.id,
-            name: item.name,
-            price: item.price,
-            quantity: item.quantity,
-          })),
-          customerEmail: datos.email.trim(),
-          customerName: datos.nombre.trim(),
-          telefono: datos.telefono.trim(),
-          tipoEntrega: datos.tipoEntrega,
-          direccion: {
-            calle: datos.calle.trim(),
-            numero: datos.numero.trim(),
-            piso: datos.piso.trim(),
-            codigoPostal: datos.codigoPostal.trim(),
-            ciudad: datos.ciudad.trim(),
-          },
-          mesa,
-          urlOrigen: window.location.href,
-        }),
-      });
+      for (const ruta of rutas) {
+        try {
+          const respuesta = await fetch(ruta.url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            signal: controlador.signal,
+            body: JSON.stringify(ruta.body),
+          });
 
-      // Leemos el cuerpo como texto: si el servidor devuelve HTML (por ejemplo
-      // la pantalla de login de Vercel) el .json() lanzaria una excepcion poco
-      // descriptiva.
-      const cuerpo = await respuesta.text();
+          const texto = await respuesta.text();
+          let datosRespuesta: any = null;
+          try {
+            datosRespuesta = JSON.parse(texto);
+          } catch {
+            datosRespuesta = null;
+          }
 
-      let respuestaJson: any = null;
-      try {
-        respuestaJson = JSON.parse(cuerpo);
-      } catch {
-        respuestaJson = null;
+          if (!respuesta.ok) {
+            fallos.push(
+              `${ruta.etiqueta}: ${datosRespuesta?.error?.message || datosRespuesta?.error || `HTTP ${respuesta.status}`}`,
+            );
+            continue;
+          }
+
+          const urlSesion: string =
+            datosRespuesta?.url ?? datosRespuesta?.session?.url ?? '';
+          if (!urlSesion) {
+            fallos.push(`${ruta.etiqueta}: la respuesta no trae url de Stripe`);
+            continue;
+          }
+
+          window.location.assign(urlSesion);
+          return;
+        } catch (error) {
+          if (error instanceof DOMException && error.name === 'AbortError') throw error;
+          fallos.push(`${ruta.etiqueta}: ${(error as Error)?.message ?? 'error'}`);
+        }
       }
 
-      if (!respuesta.ok) {
-        const mensaje =
-          respuestaJson?.error?.message ||
-          respuestaJson?.error ||
-          respuestaJson?.message ||
-          `El servidor respondio con el codigo ${respuesta.status}.`;
-        throw new Error(mensaje);
-      }
-
-      if (!respuestaJson) {
-        throw new Error('El servidor no devolvio una respuesta valida.');
-      }
-
-      // Stripe devuelve la url de la pasarela de pago. Se usa location.assign
-      // (no stripe.redirectToCheckout, que esta obsoleto).
-      const urlSesion: string = respuestaJson.url ?? '';
-      if (!urlSesion) {
-        throw new Error(
-          respuestaJson.error || 'No se pudo iniciar el pago, revisa tus datos.',
-        );
-      }
-
-      window.location.assign(urlSesion);
+      setEstado(
+        'No se pudo iniciar el pago. Revisa tus datos e inténtalo de nuevo.',
+      );
+      if (fallos.length) console.error('[carrito] Fallos:', fallos);
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') {
         setEstado('El servidor no ha respondido. Revisa tu conexion e intentalo de nuevo.');
       } else {
-        setEstado(
-          error instanceof Error
-            ? error.message
-            : 'No se pudo iniciar el pago, revisa tus datos.',
-        );
+        setEstado('No se pudo iniciar el pago, revisa tus datos.');
       }
-      setCargando(false);
     } finally {
+      setCargando(false);
       window.clearTimeout(temporizador);
     }
   }

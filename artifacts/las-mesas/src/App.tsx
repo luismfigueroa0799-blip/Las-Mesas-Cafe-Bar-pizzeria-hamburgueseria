@@ -44,7 +44,7 @@ function timesForDate(date: string) {
 
 // Estado del aviso de pedido (confirmación o cancelación tras el pago).
 type AvisoPedido =
-  | { tipo: 'confirmado'; idPedido: string; total: string; articulos: { name: string; qty: number }[] }
+  | { tipo: 'confirmado'; idPedido: string; codigo: string; total: string; articulos: { name: string; qty: number }[] }
   | { tipo: 'cancelado' }
   | { tipo: 'error'; mensaje: string }
   | null;
@@ -78,13 +78,29 @@ function App() {
     const params = new URLSearchParams(window.location.search);
     const estado = params.get('pedido');
     const sessionId = params.get('session_id');
+    const codigo = params.get('codigo') ?? '';
 
     if (estado === 'cancelado') {
       setAvisoPedido({ tipo: 'cancelado' });
       window.history.replaceState({}, '', window.location.pathname + '#carta');
       return;
     }
-    if (estado !== 'ok' || !sessionId) return;
+    if (estado !== 'ok') return;
+
+    // Flujo con n8n: vuelve de Stripe con ?pedido=ok&codigo=ABC123 y no hay
+    // session_id que consultar. Se da por pagado y se muestra el codigo.
+    if (!sessionId) {
+      setAvisoPedido({
+        tipo: 'confirmado',
+        idPedido: '',
+        codigo,
+        total: '',
+        articulos: [],
+      });
+      clearCart();
+      window.history.replaceState({}, '', window.location.pathname);
+      return;
+    }
 
     let vigente = true;
     (async () => {
@@ -98,6 +114,7 @@ function App() {
           setAvisoPedido({
             tipo: 'confirmado',
             idPedido: String(datos.idPedido ?? '').slice(-8).toUpperCase(),
+            codigo,
             total: datos.total ?? '',
             articulos: Array.isArray(datos.articulos)
               ? datos.articulos.map((a: { name: string; qty: number }) => ({ name: a.name, qty: a.qty }))
@@ -141,6 +158,7 @@ function App() {
                   <strong>¡Pedido confirmado!</strong>
                   <p>
                     Te hemos enviado la confirmación por correo.
+                    {avisoPedido.codigo && <> Tu codigo de pedido es <b>{avisoPedido.codigo}</b>.</>}
                     {avisoPedido.idPedido && <> Referencia <b>{avisoPedido.idPedido}</b>.</>}
                     {avisoPedido.total && <> Total: <b>{avisoPedido.total} €</b>.</>}
                     {avisoPedido.articulos.length > 0 && (
