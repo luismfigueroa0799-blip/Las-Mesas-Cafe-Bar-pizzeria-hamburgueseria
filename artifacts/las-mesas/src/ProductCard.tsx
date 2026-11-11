@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import Image from 'next/image';
 
 // Tipo para un producto
 interface Product {
@@ -7,7 +6,7 @@ interface Product {
   name: string;
   description?: string;
   price: string;
-  image: string;
+  image: string; // Ruta relativa al asset
   allergens?: string;
   categories?: string[];
 }
@@ -22,7 +21,7 @@ const ProductCard: React.FC<{
   product,
   onAddToCart,
   selectedSize = 'normal',
-  showSizeSelector = true,
+  showSizeSelector = false,
 }) => {
   const [size, setSize] = useState(selectedSize);
 
@@ -32,9 +31,9 @@ const ProductCard: React.FC<{
 
   return (
     <article className="product-card bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-medium transition-shadow duration-200 cursor-pointer">
-      {/* Imagen del producto */}
+      {/* Imagen del producto - Usamos img en lugar de next/image para compatibilidad */}
       <div className="relative aspect-w-1 aspect-h-1 w-full">
-        <Image
+        <img
           src={`/assets/${product.image}`}
           alt={product.name}
           width={400}
