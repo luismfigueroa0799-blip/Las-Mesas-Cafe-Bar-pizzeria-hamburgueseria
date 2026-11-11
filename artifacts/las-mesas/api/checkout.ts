@@ -72,6 +72,19 @@ function aCentavos(precio: string | number): number {
   return Number.isFinite(valor) ? Math.round(valor * 100) : 0;
 }
 
+/**
+ * Telefono en formato canonico: solo digitos con prefijo 34 (p.ej. 34600000000).
+ * Es el formato que espera el webhook de n8n (campo cliente_telefono).
+ */
+function normalizarTelefono(valor: string | undefined): string {
+  const digitos = String(valor ?? '').replace(/\D/g, '');
+  if (!digitos) return '';
+  if (digitos.length === 9) return `34${digitos}`;
+  if (digitos.length === 10 && digitos.startsWith('6')) return `34${digitos}`;
+  if (digitos.length === 11 && digitos.startsWith('34')) return digitos;
+  return digitos;
+}
+
 function responder(cuerpo: unknown, estado = 200): any {
   const ResponseCtor = g.Response;
   return new ResponseCtor(JSON.stringify(cuerpo), {
@@ -169,7 +182,7 @@ export default async function handler(req: any): Promise<any> {
 
   const email = String(body.customerEmail ?? '').trim();
   const nombre = String(body.customerName ?? '').trim();
-  const telefono = String(body.telefono ?? '').trim();
+  const telefono = normalizarTelefono(String(body.telefono ?? '').trim());
   const tipoEntrega = body.tipoEntrega === 'domicilio' ? 'domicilio' : 'recogida';
   const direccion = body.direccion ?? {};
   const mesa = String(body.mesa ?? '').trim();
@@ -185,7 +198,7 @@ export default async function handler(req: any): Promise<any> {
     return responder({ error: 'Falta el nombre del cliente' }, 400);
   }
   // El teléfono es opcional: solo se rechaza si viene escrito y es inválido.
-  if (telefono && !/^[+]?[\d\s.-]{9,20}$/.test(telefono)) {
+  if (telefono && !/^\d{9,15}$/.test(telefono)) {
     return responder({ error: 'El teléfono no es válido' }, 400);
   }
   if (tipoEntrega === 'domicilio' && !direccionCompleta) {
@@ -206,7 +219,7 @@ export default async function handler(req: any): Promise<any> {
     const customerParams = new URLSearchParamsCtor();
     customerParams.set('email', email);
     customerParams.set('name', nombre);
-    if (telefono) customerParams.set('phone', telefono);
+    if (telefono) customerParams.set('phone', '+' + telefono);
     if (tipoEntrega === 'domicilio' && direccionCompleta) {
       customerParams.set('address[line1]', direccionCompleta);
       if (direccion.codigoPostal) customerParams.set('address[postal_code]', direccion.codigoPostal);
@@ -269,6 +282,7 @@ export default async function handler(req: any): Promise<any> {
   // Metadata: viaja al webhook para llegar a n8n.
   params.set('metadata[nombre]', nombre);
   params.set('metadata[telefono]', telefono);
+  params.set('metadata[cliente_telefono]', telefono);
   params.set('metadata[correo]', email);
   params.set('metadata[tipoEntrega]', tipoEntrega);
   params.set('metadata[recogida]', tipoEntrega === 'recogida' ? 'true' : 'false');

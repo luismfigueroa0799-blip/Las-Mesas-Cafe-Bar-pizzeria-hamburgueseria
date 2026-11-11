@@ -22,6 +22,19 @@ function entorno(): Record<string, string | undefined> {
   return (g.process?.env ?? {}) as Record<string, string | undefined>;
 }
 
+/**
+ * Telefono en formato canonico: solo digitos con prefijo 34 (p.ej. 34600000000).
+ * Es el formato que espera el webhook de n8n (campo cliente_telefono).
+ */
+function normalizarTelefono(valor: string | undefined): string {
+  const digitos = String(valor ?? '').replace(/\D/g, '');
+  if (!digitos) return '';
+  if (digitos.length === 9) return `34${digitos}`;
+  if (digitos.length === 10 && digitos.startsWith('6')) return `34${digitos}`;
+  if (digitos.length === 11 && digitos.startsWith('34')) return digitos;
+  return digitos;
+}
+
 function responder(cuerpo: unknown, estado = 200): any {
   const ResponseCtor = g.Response;
   return new ResponseCtor(JSON.stringify(cuerpo), {
@@ -193,7 +206,8 @@ export default async function handler(req: any): Promise<any> {
     // Cliente
     correo: metadata.correo ?? detalles.email ?? objeto.customer_email ?? '',
     nombre: metadata.nombre ?? detalles.name ?? '',
-    telefono: metadata.telefono ?? detalles.phone ?? '',
+    telefono: normalizarTelefono(metadata.telefono ?? metadata.cliente_telefono ?? detalles.phone ?? ''),
+    cliente_telefono: normalizarTelefono(metadata.cliente_telefono ?? metadata.telefono ?? detalles.phone ?? ''),
 
     // Entrega
     tipoEntrega,

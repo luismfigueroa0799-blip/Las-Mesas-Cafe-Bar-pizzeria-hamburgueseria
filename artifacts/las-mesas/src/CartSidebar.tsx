@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useCart } from '@/CartContext';
 import { X } from 'lucide-react';
 import { formatearPrecio, precioANumero } from '@/precio';
+import { normalizarTelefono, telefonoValido } from '@/telefono';
 import { extraerUrlStripe } from '@/stripe-url';
 
 type TipoEntrega = 'recogida' | 'domicilio';
@@ -17,9 +18,6 @@ interface DatosCliente {
   codigoPostal: string;
   ciudad: string;
 }
-
-// Telefono: opcional. Si se rellena, se comprueba el formato.
-const TELEFONO_VALIDO = /^[+]?[\d\s.-]{9,20}$/;
 
 // Correo: obligatorio y con dominio real (algo@dominio.tld).
 const EMAIL_VALIDO = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -52,7 +50,7 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
     const lista: string[] = [];
     if (!datos.nombre.trim()) lista.push('El nombre es obligatorio.');
     // El telefono es opcional: solo se valida el formato si se ha escrito.
-    if (datos.telefono.trim() && !TELEFONO_VALIDO.test(datos.telefono.trim())) {
+    if (datos.telefono.trim() && !telefonoValido(datos.telefono.trim())) {
       lista.push('Revisa el teléfono: debe tener entre 9 y 20 dígitos.');
     }
     // El correo es obligatorio y tiene que incluir el dominio.
@@ -135,7 +133,7 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
         })),
         customerEmail: datos.email.trim(),
         customerName: datos.nombre.trim(),
-        telefono: datos.telefono.trim(),
+        telefono: normalizarTelefono(datos.telefono.trim()),
         tipoEntrega: datos.tipoEntrega,
         direccion: {
           calle: datos.calle.trim(),
@@ -273,7 +271,7 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
                   onChange={(e) => actualizar('telefono', e.target.value)}
                   placeholder="600 00 00 00"
                   autoComplete="tel"
-                  aria-invalid={Boolean(datos.telefono.trim()) && !TELEFONO_VALIDO.test(datos.telefono.trim())}
+                  aria-invalid={Boolean(datos.telefono.trim()) && !telefonoValido(datos.telefono.trim())}
                 />
               </label>
 
