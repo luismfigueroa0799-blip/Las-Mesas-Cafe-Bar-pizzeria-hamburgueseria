@@ -67,7 +67,13 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
             <ul className="cart-items">
               {cart.map((item) => (
                 <li key={item.id} className="cart-item">
-                  <img src={`/assets/${item.image}`} alt={item.name} className="cart-item-img" width="56" height="56" loading="lazy" />
+                  {item.image ? (
+                    <img src={item.image} alt={item.name} className="cart-item-img" width="56" height="56" loading="lazy" />
+                  ) : (
+                    <span className="cart-item-img cart-item-mono" aria-hidden="true">
+                      {item.name.slice(0, 2).toUpperCase()}
+                    </span>
+                  )}
                   <div className="cart-item-info">
                     <strong>{item.name}</strong>
                     <span>{item.quantity} × {item.price}</span>

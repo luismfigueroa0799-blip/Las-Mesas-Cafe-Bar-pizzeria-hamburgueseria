@@ -1,118 +1,94 @@
 import { useState } from 'react';
+import { iniciales } from '@/products';
 
-// Tipo para un producto
-interface Product {
+// Tipo de producto (compatible con la tabla de Neon).
+export interface Product {
   id: string;
   name: string;
   description?: string;
   price: string;
-  image: string; // Ruta relativa al asset
   allergens?: string;
-  categories?: string[];
+  /** Ruta de la foto (columna image_url). null = sin fotografía propia. */
+  image_url?: string | null;
+  category?: string;
+  category_slug?: string;
 }
 
-// Componente de tarjeta de producto
-const ProductCard: React.FC<{
+interface ProductCardProps {
   product: Product;
-  onAddToCart: (product: Omit<Product, 'id'>) => void;
+  onAddToCart: (product: { name: string; price: string; image: string }) => void;
   selectedSize?: 'mini' | 'normal';
   showSizeSelector?: boolean;
-}> = ({
+}
+
+const ProductCard: React.FC<ProductCardProps> = ({
   product,
   onAddToCart,
   selectedSize = 'normal',
   showSizeSelector = false,
 }) => {
   const [size, setSize] = useState(selectedSize);
-
-  const handleSizeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSize(e.target.value as 'mini' | 'normal');
-  };
+  const foto = product.image_url ?? null;
 
   return (
-    <article className="product-card bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-medium transition-shadow duration-200 cursor-pointer">
-      {/* Imagen del producto - Usamos img en lugar de next/image para compatibilidad */}
-      <div className="relative aspect-w-1 aspect-h-1 w-full">
-        <img
-          src={`/assets/${product.image}`}
-          alt={product.name}
-          width={400}
-          height={300}
-          className="object-cover w-full h-full transition-opacity duration-300"
-          loading="lazy"
-        />
-        {/* Badge de alérgenos si existen */}
-        {product.allergens && (
-          <div className="absolute top-2 left-2 bg-red-100 text-red-800 text-xs font-semibold rounded px-2 py-1">
-            {product.allergens}
+    <article className="product-card">
+      {/* Foto del producto. Si no hay image_url se muestra un monograma elegante
+          en lugar de una imagen que no corresponde al plato. */}
+      <div className="product-card-media">
+        {foto ? (
+          <img src={foto} alt={product.name} width="400" height="300" loading="lazy" decoding="async" />
+        ) : (
+          <div className="product-card-placeholder" aria-hidden="true">
+            <span className="product-card-mono">{iniciales(product.name)}</span>
+            <span className="product-card-cat">{product.category ?? 'Las Mesas'}</span>
           </div>
+        )}
+        {product.allergens && (
+          <span className="product-card-allergens" title="Alérgenos">
+            {product.allergens}
+          </span>
         )}
       </div>
 
-      {/* Información del producto */}
-      <div className="p-4 flex flex-col flex-1">
-        <h3 className="font-serif text-lg font-medium text-gray-900 line-clamp-2 mb-2">
-          {product.name}
-        </h3>
+      <div className="product-card-body">
+        <h3 className="product-card-name">{product.name}</h3>
 
-        {product.description && (
-          <p className="font-serif text-sm text-gray-600 line-clamp-2 mb-3">
-            {product.description}
-          </p>
-        )}
+        {product.description && <p className="product-card-desc">{product.description}</p>}
 
-        {/* Selector de tamaño (si está habilitado) */}
         {showSizeSelector && (
-          <div className="mt-2 flex items-center space-x-2">
-            <label className="font-serif text-xs text-gray-500">Tamaño:</label>
-            <div className="flex space-x-1">
-              <label
-                key="mini"
-                className="relative flex-1 py-2 px-1 rounded border border-gray-300 bg-white text-center text-xs font-medium hover:border-dorado transition-colors"
-                >
-                <input
-                  type="radio"
-                  name="size"
-                  value="mini"
-                  checked={size === 'mini'}
-                  onChange={handleSizeChange}
-                  className="opacity-0 pointer-events-none"
-                />
-                <span className="text-[9px]">Mini</span>
+          <div className="product-card-sizes">
+            <span className="product-card-sizes-label">Tamaño</span>
+            <div className="product-card-sizes-options">
+              {(['mini', 'normal'] as const).map((valor) => (
+                <label key={valor} className={size === valor ? 'is-active' : ''}>
+                  <input
+                    type="radio"
+                    name="size"
+                    value={valor}
+                    checked={size === valor}
+                    onChange={(e) => setSize(e.target.value as 'mini' | 'normal')}
+                  />
+                  <span>{valor === 'mini' ? 'Mini' : 'Normal'}</span>
                 </label>
-              <label
-                key="normal"
-                className="relative flex-1 py-2 px-1 rounded border border-gray-300 bg-white text-center text-xs font-medium hover:border-dorado transition-colors"
-                >
-                <input
-                  type="radio"
-                  name="size"
-                  value="normal"
-                  checked={size === 'normal'}
-                  onChange={handleSizeChange}
-                  className="opacity-0 pointer-events-none"
-                />
-                <span className="text-[9px]">Normal</span>
-                </label>
+              ))}
             </div>
           </div>
         )}
 
-        {/* Precio */}
-        <p className="mt-2 font-serif font-bold text-xl text-dorado text-center">
-          {product.price}
-        </p>
+        <p className="product-card-price">{product.price}</p>
       </div>
 
-      {/* Botón de agregar al carrito */}
-      <div className="p-4 border-t border-gray-100">
+      <div className="product-card-foot">
         <button
-          onClick={() => onAddToCart({
-            ...product,
-            price: product.price,
-            image: product.image,
-          })}
-          className="w-full bg-dorado text-negro font-semibold py-2 rounded text-transform-uppercase hover:bg-dorado-claro transition-colors"
+          type="button"
+          onClick={() =>
+            onAddToCart({
+              name: product.name,
+              price: product.price,
+              image: foto ?? '',
+            })
+          }
+          data-testid={`button-add-${product.id}`}
         >
           Añadir al carrito
         </button>

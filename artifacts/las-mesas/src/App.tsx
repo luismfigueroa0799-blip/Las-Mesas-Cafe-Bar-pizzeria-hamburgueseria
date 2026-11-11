@@ -4,98 +4,7 @@ import './index.css';
 import { useCart } from '@/CartContext';
 import CartSidebar from '@/CartSidebar';
 import ProductCard from '@/ProductCard';
-
-type Dish = { name: string; description?: string; price: string; allergens?: string };
-const carta: Record<string, Dish[]> = {
-  'Hamburguesas de carne': [
-    { name: 'La suprema', description: 'Queso, huevo, bacon, tomate natural, cebolla y 3 salsas', price: '6,50 €', allergens: 'G* · H · L · S*' },
-    { name: 'La tradicional', description: 'Queso, cebolla y 3 salsas', price: '3,60 €', allergens: 'G* · L · S*' },
-    { name: 'Burger Pizza', description: 'Hamburguesa de carne, huevo frito, bacon, queso, lechuga, tomate natural, cebolla, rúcula y salsa cheddar', price: '12,00 €', allergens: 'G · H · L · S' },
-  ],
-  'Hamburguesas de pollo': [
-    { name: 'La súper', description: 'Queso, huevo, bacon, tomate natural, cebolla y 3 salsas', price: '6,50 €', allergens: 'G* · H · L · S*' },
-    { name: 'La simple', description: 'Queso, cebolla y 3 salsas', price: '3,60 €', allergens: 'G · L · S' },
-  ],
-  Perritos: [
-    { name: 'Perrito súper', description: 'Queso, jamón, cebolla y 3 salsas', price: '3,40 €', allergens: 'G* · L · S*' },
-    { name: 'Perrito normal', description: 'Cebolla y 3 salsas', price: '3,00 €', allergens: 'G* · S*' },
-  ],
-  'Pan de ajo': [
-    { name: 'Normal', description: 'Pan de ajo hecho con masa de pizza', price: '4,80 €', allergens: 'G' },
-    { name: 'Queso', description: 'Pan de ajo hecho con masa de pizza', price: '6,30 €', allergens: 'G · L' },
-    { name: 'Jamón y queso', description: 'Pan de ajo hecho con masa de pizza', price: '7,80 €', allergens: 'G · L' },
-  ],
-  Papas: [
-    { name: 'Cono de papas', description: 'Papas fritas', price: '1,85 €' },
-    { name: 'Pequeña', description: 'Papas fritas', price: '3,00 €' },
-    { name: 'Grande', description: 'Papas fritas', price: '4,20 €' },
-    { name: 'Extras', description: 'Cebolla 0,50 € · huevo 0,50 € · jamón 1,10 € · queso 1,10 € · pollo 1,70 € · salchicha 1,70 € · atún 1,80 € · ternera 1,80 € · lomo 1,80 €', price: '', allergens: 'H · L · P' },
-  ],
-  'Platos combinados': [
-    { name: 'Alitas de pollo al chipotle', description: '6 unidades · con papas fritas y ensalada fresca', price: '10,00 €', allergens: 'S*' },
-    { name: 'Nuggets de pollo premium', description: '10 unidades · con papas fritas y ensalada fresca', price: '7,50 €', allergens: 'G · H* · L*' },
-    { name: 'Lágrimas de pollo crispy', description: 'Pollo crujiente', price: '7,50 €', allergens: 'G · H* · L*' },
-    { name: 'Fingers de pollo', description: '6 unidades', price: '9,00 €', allergens: 'G · H* · L*' },
-    { name: 'Brochetas de pollo', description: '3 brochetas', price: '9,00 €' },
-    { name: 'Croquetas de pollo o atún', description: '8 unidades', price: '9,50 €', allergens: 'G* · H* · L* · P*' },
-    { name: 'Costilla a la BBQ', description: '550 g', price: '15,95 €', allergens: 'S* · MZ*' },
-    { name: 'Codillo asado', description: '600 g', price: '15,95 €' },
-  ],
-  'Bocadillos calientes': [
-    { name: 'El ternera crack', description: 'Cebolla, tomate natural, queso, huevo y alioli', price: '4,80 €', allergens: 'G · H · L · MZ*' },
-    { name: 'El ternera simple', description: 'Cebolla, queso y alioli', price: '4,20 €', allergens: 'G · L · MZ*' },
-    { name: 'La bomba avícola', description: 'Cebolla, tomate natural, queso, huevo y alioli', price: '4,20 €', allergens: 'G · H · L · MZ*' },
-    { name: 'El pollo simple', description: 'Cebolla, queso y alioli', price: '3,70 €', allergens: 'G · L · MZ*' },
-    { name: 'El lomo goloso', description: 'Cebolla, tomate natural, queso, huevo y alioli', price: '4,50 €', allergens: 'G · H · L · MZ*' },
-    { name: 'El lomo simple', description: 'Cebolla, queso y alioli', price: '3,90 €', allergens: 'G · L · MZ*' },
-  ],
-  'Sándwiches calientes': [
-    { name: 'Jamón y queso', description: 'Jamón y queso', price: '2,90 €', allergens: 'G · L' },
-    { name: 'El de atún', description: 'Atún, cebolla, tomate natural, queso, huevo y alioli', price: '3,50 €', allergens: 'G · H · L · P · MZ*' },
-    { name: 'El de pollo', description: 'Cebolla, tomate natural, queso, huevo y alioli', price: '3,80 €', allergens: 'G · H · L · MZ*' },
-    { name: 'El de ternera', description: 'Cebolla, tomate natural, huevo, queso y alioli', price: '4,20 €', allergens: 'G · H · L · MZ*' },
-    { name: 'El de lomo', description: 'Cebolla, tomate natural, queso, huevo y alioli', price: '3,90 €', allergens: 'G · H · L · MZ*' },
-  ],
-  Pizzas: [
-    { name: 'La bella serrana', description: 'Tomate, mozzarella, jamón serrano, rúcula, aceite de oliva y tomate cherry', price: '11,50 €', allergens: 'G · L' },
-    { name: 'La tradicional', description: 'Tomate, mozzarella, champiñones, jamón y aceitunas', price: '10,30 €', allergens: 'G · L' },
-    { name: 'La parrillera', description: 'Tomate, mozzarella, champiñones, pimiento, cebolla, pollo y ternera', price: '11,00 €', allergens: 'G · L' },
-    { name: 'La simple', description: 'Tomate, mozzarella, ajo y tomate natural', price: '10,00 €', allergens: 'G · L' },
-    { name: 'La delicia', description: 'Tomate, mozzarella, atún y aceitunas', price: '10,30 €', allergens: 'G · L · P' },
-    { name: 'Mar azul', description: 'Tomate, mozzarella, atún, cangrejo, mejillones y gambas', price: '12,90 €', allergens: 'G · L · P · CR · MO' },
-    { name: 'La ranchera', description: 'BBQ, mozzarella, ternera, cebolla y salchicha', price: '10,80 €', allergens: 'G · L · S* · MZ*' },
-    { name: 'Venecia', description: 'Tomate, mozzarella, jamón y bacon', price: '10,50 €', allergens: 'G · L' },
-  ],
-  'Cafés e infusiones': [
-    { name: 'Café', price: '1,00 €' }, { name: 'Cortado corto', price: '1,10 €' }, { name: 'Cortado largo', price: '1,20 €' },
-    { name: 'Leche y leche corto', price: '1,30 €' }, { name: 'Leche y leche largo', price: '1,40 €' }, { name: 'Café con leche', price: '1,40 €' },
-    { name: 'Chocolate', price: '1,50 €' }, { name: 'Infusiones', price: '1,20 €' }, { name: 'Cortado vaso', price: '2,00 €' },
-  ],
-  'Refrescos, aguas y zumos': [
-    { name: 'Coca-Cola', price: '2,00 €' }, { name: 'Sprite', price: '1,50 €' }, { name: 'Fanta limón', price: '1,50 €' },
-    { name: 'Fanta naranja', price: '1,50 €' }, { name: 'Tónica', price: '1,50 €' }, { name: 'Agua pequeña', price: '1,50 €' },
-    { name: 'Agua grande', price: '2,00 €' }, { name: 'Energética', price: '1,40 €' }, { name: 'Zumos', price: '1,80 €' },
-    { name: 'Zumo naranja', price: '3,20 €' }, { name: 'Red Bull', price: '2,40 €' }, { name: 'Vaso de agua', price: '0,30 €' },
-  ],
-  Cervezas: [
-    { name: 'Tropical', price: '1,40 €' }, { name: 'Tropical limón', price: '1,50 €' }, { name: 'Botellín Tropical', price: '1,20 €' },
-    { name: 'Dorada sin', price: '1,40 €' }, { name: 'Dorada normal', price: '1,80 €' }, { name: 'Dorada especial', price: '1,80 €' },
-    { name: 'Estrella', price: '1,30 €' }, { name: 'Estrella mini', price: '1,00 €' }, { name: '1906', price: '2,90 €' }, { name: 'Corona', price: '3,00 €' },
-  ],
-  'Licores y destilados': [
-    { name: 'Ron blanco / oro', price: '1,50 €' }, { name: 'Ginebra', price: '3,00 €' }, { name: 'Whisky', price: '2,00 €' },
-    { name: 'Coñac', price: '1,50 €' }, { name: 'Amaretto', price: '3,80 €' }, { name: 'Frangelico', price: '3,80 €' },
-    { name: 'Tía María', price: '3,80 €' }, { name: 'Baileys', price: '3,80 €' }, { name: 'Marie Brizard', price: '2,80 €' },
-    { name: 'Chinchón dulce', price: '1,50 €' }, { name: 'Vodka', price: '2,00 €' }, { name: 'Santa Teresa', price: '3,00 €' },
-    { name: 'Malibú', price: '3,00 €' }, { name: 'Tequila', price: '3,00 €' }, { name: 'Etiqueta negra', price: '3,50 €' },
-    { name: 'Etiqueta roja', price: '2,00 €' }, { name: 'Cardhu', price: '5,50 €' }, { name: 'Jack Daniel’s', price: '4,50 €' },
-  ],
-  Vinos: [
-    { name: 'Viña Lobón', price: '8,00 €' }, { name: 'Mala Bestia', price: '9,00 €' }, { name: 'Palacio de Beltús', price: '9,00 €' },
-    { name: 'Conde de Basalu', price: '9,00 €' }, { name: 'Luis Caña', price: '24,00 €' }, { name: 'Despecho', price: '18,00 €' },
-    { name: 'Azpilicueta', price: '27,00 €' }, { name: 'Esencia 27', price: '18,00 €' }, { name: 'Iniesta', price: '18,00 €' }, { name: 'Dulce Malicia', price: '24,00 €' },
-  ],
-};
+import { CATEGORIES, getProducts } from '@/products';
 
 const address = 'Pintor Antonio Padrón, 59, Las Mesas Bajas, Las Palmas de Gran Canaria';
 const mapsUrl = 'https://www.google.com/maps/place/C.+Pintor+Antonio+Padr%C3%B3n,+59,+35018+Las+Mesas,+Las+Palmas/@28.0991469,-15.4976894,17z/data=!3m1!4b1!4m6!3m5!1s0xc4094784d2465e5:0x2e61ab7822fd4801!8m2!3d28.0991469!4d-15.4976894!16s%2Fg%2F11bw44jbyw?entry=ttu&g_ep=EgoyMDI2MTEwNC4wIKXMDSoASAFQAw%3D%3D';
@@ -110,53 +19,6 @@ const hours = [
   ['Sábado', '12:00–15:00 · 18:00–23:00'],
   ['Domingo', '12:00–17:00'],
 ];
-
-// Mapa de platos con foto disponible en /assets. Si no hay foto propia,
-// se reutiliza una imagen de plato genérica de la carta.
-const FOTOS_PLATOS: Record<string, string> = {
-  'La suprema': 'hamburguesa-pollo-crispy.jpg',
-  'La tradicional': 'platos-compartir.jpg',
-  'Burger Pizza': 'burger-pizza.jpg',
-  'La súper': 'hamburguesa-pollo-crispy.jpg',
-  'La simple': 'platos-compartir.jpg',
-  'Perrito súper': 'brochetas-pollo.jpg',
-  'Perrito normal': 'local-billar-1.webp',
-  'Normal': 'platos-compartir.jpg',
-  'Queso': 'fingers-pollo.jpg',
-  'Jamón y queso': 'lagrimas-pollo-crispy.jpg',
-  'Cono de papas': 'local-billar-1.webp',
-  'Pequeña': 'local-billar-1.webp',
-  'Grande': 'platos-compartir.jpg',
-  'Extras': 'platos-compartir.jpg',
-  'Alitas de pollo al chipotle': 'alitas-pollo-chipotle.jpg',
-  'Nuggets de pollo premium': 'nuggets-pollo-premium.jpg',
-  'Lágrimas de pollo crispy': 'lagrimas-pollo-crispy.jpg',
-  'Fingers de pollo': 'fingers-pollo.jpg',
-  'Brochetas de pollo': 'brochetas-pollo.jpg',
-  'Croquetas de pollo o atún': 'croquetas-pollo.jpg',
-  'Costilla a la BBQ': 'platos-compartir.jpg',
-  'Codillo asado': 'platos-compartir.jpg',
-  'El ternera crack': 'brochetas-pollo.jpg',
-  'El ternera simple': 'fingers-pollo.jpg',
-  'La bomba avícola': 'hamburguesa-pollo-crispy.jpg',
-  'El pollo simple': 'lagrimas-pollo-crispy.jpg',
-  'El lomo goloso': 'croquetas-pollo.jpg',
-  'El lomo simple': 'nuggets-pollo-premium.jpg',
-  'El de atún': 'fingers-pollo.jpg',
-  'El de pollo': 'nuggets-pollo-premium.jpg',
-  'El de ternera': 'brochetas-pollo.jpg',
-  'El de lomo': 'croquetas-pollo.jpg',
-  'La bella serrana': 'platos-compartir.jpg',
-  'La parrillera': 'platos-compartir.jpg',
-  'La delicia': 'platos-compartir.jpg',
-  'Mar azul': 'platos-compartir.jpg',
-  'La ranchera': 'platos-compartir.jpg',
-  'Venecia': 'platos-compartir.jpg',
-};
-
-function imagenDePlato(nombre: string) {
-  return FOTOS_PLATOS[nombre] ?? 'platos-compartir.jpg';
-}
 
 function formatLocalDate(date: Date) {
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -181,7 +43,7 @@ function timesForDate(date: string) {
 }
 
 function App() {
-  const [activeCategory, setActiveCategory] = useState(Object.keys(carta)[0]);
+  const [activeSlug, setActiveSlug] = useState(CATEGORIES[0].slug);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [reservationStatus, setReservationStatus] = useState('');
   const [eventStatus, setEventStatus] = useState('');
@@ -191,7 +53,9 @@ function App() {
   const [cartOpen, setCartOpen] = useState(false);
   const { cart, addToCart } = useCart();
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
-  const categories = Object.keys(carta);
+  const categories = CATEGORIES;
+  const activeCategory = categories.find((c) => c.slug === activeSlug) ?? categories[0];
+  const productos = getProducts(activeCategory.slug);
   const reservationTimes = timesForDate(reservationDate);
   const minDate = formatLocalDate(new Date());
 
@@ -284,23 +148,16 @@ function App() {
           <div className="menu-heading"><div><p className="eyebrow"><span className="gold-dot" /> Cocina para compartir</p><h2>La carta<span>.</span></h2><p className="section-lede">De un bocado rápido a una pizza para el centro. Aquí empieza el plan.</p></div><a className="button button-outline" href="/assets/carta-las-mesas.pdf" download="carta-las-mesas.pdf" data-testid="link-download-menu">Descargar carta completa <ArrowDown size={16} /></a></div>
           <div className="menu-experience">
             <div className="category-list" role="tablist" aria-label="Categorías de la carta" aria-orientation="vertical">
-              {categories.map((category, index) => <button key={category} className={activeCategory === category ? 'category-tab active' : 'category-tab'} role="tab" tabIndex={activeCategory === category ? 0 : -1} id={`tab-${index}`} aria-selected={activeCategory === category} aria-controls="menu-panel" onClick={() => setActiveCategory(category)} onKeyDown={(e) => { const next = e.key === 'ArrowDown' || e.key === 'ArrowRight' ? (index + 1) % categories.length : e.key === 'ArrowUp' || e.key === 'ArrowLeft' ? (index - 1 + categories.length) % categories.length : -1; if (next >= 0) { e.preventDefault(); document.getElementById(`tab-${next}`)?.focus(); setActiveCategory(categories[next]); } }} data-testid={`tab-category-${index}`}><span>{String(index + 1).padStart(2, '0')}</span>{category}<ArrowRight size={14} /></button>)}
+              {categories.map((category, index) => <button key={category.slug} className={activeCategory.slug === category.slug ? 'category-tab active' : 'category-tab'} role="tab" tabIndex={activeCategory.slug === category.slug ? 0 : -1} id={`tab-${index}`} aria-selected={activeCategory.slug === category.slug} aria-controls="menu-panel" onClick={() => setActiveSlug(category.slug)} onKeyDown={(e) => { const next = e.key === 'ArrowDown' || e.key === 'ArrowRight' ? (index + 1) % categories.length : e.key === 'ArrowUp' || e.key === 'ArrowLeft' ? (index - 1 + categories.length) % categories.length : -1; if (next >= 0) { e.preventDefault(); document.getElementById(`tab-${next}`)?.focus(); setActiveSlug(categories[next].slug); } }} data-testid={`tab-category-${index}`}><span>{String(index + 1).padStart(2, '0')}</span>{category.name}<ArrowRight size={14} /></button>)}
               <p className="menu-download-note">La carta completa, lista para consultar o guardar.</p>
             </div>
-            <div className="menu-panel" role="tabpanel" id="menu-panel" aria-labelledby={`tab-${categories.indexOf(activeCategory)}`} key={activeCategory}>
-              <div className="panel-title"><div><span className="eyebrow">En la mesa</span><h3>{activeCategory}</h3></div><span className="dish-count">{String(carta[activeCategory].length).padStart(2, '0')} opciones</span></div>
+            <div className="menu-panel" role="tabpanel" id="menu-panel" aria-labelledby={`tab-${categories.findIndex((c) => c.slug === activeCategory.slug)}`} key={activeCategory.slug}>
+              <div className="panel-title"><div><span className="eyebrow">En la mesa</span><h3>{activeCategory.name}</h3></div><span className="dish-count">{String(productos.length).padStart(2, '0')} opciones</span></div>
               <div className="dish-list dish-grid">
-                {carta[activeCategory].map((dish) => (
+                {productos.map((producto) => (
                   <ProductCard
-                    key={dish.name}
-                    product={{
-                      id: dish.name,
-                      name: dish.name,
-                      description: dish.description,
-                      price: dish.price,
-                      image: imagenDePlato(dish.name),
-                      allergens: dish.allergens,
-                    }}
+                    key={producto.id}
+                    product={producto}
                     onAddToCart={(product) => addToCart({
                       name: product.name,
                       price: product.price,
@@ -311,7 +168,7 @@ function App() {
                 ))}
               </div>
               <p className="allergen-note"><b>Alérgenos</b> · G = gluten · H = huevo · L = lácteos · P = pescado · CR = crustáceos · MO = moluscos · S = sulfitos · MZ = mostaza.<br />Información orientativa. Si tienes alergia o intolerancia, avísanos para confirmar los ingredientes.</p>
-              {activeCategory === 'Bocadillos calientes' && <p className="allergen-note">Todos los bocadillos se sirven con pan de bombón.</p>}
+              {activeCategory.slug === 'bocadillos-calientes' && <p className="allergen-note">Todos los bocadillos se sirven con pan de bombón.</p>}
               <p className="allergen-note">Los asteriscos se muestran tal como aparecen en la carta original.</p>
             </div>
           </div>
