@@ -19,13 +19,8 @@ const CartContext = createContext<{
   clearCart: () => void;
 }>({} as any);
 
-export const CartContextProvider = CartContext.Provider;
-
-// Hook personalizado para usar el contexto
-export const useCart = () => useContext(CartContext);
-
-// Componente del proveedor
-const CartProvider: React.FC<PropsWithChildren<ReactNode>> = ({ children }) => {
+// Exportar el proveedor del contexto
+export const CartProvider = ({ children }: { children: ReactNode }) => {
   const [cart, setCart] = useState<CartProduct[]>([]);
 
   const addToCart = (product: Omit<CartProduct, 'id' | 'quantity'>) => {
@@ -58,3 +53,5 @@ const CartProvider: React.FC<PropsWithChildren<ReactNode>> = ({ children }) => {
   );
 };
 
+// Hook personalizado para usar el contexto
+export const useCart = () => useContext(CartContext);
