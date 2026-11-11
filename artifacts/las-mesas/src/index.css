@@ -252,6 +252,8 @@ h2 { font-family: var(--app-font-serif); font-size: clamp(2.6rem, 5vw, 4.35rem);
 .cart-form-title { display: block; font-family: var(--app-font-serif); font-size: 1rem; font-weight: 600; color: #fff; letter-spacing: .04em; margin-bottom: 2px; }
 .cart-field { display: grid; gap: 7px; margin: 0; padding: 0; border: 0; }
 .cart-field > span, .cart-field > legend { padding: 0; font-size: .62rem; letter-spacing: .16em; text-transform: uppercase; font-weight: 700; color: #a5a5ae; }
+.cart-field > span em { font-style: normal; font-weight: 500; letter-spacing: .04em; text-transform: none; color: #6f6f79; }
+.cart-field input[aria-invalid="true"] { border-color: #e0574e; box-shadow: 0 0 0 3px rgba(224,87,78,.18); }
 .cart-field input[type=text], .cart-field input[type=tel], .cart-field input[type=email] { min-height: 46px; padding: 0 13px; border: 1px solid rgba(255,255,255,.16); border-radius: 0; background: #1b1b1b; color: #fff; font-size: .88rem; letter-spacing: 0; text-transform: none; transition: border-color .2s ease, box-shadow .2s ease; }
 .cart-field input::placeholder { color: #6f6f79; }
 .cart-field input:focus { border-color: var(--oro); box-shadow: 0 0 0 3px rgba(212,175,55,.20); outline: none; }

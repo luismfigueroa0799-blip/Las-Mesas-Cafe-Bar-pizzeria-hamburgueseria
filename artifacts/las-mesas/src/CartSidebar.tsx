@@ -18,8 +18,11 @@ interface DatosCliente {
   ciudad: string;
 }
 
-// Expresión simple para teléfono español (+34, 6xx, 9xx, espacios y guiones).
+// Telefono: opcional. Si se rellena, se comprueba el formato.
 const TELEFONO_VALIDO = /^[+]?[\d\s.-]{9,20}$/;
+
+// Correo: obligatorio y con dominio real (algo@dominio.tld).
+const EMAIL_VALIDO = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 const vacio: DatosCliente = {
   nombre: '',
@@ -48,9 +51,16 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
   const errores = useMemo(() => {
     const lista: string[] = [];
     if (!datos.nombre.trim()) lista.push('El nombre es obligatorio.');
-    if (!datos.telefono.trim()) lista.push('El teléfono es obligatorio.');
-    else if (!TELEFONO_VALIDO.test(datos.telefono.trim())) lista.push('Revisa el teléfono.');
-    if (!datos.email.trim() || !datos.email.includes('@')) lista.push('El correo no es válido.');
+    // El telefono es opcional: solo se valida el formato si se ha escrito.
+    if (datos.telefono.trim() && !TELEFONO_VALIDO.test(datos.telefono.trim())) {
+      lista.push('Revisa el teléfono: debe tener entre 9 y 20 dígitos.');
+    }
+    // El correo es obligatorio y tiene que incluir el dominio.
+    if (!datos.email.trim()) {
+      lista.push('El correo electrónico es obligatorio.');
+    } else if (!EMAIL_VALIDO.test(datos.email.trim())) {
+      lista.push('El correo no es válido: usa el formato nombre@dominio.com.');
+    }
     if (datos.tipoEntrega === 'domicilio') {
       if (!datos.calle.trim()) lista.push('La calle es obligatoria.');
       if (!datos.numero.trim()) lista.push('El número es obligatorio.');
@@ -77,7 +87,12 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
   async function irAlPago() {
     if (!cart.length) return;
     if (!listo) {
-      setEstado('Revisa los campos marcados antes de pagar.');
+      // Se listan los campos concretos que faltan para que se sepa qué corregir.
+      setEstado(
+        errores.length
+          ? `Falta completar: ${errores.join(' ')}`
+          : 'Revisa los campos marcados antes de pagar.',
+      );
       return;
     }
     setCargando(true);
@@ -272,18 +287,19 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
                   placeholder="Nombre y apellidos"
                   autoComplete="name"
                   required
+                  aria-invalid={!datos.nombre.trim()}
                 />
               </label>
 
               <label className="cart-field">
-                <span>Teléfono *</span>
+                <span>Teléfono <em>(opcional)</em></span>
                 <input
                   type="tel"
                   value={datos.telefono}
                   onChange={(e) => actualizar('telefono', e.target.value)}
                   placeholder="600 00 00 00"
                   autoComplete="tel"
-                  required
+                  aria-invalid={Boolean(datos.telefono.trim()) && !TELEFONO_VALIDO.test(datos.telefono.trim())}
                 />
               </label>
 
@@ -296,6 +312,7 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
                   placeholder="tu@correo.com"
                   autoComplete="email"
                   required
+                  aria-invalid={Boolean(datos.email.trim()) && !EMAIL_VALIDO.test(datos.email.trim())}
                 />
               </label>
 

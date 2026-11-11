@@ -178,11 +178,15 @@ export default async function handler(req: any): Promise<any> {
   if (!email) {
     return responder({ error: 'Falta el correo electrónico del cliente' }, 400);
   }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
+    return responder({ error: 'El correo electrónico no es válido' }, 400);
+  }
   if (!nombre) {
     return responder({ error: 'Falta el nombre del cliente' }, 400);
   }
-  if (!telefono) {
-    return responder({ error: 'Falta el teléfono del cliente' }, 400);
+  // El teléfono es opcional: solo se rechaza si viene escrito y es inválido.
+  if (telefono && !/^[+]?[\d\s.-]{9,20}$/.test(telefono)) {
+    return responder({ error: 'El teléfono no es válido' }, 400);
   }
   if (tipoEntrega === 'domicilio' && !direccionCompleta) {
     return responder({ error: 'Falta la dirección de entrega' }, 400);
