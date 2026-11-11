@@ -211,15 +211,7 @@ function App() {
               <img src="/assets/platos-compartir.jpg" alt="Selección fotografiada de platos para compartir de la carta" width="550" height="440" loading="lazy" decoding="async" />
               <figcaption><span>Algo para compartir</span><small>Platos de la carta</small></figcaption>
             </figure>
-            <figure className="gallery-card">
-              <img src="/assets/lagrimas-pollo-crispy.jpg" alt="Lágrimas de pollo crispy" width="550" height="440" loading="lazy" decoding="async" />
-              <figcaption><span>Lágrimas de pollo</span><small>Plato combinado</small></figcaption>
-            </figure>
-            <figure className="gallery-card">
-              <img src="/assets/fingers-pollo.jpg" alt="Fingers de pollo" width="550" height="440" loading="lazy" decoding="async" />
-              <figcaption><span>Fingers de pollo</span><small>6 unidades</small></figcaption>
-            </figure>
-          </div>
+            </div>
           <p className="gallery-note">Fotografías reales del billar, el comedor y platos de la carta.</p>
           <div className="house-note"><span className="note-mark">LM</span><p>«La mejor jugada<br />es compartir la mesa.»</p><span className="note-rule" /><span className="eyebrow">Las Mesas · Gran Canaria</span></div>
         </div>
