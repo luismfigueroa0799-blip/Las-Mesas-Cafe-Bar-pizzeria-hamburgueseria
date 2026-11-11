@@ -2,6 +2,7 @@ import { createRoot } from 'react-dom/client';
 
 import App from './App';
 import { ErrorBoundary } from '@/components/error-boundary';
+import { CartProvider } from '@/CartContext';
 
 import './index.css';
 
@@ -12,6 +13,8 @@ createRoot(document.getElementById('root')!, {
   },
 }).render(
   <ErrorBoundary>
-    <App />
+    <CartProvider>
+      <App />
+    </CartProvider>
   </ErrorBoundary>,
 );
