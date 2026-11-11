@@ -58,4 +58,3 @@ const CartProvider: React.FC<PropsWithChildren<ReactNode>> = ({ children }) => {
   );
 };
 
-export { CartProvider, useCart };
