@@ -147,7 +147,9 @@ function leerCuerpoCrudo(req: Req): string {
 function configSupabase(): { url: string; key: string } | null {
   const env = entorno();
   const url = (env.SUPABASE_URL ?? '').replace(/\/+$/, '');
-  const key = env.SUPABASE_SERVICE_ROLE_KEY ?? '';
+  // La clave de servicio nueva se llama SUPABASE_SECRET_KEY; se acepta
+  // tambien el nombre antiguo por compatibilidad.
+  const key = env.SUPABASE_SECRET_KEY ?? env.SUPABASE_SERVICE_ROLE_KEY ?? '';
   if (!url || !key) return null;
   return { url, key };
 }

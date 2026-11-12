@@ -125,7 +125,9 @@ const CREAR_PEDIDO_EN_SUPABASE = false;
 function configSupabase(): { url: string; key: string } | null {
   const env = entorno();
   const url = (env.SUPABASE_URL ?? '').replace(/\/+$/, '');
-  const key = env.SUPABASE_SERVICE_ROLE_KEY ?? '';
+  // La clave de servicio nueva se llama SUPABASE_SECRET_KEY; se acepta
+  // tambien el nombre antiguo por compatibilidad.
+  const key = env.SUPABASE_SECRET_KEY ?? env.SUPABASE_SERVICE_ROLE_KEY ?? '';
   if (!url || !key) return null;
   return { url, key };
 }
@@ -394,45 +396,6 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   const pedidoId = generarUuid();
   const tipoPedido = mesa ? 'mesa' : tipoEntrega === 'domicilio' ? 'domicilio' : 'recogida';
   const telefonoCliente = telefono || 'Sin telefono';
-
-  // 1. Customer de Stripe con los datos ya rellenados.
-  // ------------------------------------------------------------------
-  let customerId = '';
-  try {
-    const customerParams = new URLSearchParamsCtor();
-    customerParams.set('email', email);
-    customerParams.set('name', nombre);
-    if (telefono) customerParams.set('phone', '+' + telefono);
-    if (tipoEntrega === 'domicilio' && direccionCompleta) {
-      customerParams.set('address[line1]', direccionCompleta);
-      if (direccion.codigoPostal) customerParams.set('address[postal_code]', direccion.codigoPostal);
-      if (direccion.ciudad) customerParams.set('address[city]', direccion.ciudad);
-      customerParams.set('address[country]', 'ES');
-    }
-
-    const respuesta = await g.fetch(`${STRIPE_API}/customers`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${secretKey}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: customerParams.toString(),
-    });
-
-    const datos: any = await respuesta.json();
-    if (respuesta.ok && datos?.id) {
-      customerId = datos.id;
-      info('[checkout] Customer creado', { id: datos.id, ms: Date.now() - inicio });
-    } else {
-      log('[checkout] No se pudo crear el customer', {
-        status: respuesta.status,
-        error: datos?.error?.message,
-      });
-    }
-  } catch (error) {
-    log('[checkout] Error creando el customer', error);
-  }
-
   // ------------------------------------------------------------------
   // 2. Crear el pedido en Supabase (tabla pedidos).
   //    El flujo de n8n lo lee para enviar el Telegram con el detalle y
@@ -468,18 +431,14 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   params.set('success_url', `${baseUrl}/?pedido=ok&session_id={CHECKOUT_SESSION_ID}`);
   params.set('cancel_url', `${baseUrl}/?pedido=cancelado#carta`);
 
-  if (customerId) {
-    // Con el customer, Stripe hereda nombre, email, teléfono y dirección.
-    // OJO: Stripe solo admite customer_update[name], customer_update[address]
-    // y customer_update[shipping]. Para el teléfono se usa phone_number_collection.
-    params.set('customer', customerId);
-    params.set('customer_update[name]', 'auto');
-    params.set('customer_update[address]', 'auto');
-    if (telefono) {
-      params.set('phone_number_collection[enabled]', 'true');
-    }
-  } else if (email) {
-    params.set('customer_email', email);
+  // El email se pasa con customer_email: asi Stripe lo guarda en la sesion
+  // (customer_details.email y customer_email), cosa que con "customer" no
+  // ocurria. El nombre no lo pre-rellena Stripe, asi que viaja en el
+  // metadata, que es de donde lo lee el flujo de n8n.
+  params.set('customer_email', email);
+  params.set('customer_creation', 'always');
+  if (telefono) {
+    params.set('phone_number_collection[enabled]', 'true');
   }
 
   // Recogida en local: no hace falta dirección de envío.
@@ -557,7 +516,6 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   info('[checkout] Parámetros enviados a Stripe', {
     modo: params.get('mode'),
     lineItems: items.length,
-    customer: customerId || '(sin customer)',
     tipoEntrega,
     shippingAddress: tipoEntrega === 'domicilio',
     totalCentimos: items.reduce((sum, i) => sum + aCentavos(i.price) * i.quantity, 0),
@@ -596,14 +554,12 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     info('[checkout] Sesión creada correctamente', {
       sessionId: datos.id,
       url: datos.url,
-      cliente: customerId,
       ms: Date.now() - inicio,
     });
 
     responder(res, {
       sessionId: datos.id,
       url: datos.url,
-      cliente: customerId,
       // Resumen de lo que se ha cobrado: util para comprobar en el navegador.
       total: (totalCentimos / 100).toFixed(2),
       totalCentimos,

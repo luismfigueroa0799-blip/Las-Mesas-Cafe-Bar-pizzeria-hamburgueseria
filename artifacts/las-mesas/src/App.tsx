@@ -4,7 +4,7 @@ import './index.css';
 import { useCart } from '@/CartContext';
 import CartSidebar from '@/CartSidebar';
 import ProductCard from '@/ProductCard';
-import { CATEGORIES, categoriasDe, getProducts, type Category, type Product } from '@/products';
+import { CATEGORIES, categoriasDe, getProductos, type Category, type Product } from '@/products';
 
 const address = 'Pintor Antonio Padrón, 59, Las Mesas Bajas, Las Palmas de Gran Canaria';
 const mapsUrl = 'https://www.google.com/maps/place/C.+Pintor+Antonio+Padr%C3%B3n,+59,+35018+Las+Mesas,+Las+Palmas/@28.0991469,-15.4976894,17z/data=!3m1!4b1!4m6!3m5!1s0xc4094784d2465e5:0x2e61ab7822fd4801!8m2!3d28.0991469!4d-15.4976894!16s%2Fg%2F11bw44jbyw?entry=ttu&g_ep=EgoyMDI2MTEwNC4wIKXMDSoASAFQAw%3D%3D';
@@ -51,8 +51,8 @@ type AvisoPedido =
 
 function App() {
   const [activeSlug, setActiveSlug] = useState(CATEGORIES[0].slug);
-  const [productos] = useState<Product[]>(() => getProducts());
-  const [categorias, setCategorias] = useState<Category[]>(() => categoriasDe(getProducts()));
+  const [productos] = useState<Product[]>([]);
+  const [categorias, setCategorias] = useState<Category[]>(CATEGORIES);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [reservationStatus, setReservationStatus] = useState('');
   const [eventStatus, setEventStatus] = useState('');
