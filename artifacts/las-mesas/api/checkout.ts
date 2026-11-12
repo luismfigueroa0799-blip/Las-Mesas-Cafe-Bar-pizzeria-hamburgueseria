@@ -350,6 +350,14 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     modo_recogida: mesa ? 'mesa' : 'recogida',
   };
 
+  info('[checkout] DATOS RECIBIDOS', {
+    items: body.items,
+    cliente: { nombre, email, telefono },
+    tipoEntrega,
+    direccion,
+    mesa,
+  });
+
   info('[checkout] Enviando pedido a n8n', {
     webhook,
     items: items.length,
@@ -377,10 +385,22 @@ export default async function handler(req: Req, res: Res): Promise<void> {
         datos?.motivo ||
         datos?.message ||
         `El servidor de pedidos respondió con el código ${respuesta.status}.`;
-      log('[checkout] n8n rechazo el pedido:', datos);
+      log('[checkout] N8N RECHAZO EL PEDIDO', {
+        estado: respuesta.status,
+        cuerpo: texto,
+        datos,
+      });
       responder(res, { error: mensaje }, 400);
       return;
     }
+
+    info('[checkout] RESPUESTA DE N8N', {
+      ok: datos?.ok,
+      pedido_id: datos?.pedido_id,
+      total: datos?.total,
+      total_cents: datos?.total_cents,
+      checkout_url: datos?.checkout_url,
+    });
 
     const urlSesion: string = datos.checkout_url ?? datos.url ?? '';
     if (!urlSesion) {

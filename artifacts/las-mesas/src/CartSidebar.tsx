@@ -171,9 +171,13 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
           }
 
           if (!respuesta.ok) {
-            fallos.push(
-              `${ruta.etiqueta}: ${datosRespuesta?.error?.message || datosRespuesta?.error || `HTTP ${respuesta.status}`}`,
-            );
+            const mensaje =
+              datosRespuesta?.error?.message ||
+              datosRespuesta?.error ||
+              datosRespuesta?.detalle ||
+              datosRespuesta?.message ||
+              `HTTP ${respuesta.status}`;
+            fallos.push(`${ruta.etiqueta}: ${mensaje}`);
             continue;
           }
 
@@ -194,14 +198,22 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
         }
       }
 
+      // Se muestra el error real que devuelve el servidor, no un mensaje
+      // generico: asi se puede saber que ha fallado exactamente.
       setEstado(
-        'No se pudo iniciar el pago. Revisa tus datos e inténtalo de nuevo.',
+        fallos.length
+          ? fallos.join(' | ')
+          : 'No se pudo iniciar el pago. Revisa tus datos e intentalo de nuevo.',
       );
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') {
         setEstado('El servidor no ha respondido. Revisa tu conexion e intentalo de nuevo.');
       } else {
-        setEstado('No se pudo iniciar el pago, revisa tus datos.');
+        setEstado(
+          fallos.length
+            ? fallos.join(' | ')
+            : 'No se pudo iniciar el pago, revisa tus datos.',
+        );
       }
     } finally {
       setCargando(false);

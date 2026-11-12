@@ -311,7 +311,7 @@ h2 { font-family: var(--app-font-serif); font-size: clamp(2.6rem, 5vw, 4.35rem);
 .cart-email input { min-height: 48px; padding: 0 14px; border: 1px solid var(--oro); border-radius: 0; background: #1b1b1b; color: #fff; font-size: .88rem; letter-spacing: 0; text-transform: none; transition: border-color .2s ease, box-shadow .2s ease; }
 .cart-email input::placeholder { color: #6f6f79; }
 .cart-email input:focus { border-color: var(--oro-claro); box-shadow: 0 0 0 3px rgba(212,175,55,.22); outline: none; }
-.cart-status { margin: 0 24px 12px; padding: 12px 14px; background: rgba(212,175,55,.10); border-left: 3px solid var(--oro); color: #e8e0c4; font-size: .78rem; line-height: 1.6; }
+.cart-status { margin: 0 24px 12px; padding: 12px 14px; background: rgba(212,175,55,.10); border-left: 3px solid var(--oro); color: #e8e0c4; font-size: .78rem; line-height: 1.6; word-break: break-word; overflow-wrap: anywhere; max-height: 30vh; overflow-y: auto; }
 .cart-checkout { margin: 0 24px; min-height: 54px; border: 0; border-radius: 0; background: var(--oro); color: #000; font-size: .78rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; cursor: pointer; transition: background .2s ease, box-shadow .2s ease, transform .2s ease; }
 .cart-checkout:hover { background: var(--oro-claro); box-shadow: 0 0 24px rgba(212,175,55,.42); transform: translateY(-2px); }
 .cart-checkout[disabled] { opacity: .55; cursor: default; transform: none; box-shadow: none; }
