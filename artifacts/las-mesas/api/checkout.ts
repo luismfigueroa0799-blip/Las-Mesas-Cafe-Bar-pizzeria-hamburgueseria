@@ -108,6 +108,19 @@ function normalizarTelefono(valor: string | undefined): string {
 }
 
 /** Envía la respuesta y cierra la petición. */
+/**
+ * Genera un codigo de pedido tipo "PED-13J9" (4 caracteres alfanumericos).
+ * El flujo de n8n lo usa como "Codigo" en el mensaje de Telegram.
+ */
+function generarCodigoPedido(): string {
+  const alfabeto = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let codigo = '';
+  for (let i = 0; i < 4; i += 1) {
+    codigo += alfabeto[Math.floor(Math.random() * alfabeto.length)];
+  }
+  return `PED-${codigo}`;
+}
+
 function responder(res: Res, cuerpo: unknown, estado = 200): void {
   // res.json() es el metodo nativo de Vercel: pone el Content-Type, envia el
   // cuerpo y cierra la peticion. Con res.end() el cuerpo llegaba vacio.
@@ -335,12 +348,34 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   }
 
   // Metadata: viaja al webhook para llegar a n8n.
+  // ── Metadata para el flujo de n8n ──────────────────────────────────────
+  // El flujo de la app de hamburgueseria lee estos nombres concretos del
+  // metadata de la sesion de Stripe. Se ponen TODOS los alias posibles para
+  // que funcione aunque el flujo use uno u otro.
+  const codigoPedido = generarCodigoPedido();
+  const tipoPedido = mesa ? 'mesa' : tipoEntrega === 'domicilio' ? 'domicilio' : 'recogida';
+  const telefonoCliente = telefono || 'Sin teléfono';
+
+  params.set('metadata[pedido_id]', codigoPedido);
+  params.set('metadata[pedido_codigo]', codigoPedido);
+  params.set('metadata[codigo]', codigoPedido);
+  params.set('metadata[tipo]', tipoPedido);
+  params.set('metadata[mesa_id]', mesa);
+  params.set('metadata[mesa]', mesa);
+
+  params.set('metadata[cliente_nombre]', nombre);
+  params.set('metadata[nombre]', nombre);
+  params.set('metadata[cliente_telefono]', telefonoCliente);
+  params.set('metadata[telefono]', telefonoCliente);
+  params.set('metadata[cliente_direccion]', direccionCompleta);
+  params.set('metadata[direccion]', direccionCompleta);
+  params.set('metadata[cliente_correo]', email);
+  params.set('metadata[correo]', email);
+  params.set('metadata[email]', email);
+
   params.set('metadata[total]', (totalCentimos / 100).toFixed(2));
   params.set('metadata[totalCentimos]', String(totalCentimos));
   params.set('metadata[numArticulos]', String(items.reduce((s, i) => s + i.quantity, 0)));
-  params.set('metadata[nombre]', nombre);
-  params.set('metadata[telefono]', telefono);
-  params.set('metadata[cliente_telefono]', telefono);
   params.set('metadata[correo]', email);
   params.set('metadata[tipoEntrega]', tipoEntrega);
   params.set('metadata[recogida]', tipoEntrega === 'recogida' ? 'true' : 'false');
@@ -354,12 +389,21 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   params.set('metadata[modoRecogida]', mesa ? 'mesa' : tipoEntrega);
   if (mesa) params.set('metadata[mesa]', mesa);
   if (body.urlOrigen) params.set('metadata[urlOrigen]', body.urlOrigen);
-  params.set(
-    'metadata[items]',
-    JSON.stringify(
-      items.map((i) => ({ id: i.id, name: i.name, qty: i.quantity, price: i.price })),
-    ),
-  );
+  // Lineas de pedido con todos los alias: {id, nombre, name, cantidad, qty, precio, price}
+  const lineas = items.map((i) => ({
+    id: i.id,
+    nombre: i.name,
+    name: i.name,
+    cantidad: i.quantity,
+    qty: i.quantity,
+    precio: i.price,
+    price: i.price,
+    unit_cents: aCentavos(i.price),
+    subtotal_cents: aCentavos(i.price) * i.quantity,
+  }));
+  params.set('metadata[items]', JSON.stringify(lineas));
+  params.set('metadata[articulos]', JSON.stringify(lineas));
+  params.set('metadata[detalle]', JSON.stringify(lineas));
 
   items.forEach((item, index) => {
     params.set(`line_items[${index}][quantity]`, String(item.quantity));
@@ -416,6 +460,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
       // Resumen de lo que se ha cobrado: util para comprobar en el navegador.
       total: (totalCentimos / 100).toFixed(2),
       totalCentimos,
+      pedido_id: codigoPedido,
       articulos: items.map((i) => ({
         id: i.id,
         name: i.name,

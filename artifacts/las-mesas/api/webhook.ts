@@ -238,10 +238,42 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     metadata.cliente_telefono ?? metadata.telefono ?? detalles.phone ?? '',
   );
 
+  // Lineas con todos los alias: {id, nombre, name, cantidad, qty, precio, price}
+  const lineas = (articulos as any[]).map((a) => ({
+    id: a.id,
+    nombre: a.nombre ?? a.name ?? '',
+    name: a.name ?? a.nombre ?? '',
+    cantidad: a.cantidad ?? a.qty ?? 1,
+    qty: a.qty ?? a.cantidad ?? 1,
+    precio: a.precio ?? a.price ?? '',
+    price: a.price ?? a.precio ?? '',
+  }));
+
+  const codigoPedido = String(metadata.pedido_id ?? metadata.pedido_codigo ?? metadata.codigo ?? '');
+  const nombreCliente = String(metadata.cliente_nombre ?? metadata.nombre ?? detalles.name ?? '');
+  const telefonoCliente = telefono || 'Sin telefono';
+  const direccionCliente = direccionCompleta || 'Sin direccion';
+
   const pedido = {
     // Identificación
     evento: tipo || 'checkout.session.completed',
     idPedido: objeto.id ?? '',
+
+    // Alias con los nombres que usa el flujo de n8n
+    codigo: codigoPedido,
+    pedido_id: codigoPedido,
+    pedido_codigo: codigoPedido,
+    cliente_nombre: nombreCliente,
+    cliente_telefono: telefonoCliente,
+    cliente_direccion: direccionCliente,
+    cliente_correo: String(metadata.correo ?? metadata.cliente_correo ?? detalles.email ?? ''),
+    tipo: String(metadata.tipo ?? tipoEntrega),
+    mesa_id: String(metadata.mesa_id ?? metadata.mesa ?? ''),
+    detalle: lineas,
+    items: lineas,
+    articulos: lineas,
+    total_centimos: objeto.amount_total ?? Number(metadata.totalCentimos ?? 0),
+    total_cents: objeto.amount_total ?? Number(metadata.totalCentimos ?? 0),
     idPago: objeto.payment_intent ?? '',
     fecha: objeto.created
       ? new Date(objeto.created * 1000).toISOString()
@@ -252,8 +284,6 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     correo: metadata.correo ?? detalles.email ?? objeto.customer_email ?? '',
     nombre: metadata.nombre ?? detalles.name ?? '',
     telefono,
-    cliente_telefono: telefono,
-
     // Entrega
     tipoEntrega,
     recogida: tipoEntrega === 'recogida',
@@ -279,8 +309,6 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     metodoPago: objeto.payment_method_types?.[0] ?? '',
 
     // Artículos
-    articulos,
-
     // Contexto
     urlOrigen: metadata.urlOrigen ?? '',
     restaurante: 'Las Mesas · Café & Bar',
