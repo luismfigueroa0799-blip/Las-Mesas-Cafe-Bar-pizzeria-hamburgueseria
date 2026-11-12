@@ -1,1 +1,0 @@
-export { construirPedido } from '../artifacts/las-mesas/api/_shared/pedido';

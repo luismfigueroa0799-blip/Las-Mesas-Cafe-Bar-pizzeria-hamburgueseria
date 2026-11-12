@@ -14,8 +14,6 @@ type Global = Record<string, any>;
 
 const g = globalThis as unknown as Global;
 
-import { construirPedido } from './_shared/pedido';
-
 interface Req {
   method?: string;
   headers?: { get?: (nombre: string) => string | null };
@@ -29,7 +27,109 @@ interface Res {
   end(cuerpo?: unknown): void;
 }
 
-/** Evento de Stripe de ejemplo (como lo manda checkout.session.completed). */
+/** Telefono en formato canonico: solo digitos con prefijo 34. */
+function normalizarTelefono(valor: string | undefined): string {
+  const digitos = String(valor ?? '').replace(/\D/g, '');
+  if (!digitos) return '';
+  if (digitos.length === 9) return `34${digitos}`;
+  if (digitos.length === 10 && digitos.startsWith('6')) return `34${digitos}`;
+  if (digitos.length === 11 && digitos.startsWith('34')) return digitos;
+  return digitos;
+}
+
+/**
+ * Convierte el evento de Stripe en el pedido normalizado que recibe n8n.
+ * (Misma funcion que usa /api/webhook.)
+ */
+function construirPedido(evento: any): Record<string, unknown> {
+  const datos = (evento?.data ?? {}) as Record<string, any>;
+  const objeto = (datos.object ?? evento?.object ?? {}) as Record<string, any>;
+  const detalles = (objeto.customer_details ?? {}) as Record<string, any>;
+  const metadata = (objeto.metadata ?? {}) as Record<string, any>;
+
+  const envio = (objeto.shipping ?? null) as Record<string, any> | null;
+  const direccionStripe = envio?.address
+    ? {
+        calle: [envio.address.line1, envio.address.line2].filter(Boolean).join(', '),
+        codigoPostal: envio.address.postal_code ?? '',
+        ciudad: envio.address.city ?? '',
+        pais: envio.address.country ?? '',
+      }
+    : null;
+
+  const direccion = {
+    calle: metadata.calle ?? direccionStripe?.calle ?? '',
+    numero: metadata.numero ?? '',
+    piso: metadata.piso ?? '',
+    codigoPostal: metadata.codigoPostal ?? direccionStripe?.codigoPostal ?? '',
+    ciudad: metadata.ciudad ?? direccionStripe?.ciudad ?? '',
+    pais: direccionStripe?.pais ?? 'ES',
+  };
+  const direccionCompleta =
+    metadata.direccion ||
+    [
+      direccion.calle,
+      direccion.numero,
+      direccion.piso,
+      direccion.codigoPostal,
+      direccion.ciudad,
+    ]
+      .filter(Boolean)
+      .join(', ');
+
+  let articulos: any[] = [];
+  try {
+    articulos = metadata.items ? JSON.parse(metadata.items) : [];
+  } catch {
+    articulos = [];
+  }
+
+  const tipoEntrega = metadata.tipoEntrega ?? (envio ? 'domicilio' : 'recogida');
+  const telefono = normalizarTelefono(
+    metadata.cliente_telefono ?? metadata.telefono ?? detalles.phone ?? '',
+  );
+
+  return {
+    evento: String(evento?.type ?? 'checkout.session.completed'),
+    idPedido: objeto.id ?? '',
+    idPago: objeto.payment_intent ?? '',
+    fecha: objeto.created
+      ? new Date(objeto.created * 1000).toISOString()
+      : new Date().toISOString(),
+    modoPrueba: evento?.livemode !== true,
+
+    correo: metadata.correo ?? detalles.email ?? objeto.customer_email ?? '',
+    nombre: metadata.nombre ?? detalles.name ?? '',
+    telefono,
+    cliente_telefono: telefono,
+
+    tipoEntrega,
+    recogida: tipoEntrega === 'recogida',
+    domicilio: tipoEntrega === 'domicilio',
+    direccion: direccionCompleta,
+    direccionDetalle: direccion,
+    modoRecogida:
+      metadata.modoRecogida ?? (tipoEntrega === 'recogida' ? 'recogida' : 'domicilio'),
+    mesa: metadata.mesa ?? '',
+
+    total: objeto.amount_total ? (objeto.amount_total / 100).toFixed(2) : '',
+    subtotal: objeto.amount_subtotal ? (objeto.amount_subtotal / 100).toFixed(2) : '',
+    impuestos: objeto.total_tax_amounts?.length
+      ? (objeto.total_tax_amounts[0].amount / 100).toFixed(2)
+      : '0.00',
+    moneda: objeto.currency ?? 'eur',
+    metodoPago: objeto.payment_method_types?.[0] ?? '',
+
+    articulos,
+
+    urlOrigen: metadata.urlOrigen ?? '',
+    restaurante: 'Las Mesas · Café & Bar',
+    telefonoRestaurante: '+34 928 896 097',
+    whatsappRestaurante: '346010000000',
+  };
+}
+
+/** Evento de Stripe de ejemplo. */
 function eventoDeEjemplo(): Record<string, unknown> {
   return {
     id: 'evt_1ABCdef',
@@ -67,7 +167,7 @@ function eventoDeEjemplo(): Record<string, unknown> {
           ciudad: 'Las Palmas de Gran Canaria',
           modoRecogida: 'domicilio',
           mesa: '',
-          urlOrigen: 'https://las-mesas-cafe-bar-pizzeria-hamburgueseria-7l1h-git-main-luism4.vercel.app/#carta',
+          urlOrigen: 'https://lasmesasbarcafet.com/#carta',
           items: JSON.stringify([
             { id: '3', name: 'Burger Pizza', qty: 1, price: '12,00 €' },
             { id: '62', name: 'Tropical', qty: 2, price: '1,40 €' },
@@ -107,15 +207,13 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   if (!evento) evento = eventoDeEjemplo();
 
   const pedido = construirPedido(evento);
+  const articulos = (pedido.articulos ?? []) as any[];
 
   res.status(200);
   res.json({
-    // El payload EXACTO que se envia a n8n:
     pedido,
-    // Lista plana de claves para mapear en n8n:
     claves: Object.keys(pedido),
-    clavesArticulo: Object.keys((pedido.articulos as any[])?.[0] ?? {}),
-    // Recordatorio del formato de los articulos:
-    ejemploArticulo: (pedido.articulos as any[])?.[0] ?? null,
+    clavesArticulo: Object.keys(articulos[0] ?? {}),
+    ejemploArticulo: articulos[0] ?? null,
   });
 }
