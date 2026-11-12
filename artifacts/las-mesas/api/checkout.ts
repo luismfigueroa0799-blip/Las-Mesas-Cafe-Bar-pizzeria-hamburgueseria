@@ -58,7 +58,6 @@ const STRIPE_API = 'https://api.stripe.com/v1';
 // llamadas a Stripe (crear customer + crear sesión).
 export const maxDuration = 30;
 
-import { crearPedido, guardarSessionId, generarUuid, supabaseDisponible } from '../src/supabase';
 
 function entorno(): Record<string, string | undefined> {
   return (g.process?.env ?? {}) as Record<string, string | undefined>;
@@ -112,6 +111,96 @@ function normalizarTelefono(valor: string | undefined): string {
 /** Envía la respuesta y cierra la petición. */
 /**
  * Genera un codigo de pedido tipo "PED-13J9" (4 caracteres alfanumericos).
+/** Configuracion de Supabase (solo si hay clave de servicio). */
+function configSupabase(): { url: string; key: string } | null {
+  const env = entorno();
+  const url = (env.SUPABASE_URL ?? '').replace(/\/+$/, '');
+  const key = env.SUPABASE_SERVICE_ROLE_KEY ?? '';
+  if (!url || !key) return null;
+  return { url, key };
+}
+
+/** ¿Se puede escribir en Supabase? */
+function supabaseDisponible(): boolean {
+  return configSupabase() !== null;
+}
+
+/** Genera un UUID v4 (el id de la tabla pedidos es de tipo uuid). */
+function generarUuid(): string {
+  const c = g.crypto;
+  if (c?.randomUUID) return c.randomUUID();
+  const bytes = new Uint8Array(16);
+  if (c?.getRandomValues) c.getRandomValues(bytes);
+  else for (let i = 0; i < 16; i += 1) bytes[i] = Math.floor(Math.random() * 256);
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+  return ` ${hex.slice(0, 8)}---- `;
+}
+
+/** Peticion a la API REST de Supabase. */
+async function peticionSupabase(
+  ruta: string,
+  metodo: string,
+  cuerpo?: unknown,
+): Promise<{ ok: boolean; status: number; datos: any }> {
+  const cfg = configSupabase();
+  if (!cfg) return { ok: false, status: 0, datos: null };
+  try {
+    const respuesta = await g.fetch(` ${cfg.url}/rest/v1/${ruta} `, {
+      method: metodo,
+      headers: {
+        apikey: cfg.key,
+        Authorization: 'Bearer ' + cfg.key,
+        'Content-Type': 'application/json',
+        Prefer: 'return=representation',
+      },
+      body: cuerpo === undefined ? undefined : JSON.stringify(cuerpo),
+    });
+    const texto = await respuesta.text();
+    let datos: any = null;
+    try {
+      datos = texto ? JSON.parse(texto) : null;
+    } catch {
+      datos = texto;
+    }
+    return { ok: respuesta.ok, status: respuesta.status, datos };
+  } catch (error) {
+    log('[supabase] error:', error);
+    return { ok: false, status: 0, datos: null };
+  }
+}
+
+/** Inserta el pedido en la tabla pedidos de Supabase. */
+async function crearPedido(pedido: {
+  id: string;
+  mesa_id: number | null;
+  tipo: 'mesa' | 'domicilio';
+  items: Array<{ id: string; nombre: string; unit: number; qty: number; subtotal: number }>;
+  total: number;
+  estado: string;
+  cliente_nombre: string | null;
+  cliente_telefono: string | null;
+  direccion: string | null;
+}): Promise<string | null> {
+  if (!supabaseDisponible()) return null;
+  const resultado = await peticionSupabase('pedidos', 'POST', pedido);
+  if (!resultado.ok) {
+    log('[supabase] no se pudo crear el pedido:', resultado.datos);
+    return null;
+  }
+  return pedido.id;
+}
+
+/** Enlaza la sesion de Stripe con el pedido. */
+async function guardarSessionId(pedidoId: string, sessionId: string): Promise<void> {
+  if (!supabaseDisponible()) return;
+  await peticionSupabase('pedidos?id=eq.' + pedidoId, 'PATCH', {
+    stripe_session_id: sessionId,
+  });
+}
+
+/**
  * El flujo de n8n lo usa como "Codigo" en el mensaje de Telegram.
  */
 function generarCodigoPedido(): string {
@@ -283,7 +372,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
 
   const headers = req?.headers;
   const host = headers?.get?.('host') ?? 'lasmesasbarcafet.com';
-  const baseUrl = entorno().NEXT_PUBLIC_URL || `https://${host}`;
+  const baseUrl = entorno().NEXT_PUBLIC_URL || ('https://' + host);
 
   const URLSearchParamsCtor = g.URLSearchParams;
 
