@@ -253,6 +253,287 @@ async function resolverIds(
   }
 }
 
+/**
+ * Extrae el id de sesion de la url de checkout de Stripe.
+ * Ejemplo: https://checkout.stripe.com/c/pay/cs_test_abc123 -> cs_test_abc123
+ */
+function idSesionDeUrl(url: string): string {
+  const coincidencia = /(cs_[a-zA-Z0-9_]+)/.exec(String(url ?? ''));
+  return coincidencia ? coincidencia[1] : '';
+}
+
+/**
+ * Consulta la sesion en Stripe para quedarse con su payment_intent.
+ *
+ * Es importante: el trigger "Pago completado en Stripe" de n8n localiza el
+ * pedido en la tabla `pedidos` por `payment_intent` (columna
+ * stripe_payment_intent). Si no lo rellenamos, el flujo no encuentra el pedido
+ * y notifica con los datos vacios.
+ */
+async function obtenerPaymentIntent(sessionId: string): Promise<string> {
+  const secretKey = entorno().STRIPE_SECRET_KEY;
+  if (!secretKey || !sessionId) return '';
+  try {
+    const r = await g.fetch(
+      'https://api.stripe.com/v1/checkout/sessions/' + encodeURIComponent(sessionId),
+      { headers: { Authorization: 'Bearer ' + secretKey } },
+    );
+    if (!r.ok) return '';
+    const datos: any = await r.json();
+    return String(datos?.payment_intent ?? '');
+  } catch (error) {
+    log('[checkout] no se pudo consultar la sesion de Stripe:', error);
+    return '';
+  }
+}
+
+/**
+ * Genera el codigo de pedido ("PED-4K7X") que se envia a n8n.
+ */
+function generarCodigoPedido(): string {
+  const alfabeto = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let codigo = '';
+  for (let i = 0; i < 4; i += 1) {
+    codigo += alfabeto[Math.floor(Math.random() * alfabeto.length)];
+  }
+  return 'PED-' + codigo;
+}
+
+/**
+ * Devuelve el nombre y el precio (en euros) de los productos indicados.
+ *
+ * Los precios se sacan de la tabla `productos` (la misma que usa n8n) para
+ * que el detalle del pedido que se envia a n8n lleve los importes reales y no
+ * los que digita el navegador.
+ */
+async function catalogoProductos(
+  ids: number[],
+): Promise<Map<number, { nombre: string; precio: number }>> {
+  const mapa = new Map<number, { nombre: string; precio: number }>();
+  const cfg = configSupabase();
+  if (!cfg || !ids.length) return mapa;
+  try {
+    const r = await g.fetch(
+      cfg.url + '/rest/v1/productos?select=id,nombre,precio&id=in.(' + ids.join(',') + ')',
+      {
+        headers: { apikey: cfg.key, Authorization: 'Bearer ' + cfg.key },
+        signal: AbortSignal.timeout(15000),
+      },
+    );
+    if (!r.ok) return mapa;
+    const filas: any[] = await r.json();
+    for (const fila of filas) {
+      mapa.set(Number(fila.id), {
+        nombre: String(fila.nombre ?? ''),
+        precio: Number(fila.precio ?? 0),
+      });
+    }
+  } catch (error) {
+    log('[checkout] no se pudo leer el catalogo de productos:', error);
+  }
+  return mapa;
+}
+
+/**
+ * Convierte las lineas del pedido en el texto JSON que se guarda en el
+ * metadata de Stripe. Stripe admite 500 caracteres por valor, asi que si el
+ * detalle no cabe se van quitando articulos del final.
+ */
+function itemsParaMetadata(
+  lineas: Array<{ nombre: string; cantidad: number; precio: number }>,
+): string {
+  const simples = lineas.map((l) => ({
+    nombre: l.nombre,
+    cantidad: l.cantidad,
+    precio: l.precio,
+  }));
+  let json = JSON.stringify(simples);
+  if (json.length <= 500) return json;
+  for (let n = simples.length - 1; n >= 1; n -= 1) {
+    json = JSON.stringify(simples.slice(0, n));
+    if (json.length <= 500) return json;
+  }
+  return JSON.stringify([simples[0] ?? { nombre: '', cantidad: 1, precio: 0 }]).slice(0, 500);
+}
+
+/**
+ * Añade los parametros de un objeto al cuerpo de la peticion a Stripe, que
+ * los espera en formato formulario (`a[b][c]=valor`).
+ */
+function anadirParametros(destino: string[], prefijo: string, valor: unknown): void {
+  if (Array.isArray(valor)) {
+    valor.forEach((v, i) => anadirParametros(destino, prefijo + '[' + i + ']', v));
+    return;
+  }
+  if (valor && typeof valor === 'object') {
+    for (const [clave, v] of Object.entries(valor as Record<string, unknown>)) {
+      anadirParametros(destino, prefijo + '[' + clave + ']', v);
+    }
+    return;
+  }
+  if (valor === undefined || valor === null) return;
+  destino.push(prefijo + '=' + encodeURIComponent(String(valor)));
+}
+
+/**
+ * Crea una sesion de pago de Stripe con las urls de retorno de nuestra web.
+ *
+ * El flujo de n8n deja las suyas fijas (example.com) y Stripe no deja
+ * cambiarlas despues de crear la sesion, asi que se crea una sesion propia
+ * con los mismos articulos, las urls correctas y el pedido plano en el
+ * metadata (asi lo leen tanto el trigger de Stripe de n8n como nuestra
+ * pagina de confirmacion).
+ *
+ * Si algo falla se devuelve null y se sigue usando la sesion de n8n, que
+ * siempre funciona.
+ */
+async function crearSesionStripePropia(
+  lineas: Array<{ nombre: string; cantidad: number; precio: number }>,
+  metadata: Record<string, string>,
+  urlExito: string,
+  urlCancelacion: string,
+): Promise<{ id: string; url: string } | null> {
+  const secretKey = entorno().STRIPE_SECRET_KEY;
+  if (!secretKey || !lineas.length) return null;
+
+  try {
+    const partes: string[] = [];
+    anadirParametros(partes, 'mode', 'payment');
+    anadirParametros(
+      partes,
+      'line_items',
+      lineas.map((l) => ({
+        quantity: l.cantidad,
+        price_data: {
+          currency: 'eur',
+          unit_amount: Math.round(l.precio * 100),
+          product_data: { name: l.nombre || 'Articulo' },
+        },
+      })),
+    );
+    anadirParametros(partes, 'success_url', urlExito);
+    anadirParametros(partes, 'cancel_url', urlCancelacion);
+    anadirParametros(partes, 'metadata', metadata);
+    // El payment_intent lleva los mismos datos: algunos flujos de n8n los
+    // leen de ahi en vez de desde la sesion.
+    anadirParametros(partes, 'payment_intent_data', { metadata });
+    if (metadata.pedido_id) anadirParametros(partes, 'client_reference_id', metadata.pedido_id);
+
+    const r = await g.fetch('https://api.stripe.com/v1/checkout/sessions', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + secretKey,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: partes.join('&'),
+    });
+
+    const texto = await r.text();
+    if (!r.ok) {
+      log('[checkout] Stripe no acepto la sesion propia:', r.status, texto.slice(0, 300));
+      return null;
+    }
+    const datos: any = JSON.parse(texto);
+    const url = String(datos?.url ?? '');
+    if (!url) return null;
+    return { id: String(datos?.id ?? ''), url };
+  } catch (error) {
+    log('[checkout] no se pudo crear la sesion propia de Stripe:', error);
+    return null;
+  }
+}
+
+/**
+ * Rellena el metadata de la sesion de Stripe con los datos del pedido y
+ * corrige las urls de retorno.
+ *
+ * El flujo de n8n que avisa del pago (trigger de Stripe) lee los datos del
+ * evento: si el metadata no los lleva, el mensaje sale con "Cliente",
+ * "Sin telefono" y "0 EUR". Se lee primero la sesion para no perder el
+ * metadata que puso el flujo de n8n al crearla.
+ *
+ * Ademas se cambian las urls de exito y de cancelacion: el flujo de n8n deja
+ * las de ejemplo (example.com), y el cliente tiene que volver a la web para
+ * ver la confirmacion y que se vacie el carrito.
+ *
+ * OJO: Stripe NO deja cambiar `success_url` ni `cancel_url` una vez creada la
+ * sesion (responde "Received unknown parameters"), asi que las urls se le
+ * piden al flujo de n8n al crear el pedido.
+ */
+async function actualizarMetadataStripe(
+  sessionId: string,
+  campos: Record<string, string>,
+): Promise<boolean> {
+  const secretKey = entorno().STRIPE_SECRET_KEY;
+  if (!secretKey || !sessionId) return false;
+  try {
+    const lectura = await g.fetch(
+      'https://api.stripe.com/v1/checkout/sessions/' + encodeURIComponent(sessionId),
+      { headers: { Authorization: 'Bearer ' + secretKey } },
+    );
+    let previo: Record<string, string> = {};
+    if (lectura.ok) {
+      const datos: any = await lectura.json();
+      previo = (datos?.metadata ?? {}) as Record<string, string>;
+    }
+
+    const unido: Record<string, string> = { ...previo };
+    for (const [clave, valor] of Object.entries(campos)) {
+      unido[clave] = String(valor ?? '').slice(0, 500);
+    }
+
+    // Stripe espera los parametros en formato formulario: metadata[clave]=valor
+    const cuerpo = Object.keys(unido)
+      .map((clave) => 'metadata[' + clave + ']=' + encodeURIComponent(unido[clave]))
+      .join('&');
+
+    const escritura = await g.fetch(
+      'https://api.stripe.com/v1/checkout/sessions/' + encodeURIComponent(sessionId),
+      {
+        method: 'POST',
+        headers: {
+          Authorization: 'Bearer ' + secretKey,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: cuerpo,
+      },
+    );
+    if (!escritura.ok) {
+      const texto = await escritura.text();
+      log(
+        '[checkout] Stripe no acepto el metadata de la sesion:',
+        escritura.status,
+        texto.slice(0, 300),
+      );
+      return false;
+    }
+    return true;
+  } catch (error) {
+    log('[checkout] no se pudo actualizar el metadata de la sesion:', error);
+    return false;
+  }
+}
+
+/**
+ * Url base de la web (la misma que esta viendo el cliente) para construir las
+ * urls de exito y de cancelacion de Stripe.
+ */
+function urlBaseDeLaPeticion(req: Req): string {
+  const cabeceras = req?.headers;
+  const host = String(
+    cabeceras?.get?.('x-forwarded-host') ?? cabeceras?.get?.('host') ?? '',
+  ).split(',')[0].trim();
+  // Solo se usa si parece un nombre de dominio de verdad.
+  if (host && host.includes('.') && !host.includes(' ')) {
+    const proto = cabeceras?.get?.('x-forwarded-proto') ?? 'https';
+    return proto + '://' + host.replace(/:\d+$/, '');
+  }
+  const env = entorno();
+  const configurada = String(env.NEXT_PUBLIC_URL ?? env.PUBLIC_URL ?? '').trim();
+  if (esUrlValida(configurada)) return configurada.replace(/\/+$/, '');
+  return 'https://las-mesas-cafe-bar-pizzeria-hamburgueseria.vercel.app';
+}
+
 /** Lee el cuerpo de la petición. */
 function leerCuerpo(req: Req): any {
   const body = req.body;
@@ -274,6 +555,24 @@ function leerCuerpo(req: Req): any {
  * Stripe" lee de ahi, el mensaje de Telegram salia sin el nombre del cliente.
  * Con esta actualizacion la fila ya lleva el nombre antes de que el cliente pague.
  */
+/**
+ * Devuelve el nombre de la columna que Supabase dice que no existe, o una
+ * cadena vacia si el error es otro.
+ *
+ * PostgRest avisa de dos maneras distintas:
+ *   PGRST204 -> "Could not find the 'x' column of 'pedidos' in the schema cache"
+ *   42703    -> "column pedidos.x does not exist"
+ */
+function columnaInexistente(mensaje: string): string {
+  const texto = String(mensaje ?? '');
+  const pgrst = /Could not find the '([a-zA-Z_][a-zA-Z0-9_]*)' column/i.exec(texto);
+  if (pgrst?.[1]) return pgrst[1];
+  const postgres = /column (?:public\.)?(?:pedidos\.)?([a-zA-Z_][a-zA-Z0-9_]*) does not exist/i.exec(
+    texto,
+  );
+  return postgres?.[1] ?? '';
+}
+
 async function actualizarPedido(
   pedidoId: string | number,
   campos: Record<string, unknown>,
@@ -283,22 +582,48 @@ async function actualizarPedido(
   const cfg = configSupabase();
   if (!cfg || !pedidoId) return;
 
-  try {
-    const r = await g.fetch(cfg.url + '/rest/v1/pedidos?id=eq.' + pedidoId, {
-      method: 'PATCH',
-      headers: {
-        apikey: cfg.key,
-        Authorization: 'Bearer ' + cfg.key,
-        'Content-Type': 'application/json',
-        Prefer: 'return=minimal',
-      },
-      body: JSON.stringify(campos),
-    });
-    if (!r.ok) {
-      log('[checkout] Supabase no acepto la actualizacion:', r.status);
+  // La tabla `pedidos` se creo sin todas las columnas (por ejemplo
+  // `stripe_session_id` o `pagado_at`). Si se manda un campo que no existe,
+  // Supabase rechaza el PATCH entero y el pedido se queda sin actualizar
+  // (por eso el nombre del cliente se quedaba vacio). Aqui se detecta la
+  // columna que falta y se reintenta sin ella.
+  let pendientes: Record<string, unknown> = { ...campos };
+
+  for (let intento = 0; intento < 5; intento += 1) {
+    try {
+      const r = await g.fetch(cfg.url + '/rest/v1/pedidos?id=eq.' + pedidoId, {
+        method: 'PATCH',
+        headers: {
+          apikey: cfg.key,
+          Authorization: 'Bearer ' + cfg.key,
+          'Content-Type': 'application/json',
+          Prefer: 'return=minimal',
+        },
+        body: JSON.stringify(pendientes),
+      });
+
+      if (r.ok) {
+        if (intento > 0) {
+          info('[checkout] Pedido actualizado omittingiendo columnas inexistentes', {
+            pedido_id: pedidoId,
+            descartadas: Object.keys(campos).filter((clave) => !(clave in pendientes)),
+          });
+        }
+        return;
+      }
+
+      const texto = await r.text();
+      const columna = columnaInexistente(texto);
+      if (!columna || !(columna in pendientes)) {
+        log('[checkout] Supabase no acepto la actualizacion:', r.status, texto.slice(0, 300));
+        return;
+      }
+      delete pendientes[columna];
+      log('[checkout] La columna "' + columna + '" no existe en la tabla pedidos: se omite.');
+    } catch (error) {
+      log('[checkout] no se pudo actualizar el pedido:', error);
+      return;
     }
-  } catch (error) {
-    log('[checkout] no se pudo actualizar el pedido:', error);
   }
 }
 
@@ -323,6 +648,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     customerName?: string;
     telefono?: string;
     tipoEntrega?: string;
+    total?: string | number;
     direccion?: Direccion;
     mesa?: string;
     urlOrigen?: string;
@@ -399,17 +725,128 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     0,
   );
 
+  // Total que el navegador ya habia calculado antes de hacer la peticion. Si
+  // no cuadra con la carta, se avisa en el log (el que cobra siempre es el
+  // precio de la tabla `productos`).
+  if (body.total !== undefined && body.total !== '') {
+    const totalDelNavegador = aCentavos(body.total);
+    if (Math.abs(totalDelNavegador - totalDeclarado) > 1) {
+      log('[checkout] El total del navegador no cuadra con los precios de la carta', {
+        total_navegador: totalDelNavegador,
+        total_carta: totalDeclarado,
+      });
+    }
+  }
+
+  // Catalogo con los nombres y los precios reales de los articulos (los
+  // precios de la tabla `productos`, los mismos que usa n8n para el total).
+  const catalogo = await catalogoProductos(items.map((item) => item.id));
+
+  // Precio que declara el navegador: solo se usa si el producto no esta en
+  // el catalogo (si esta, manda el precio de la base de datos).
+  const precioDeclarado = new Map<string, number>();
+  for (const item of body.items ?? []) {
+    precioDeclarado.set(String(item.id ?? ''), aCentavos(item.price ?? '') / 100);
+  }
+
+  // Lineas del pedido. Se mandan con TODOS los nombres que usa el flujo:
+  //  - `id` y `qty`      -> los necesita el flujo para crear el pedido.
+  //  - `nombre`, `cantidad` y `precio` -> los necesita el flujo para pintar el
+  //    detalle del pedido en el mensaje de Telegram y en la tablet.
+  const lineas = items.map((item) => {
+    const producto = catalogo.get(item.id);
+    const precio = producto?.precio ?? precioDeclarado.get(String(item.id)) ?? 0;
+    const nombreProducto = producto?.nombre ?? '';
+    const precioRedondeado = Math.round(precio * 100) / 100;
+    return {
+      id: item.id,
+      qty: item.qty,
+      cantidad: item.qty,
+      nombre: nombreProducto,
+      name: nombreProducto,
+      precio: precioRedondeado,
+      price: precioRedondeado,
+      subtotal: Math.round(precioRedondeado * item.qty * 100) / 100,
+      precio_unitario: precioRedondeado,
+    };
+  });
+
+  // Total con los precios de la carta (es el que cobra n8n).
+  const totalEuros =
+    Math.round(lineas.reduce((suma, l) => suma + l.subtotal, 0) * 100) / 100;
+  const codigoPedido = generarCodigoPedido();
+  const direccionFinal = direccionCompleta || 'Recogida en el local';
+  const telefonoFinal = telefono || 'Sin teléfono';
+
+  // Urls de retorno: el flujo de n8n deja las suyas (example.com) y el
+  // cliente tiene que volver a la web para ver la confirmacion y que se
+  // vacie el carrito. Stripe no deja cambiarlas despues, asi que se le piden
+  // aqui al crear la sesion.
+  const base = urlBaseDeLaPeticion(req);
+  const urlExito =
+    base +
+    '/?pedido=ok&codigo=' +
+    encodeURIComponent(codigoPedido) +
+    '&session_id={CHECKOUT_SESSION_ID}';
+  const urlCancelacion = base + '/?pedido=cancelado';
+
   const payload = {
+    // ── Formato plano que lee el flujo de n8n ──
+    order_code: codigoPedido,
+    cliente_nombre: nombre,
+    direccion: direccionFinal,
+    telefono: telefonoFinal,
+    total: totalEuros,
+    items: lineas,
+
+    // ── Nombres que usa el flujo para crear el pedido ──
     nombre,
-    direccion: direccionCompleta || 'Recogida en el local',
-    cliente_telefono: telefono || 'Sin teléfono',
-    items,
-    // Campos extra por si el flujo los utilize.
-    tipo: mesa ? 'mesa' : 'domicilio',
-    mesa: mesa || null,
+    cliente_telefono: telefonoFinal,
+    cliente_direccion: direccionFinal,
+
+    // ── Nombres del contrato anterior (para que no cambien los nodos) ──
+    evento: 'pedido.creado',
+    idPedido: '',
+    idPago: '',
+    fecha: new Date().toISOString(),
+    modoPrueba: true,
+    correo: email,
+    tipoEntrega: tipoEntrega,
+    recogida: tipoEntrega !== 'domicilio',
+    domicilio: tipoEntrega === 'domicilio',
+    modoRecogida: mesa ? 'mesa' : 'recogida',
+    articulos: lineas.map((l) => ({
+      id: l.id,
+      name: l.nombre,
+      qty: l.cantidad,
+      price: l.precio.toFixed(2).replace('.', ',') + ' €',
+    })),
+    subtotal: totalEuros,
+    impuestos: 0,
+    metodoPago: 'card',
+    urlOrigen: String(body.urlOrigen ?? ''),
+    restaurante: 'Las Mesas · Café & Bar',
+    telefonoRestaurante: '+34 928 896 097',
+    whatsappRestaurante: '346010000000',
+
+    // ── Campos extra por si el flujo los utilice ──
+    codigo: codigoPedido,
+    codigo_pedido: codigoPedido,
     email,
+    cliente_email: email,
+    success_url: urlExito,
+    cancel_url: urlCancelacion,
+    url_exito: urlExito,
+    url_cancelacion: urlCancelacion,
+    tipo: mesa ? 'mesa' : 'domicilio',
+    modo_entrega: tipoEntrega,
+    mesa: mesa || null,
     mesa_id: mesa ? Number(mesa) : null,
     modo_recogida: mesa ? 'mesa' : 'recogida',
+    total_cents: Math.round(totalEuros * 100),
+    total_centimos: Math.round(totalEuros * 100),
+    total_texto: totalEuros.toFixed(2),
+    moneda: 'eur',
   };
 
   info('[checkout] DATOS RECIBIDOS', {
@@ -464,17 +901,94 @@ export default async function handler(req: Req, res: Res): Promise<void> {
       checkout_url: datos?.checkout_url,
     });
 
-    const urlSesion: string = datos.checkout_url ?? datos.url ?? '';
-    if (!urlSesion) {
+    const urlN8n: string = datos.checkout_url ?? datos.url ?? '';
+    if (!urlN8n) {
       responder(res, { error: 'El servidor de pedidos no devolvió la pasarela de pago' }, 502);
       return;
     }
 
-    // Rellenar el nombre (y el telefono normalizado) en el pedido: el
-    // flujo de n8n no copia el nombre a la columna cliente_nombre.
+    // El pedido en formato plano. Viaja en el metadata de la sesion de Stripe
+    // (lo lee el trigger "Pago completado en Stripe" de n8n) y tambien se
+    // manda al flujo de n8n con el webhook de creacion.
+    const metadataPlana: Record<string, string> = {
+      order_code: codigoPedido,
+      cliente_nombre: nombre,
+      direccion: direccionFinal,
+      telefono: telefonoFinal,
+      total: totalEuros.toFixed(2),
+      items: itemsParaMetadata(lineas),
+      nombre,
+      cliente_telefono: telefonoFinal,
+      cliente_direccion: direccionFinal,
+      total_centimos: String(Math.round(totalEuros * 100)),
+      codigo: codigoPedido,
+      email,
+      pedido_id: String(datos.pedido_id ?? ''),
+      tipo: mesa ? 'mesa' : 'domicilio',
+      modo_entrega: tipoEntrega,
+      modoRecogida: mesa ? 'mesa' : 'recogida',
+      mesa: mesa || '',
+      mesa_id: mesa ? String(mesa) : '',
+    };
+
+    // Sesion propia de Stripe con las urls de retorno correctas (el flujo de
+    // n8n deja las suyas fijas en example.com). Solo se usa si el total
+    // coincide con el de n8n; si no, se sigue con la sesion de n8n.
+    const totalN8n = Number(datos.total ?? totalEuros);
+    const cuadra = Math.abs(totalN8n - totalEuros) < 0.01;
+    let urlSesion = urlN8n;
+    let sessionId = idSesionDeUrl(urlN8n);
+    let metadataActualizada = false;
+    let sesionPropia = false;
+
+    if (cuadra) {
+      const propia = await crearSesionStripePropia(
+        lineas,
+        metadataPlana,
+        urlExito,
+        urlCancelacion,
+      );
+      if (propia) {
+        urlSesion = propia.url;
+        sessionId = propia.id;
+        metadataActualizada = true;
+        sesionPropia = true;
+      }
+    } else {
+      log('[checkout] El total de n8n no cuadra con el de la carta', {
+        total_n8n: totalN8n,
+        total_carta: totalEuros,
+      });
+    }
+
+    // Rellenar los datos del pedido: el flujo de n8n no copia el nombre a la
+    // columna cliente_nombre. Ademas se guarda el payment_intent de la sesion
+    // para que el trigger "Pago completado en Stripe" de n8n localice el
+    // pedido por ese campo.
+    const paymentIntent = await obtenerPaymentIntent(sessionId);
+
+    // Si se usa la sesion de n8n, su metadata se actualiza con los datos
+    // planos: si no los lleva, el mensaje sale con "Cliente", "Sin telefono"
+    // y "0 EUR" y el detalle va en blanco.
+    if (!sesionPropia) {
+      metadataActualizada = await actualizarMetadataStripe(sessionId, metadataPlana);
+    }
+
     await actualizarPedido(datos.pedido_id, {
       cliente_nombre: nombre,
-      cliente_telefono: telefono || 'Sin telefono',
+      cliente_telefono: telefonoFinal,
+      // OJO: en esta base de datos la columna se llama payment_intent.
+      payment_intent: paymentIntent || null,
+      // El id de la sesion de Stripe: es lo que permite al trigger "Pago
+      // completado en Stripe" de n8n localizar el pedido en la tabla.
+      stripe_session_id: sessionId || null,
+    });
+    info('[checkout] Pedido enlazado con Stripe', {
+      pedido_id: datos.pedido_id,
+      session_id: sessionId,
+      payment_intent: paymentIntent,
+      metadata_actualizada: metadataActualizada,
+      sesion_propia: sesionPropia,
     });
 
     info('[checkout] Pedido creado', {

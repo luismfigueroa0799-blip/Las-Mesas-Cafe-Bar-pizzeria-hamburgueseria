@@ -102,7 +102,20 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
     const controlador = new AbortController();
     const temporizador = window.setTimeout(() => controlador.abort(), 20000);
 
-    const total = cart.reduce(
+    // Los productos y el total se calculan ANTES de llamar a la API y se
+    // mandan ya calculados en el cuerpo de la peticion.
+    //
+    // IMPORTANTE: el carrito NO se vacia aqui. Se vacia en la pagina de
+    // confirmacion, cuando Stripe ya ha confirmado el pago. Si se vaciara
+    // antes, el pedido se enviaria sin productos y con total 0.
+    const articulos = cart.map((item) => ({
+      id: item.id,
+      name: item.name,
+      price: item.price,
+      quantity: item.quantity,
+    }));
+
+    const total = articulos.reduce(
       (suma, item) => suma + precioANumero(item.price) * item.quantity,
       0,
     );
@@ -128,16 +141,12 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
       etiqueta: '/api/checkout',
       url: '/api/checkout',
       body: {
-        items: cart.map((item) => ({
-          id: item.id,
-          name: item.name,
-          price: item.price,
-          quantity: item.quantity,
-        })),
+        items: articulos,
         customerEmail: datos.email.trim(),
         customerName: datos.nombre.trim(),
         telefono: normalizarTelefono(datos.telefono.trim()),
         tipoEntrega: datos.tipoEntrega,
+        total: total.toFixed(2),
         direccion: {
           calle: datos.calle.trim(),
           numero: datos.numero.trim(),

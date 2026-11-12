@@ -190,5 +190,126 @@ curl https://las-mesas-cafe-bar-pizzeria-hamburgueseria-7l1h-cgcz0at74.vercel.ap
    └─ El webhook reenvía el pedido a n8n
 ```
 
+## 7. Contrato plano (formato nuevo)
+
+A partir de ahora la web envía a n8n un **JSON plano** con los datos reales
+del pedido. Los nombres de las propiedades son **exactamente** estos:
+
+```json
+{
+  "order_code": "PED-4K7X",
+  "cliente_nombre": "Luis Figueras",
+  "direccion": "Calle Mayor, 24, 3 B, 35018 Las Palmas de Gran Canaria",
+  "telefono": "34600000000",
+  "total": 6.5,
+  "items": [
+    { "nombre": "La suprema", "cantidad": 1, "precio": 6.5 }
+  ]
+}
+```
+
+| Propiedad        | Tipo       | Notas                                                 |
+| ---------------- | ---------- | ----------------------------------------------------- |
+| `order_code`     | texto      | Código del pedido, formato `PED-XXXX`                 |
+| `cliente_nombre` | texto      | Nombre y apellidos del cliente                         |
+| `direccion`      | texto      | Dirección completa o `Recogida en el local`           |
+| `telefono`       | texto      | Solo dígitos con prefijo 34 (p. ej. `34600000000`)    |
+| `total`          | **número** | Total en euros (6.5, no "6,50" ni 650)                |
+| `items`          | **array**  | Líneas del pedido (ver tabla siguiente)               |
+
+Cada línea de `items`:
+
+| Propiedad  | Tipo       | Notas                    |
+| ---------- | ---------- | ------------------------ |
+| `nombre`   | texto      | Nombre del producto      |
+| `cantidad` | número     | Unidades pedidas         |
+| `precio`   | **número** | Precio unitario en euros |
+
+### Alias que se envían además
+
+Para que los nodos que ya existían sigan funcionando, el mismo JSON lleva
+también los nombres antiguos (apartado 3) y algunos nuevos:
+
+| Alias                        | Valor                        |
+| ---------------------------- | ---------------------------- |
+| `nombre`                     | = `cliente_nombre`           |
+| `cliente_telefono`           | = `telefono`                 |
+| `cliente_direccion`          | = `direccion`                |
+| `codigo`, `codigo_pedido`    | = `order_code`               |
+| `email`, `correo`           | Correo del cliente           |
+| `total_cents`, `total_centimos` | Total en céntimos        |
+| `tipo`                       | `domicilio` o `mesa`        |
+| `modo_entrega`, `tipoEntrega` | `recogida` o `domicilio`   |
+| `modo_recogida`, `modoRecogida` | `recogida`, `mesa`…     |
+| `mesa`, `mesa_id`          | Número de mesa               |
+| `articulos`                  | = `items` (alias)           |
+| `recogida`, `domicilio`     | `true`/`false`              |
+| `evento`, `idPedido`, `idPago`, `fecha`, `modoPrueba` | Datos del evento de Stripe |
+| `restaurante`, `telefonoRestaurante`, `whatsappRestaurante` | Datos del local |
+
+### Dónde está cada cosa
+
+El pedido plano viaja por **tres** sitios a la vez, para que el flujo de n8n lo
+encuentre esté donde esté:
+
+1. **En el webhook de creación** (`/api/checkout` → n8n): el JSON plano
+   completo, con `total` como número e `items` como array.
+2. **En el `metadata` de la sesión de Stripe**: los mismos datos. Los lee el
+   trigger "Pago completado en Stripe":
+   - `{{ $json.data.object.metadata.cliente_nombre }}`
+   - `{{ $json.data.object.metadata.telefono }}`
+   - `{{ $json.data.object.metadata.direccion }}`
+   - `{{ $json.data.object.metadata.total }}` (texto: `"6.50"`)
+   - `{{ JSON.parse($json.data.object.metadata.items) }}`
+   - `{{ $json.data.object.metadata.order_code }}`
+   - `{{ $json.data.object.metadata.pedido_id }}`
+   > En el `metadata` **todos los valores son texto**, porque Stripe solo
+   > admite strings (máx. 500 caracteres por valor).
+3. **En la tabla `pedidos` de Supabase**: `cliente_nombre`,
+   `cliente_telefono`, `direccion`, `items`, `total`, `estado` y
+   `payment_intent`.
+
+### Tabla `pedidos` de Supabase
+
+| Columna            | Contenido                                              |
+| ------------------ | ------------------------------------------------------ |
+| `id`               | Id numérico del pedido (es el `pedido_id`)            |
+| `cliente_nombre`   | Nombre del cliente (lo rellena esta web)              |
+| `cliente_telefono` | Teléfono normalizado con prefijo 34                   |
+| `direccion`        | Dirección de entrega                                   |
+| `items`            | JSONB: `{ id, qty, nombre, subtotal, precio_unitario }` |
+| `total`            | Total en euros                                         |
+| `estado`           | `pendiente_pago` → `pendiente_confirmacion`         |
+| `payment_intent`   | Id del intent de Stripe tras el pago                  |
+
+La tabla **NO tiene** columnas `stripe_session_id`, `session_id`, `codigo`,
+`order_code` ni `pagado_at`. Para crearlas, en el **SQL Editor de Supabase**:
+
+```sql
+alter table public.pedidos add column if not exists stripe_session_id text;
+alter table public.pedidos add column if not exists pagado_at timestamptz;
+create unique index if not exists pedidos_stripe_session_idx
+  on public.pedidos (stripe_session_id);
+```
+
+La web funciona igual sin esas columnas (las omite automáticamente).
+
+### Qué revisar en el flujo de n8n
+
+1. **Trigger "Pago completado en Stripe"**: que lea los datos del `metadata`
+   (punto 2) o de la tabla `pedidos` usando `metadata.pedido_id`.
+2. **Nodo de Telegram / tablet / email**: que use `cliente_nombre`,
+   `telefono`, `direccion`, `total` e `items`.
+3. **Detalle del pedido**: si el nodo hace un bucle sobre `items`, que use
+   `item.nombre`, `item.cantidad` y `item.precio`.
+4. **Total**: si el nodo lo recalcula, que sume `precio * cantidad` de cada
+   línea (o use directamente el campo `total`).
+
+## 8. Variable nueva
+
+| Variable                | Para qué sirve                                              |
+| ----------------------- | ----------------------------------------------------------- |
+| `N8N_WEBHOOK_NOTIFICAR` | Opcional: webhook de n8n que **solo notifica** el pedido ya pagado (Telegram, email, tablet). Es **distinto** del de creación: si se usara ese, el flujo insertaría un pedido duplicado. Si se deja vacío, la notificación la hace el trigger "Pago completado en Stripe" de n8n. |
+
 > El paso 6 es una comprobación real en Stripe: si alguien entra manualmente en
 > `?pedido=ok` sin haber pagado, no se muestra la confirmación.
