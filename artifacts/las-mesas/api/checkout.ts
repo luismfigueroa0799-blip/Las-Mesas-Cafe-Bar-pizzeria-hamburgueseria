@@ -218,6 +218,15 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     })),
   });
 
+  // Total en centimos que se enviara a Stripe y que viajara en el metadata,
+  // para que el webhook de n8n lo reciba aunque Stripe no devuelva el importe.
+  const totalCentimos = items.reduce((sum, i) => sum + aCentavos(i.price) * i.quantity, 0);
+  if (totalCentimos <= 0) {
+    log('[checkout] El total es 0: no se puede crear la sesion');
+    responder(res, { error: 'El carrito no tiene importe' }, 400);
+    return;
+  }
+
   const email = String(body.customerEmail ?? '').trim();
   const nombre = String(body.customerName ?? '').trim();
   const telefonoOriginal = String(body.telefono ?? '').trim();
@@ -326,6 +335,9 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   }
 
   // Metadata: viaja al webhook para llegar a n8n.
+  params.set('metadata[total]', (totalCentimos / 100).toFixed(2));
+  params.set('metadata[totalCentimos]', String(totalCentimos));
+  params.set('metadata[numArticulos]', String(items.reduce((s, i) => s + i.quantity, 0)));
   params.set('metadata[nombre]', nombre);
   params.set('metadata[telefono]', telefono);
   params.set('metadata[cliente_telefono]', telefono);
@@ -401,6 +413,15 @@ export default async function handler(req: Req, res: Res): Promise<void> {
       sessionId: datos.id,
       url: datos.url,
       cliente: customerId,
+      // Resumen de lo que se ha cobrado: util para comprobar en el navegador.
+      total: (totalCentimos / 100).toFixed(2),
+      totalCentimos,
+      articulos: items.map((i) => ({
+        id: i.id,
+        name: i.name,
+        qty: i.quantity,
+        price: i.price,
+      })),
     });
   } catch (error) {
     log('[checkout] Error contacting Stripe', error);

@@ -264,7 +264,13 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     mesa: metadata.mesa ?? '',
 
     // Dinero
-    total: objeto.amount_total ? (objeto.amount_total / 100).toFixed(2) : '',
+    // El total sale de Stripe; si no viene, se usa el que se guardo en el
+    // metadata al crear la sesion (para que nunca llegue 0 a n8n).
+    total: objeto.amount_total
+      ? (objeto.amount_total / 100).toFixed(2)
+      : (metadata.total ?? ''),
+    totalCentimos: objeto.amount_total ?? Number(metadata.totalCentimos ?? 0),
+    numArticulos: Number(metadata.numArticulos ?? (articulos as any[]).length ?? 0),
     moneda: objeto.currency ?? 'eur',
     subtotal: objeto.amount_subtotal ? (objeto.amount_subtotal / 100).toFixed(2) : '',
     impuestos: objeto.total_tax_amounts?.length

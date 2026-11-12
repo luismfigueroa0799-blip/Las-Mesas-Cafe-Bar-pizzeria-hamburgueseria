@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { ArrowDown, ArrowRight, ArrowUpRight, CalendarDays, Clock3, MapPin, Menu as MenuIcon, Phone, ShoppingBag, X } from 'lucide-react';
 import './index.css';
 import { useCart } from '@/CartContext';
@@ -86,7 +86,13 @@ function App() {
   }, []);
 
   // Tras volver de Stripe comprobamos el pago y confirmamos el pedido.
+  // El ref evita que este efecto se repita en cada render: clearCart cambia de
+  // identidad en cada render y lo usaba como dependencia, lo que vaciaba el
+  // carrito y hacia que el pedido se enviara con total 0 e items vacios.
+  const confirmacionHecha = useRef(false);
   useEffect(() => {
+    if (confirmacionHecha.current) return;
+    confirmacionHecha.current = true;
     const params = new URLSearchParams(window.location.search);
     const estado = params.get('pedido');
     const sessionId = params.get('session_id');
@@ -143,7 +149,7 @@ function App() {
     return () => {
       vigente = false;
     };
-  }, [clearCart]);
+  }, []);
 
   function sendWhatsApp(event: FormEvent<HTMLFormElement>, kind: 'reserva' | 'evento') {
     event.preventDefault();
