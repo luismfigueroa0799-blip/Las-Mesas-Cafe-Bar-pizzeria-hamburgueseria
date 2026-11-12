@@ -111,6 +111,16 @@ function normalizarTelefono(valor: string | undefined): string {
 /** Envía la respuesta y cierra la petición. */
 /**
  * Genera un codigo de pedido tipo "PED-13J9" (4 caracteres alfanumericos).
+/**
+ * Si se activa, la web inserta el pedido en la tabla `pedidos` de Supabase
+ * antes de abrir la pasarela de Stripe.
+ *
+ * Por defecto esta DESACTIVADA: el flujo de n8n ya tiene su propia clave de
+ * servicio y su nodo "Insert rows in a table", asi que insertar aqui podria
+ * duplicar el pedido. Activalo solo si en n8n se desactiva ese nodo.
+ */
+const CREAR_PEDIDO_EN_SUPABASE = false;
+
 /** Configuracion de Supabase (solo si hay clave de servicio). */
 function configSupabase(): { url: string; key: string } | null {
   const env = entorno();
@@ -428,7 +438,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   //    El flujo de n8n lo lee para enviar el Telegram con el detalle y
   //    el total reales. Si Supabase no esta configurado, lo crea n8n.
   // ------------------------------------------------------------------
-  if (supabaseDisponible()) {
+  if (CREAR_PEDIDO_EN_SUPABASE && supabaseDisponible()) {
     const lineasPedido = items.map((i) => ({
       id: i.id,
       nombre: i.name,
