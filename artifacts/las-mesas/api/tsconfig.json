@@ -6,9 +6,9 @@
     "noEmit": false,
     "emitDeclarationOnly": false,
     "outDir": "./.api-dist",
-    "rootDir": ".",
+    "rootDir": "..",
     "incremental": false,
     "noEmitOnError": true
   },
-  "include": ["./**/*.ts"]
+  "include": ["./**/*.ts", "../src/supabase.ts"]
 }

@@ -58,6 +58,8 @@ const STRIPE_API = 'https://api.stripe.com/v1';
 // llamadas a Stripe (crear customer + crear sesión).
 export const maxDuration = 30;
 
+import { crearPedido, guardarSessionId, generarUuid, supabaseDisponible } from '../src/supabase';
+
 function entorno(): Record<string, string | undefined> {
   return (g.process?.env ?? {}) as Record<string, string | undefined>;
 }
@@ -272,6 +274,12 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     responder(res, { error: 'Falta la dirección de entrega' }, 400);
     return;
   }
+  // Para reparto a domicilio el telefono es obligatorio: sin el no se puede
+  // preparar el pedido ni avisar al cliente.
+  if (tipoEntrega === 'domicilio' && !telefono) {
+    responder(res, { error: 'Para entrega a domicilio hace falta el teléfono' }, 400);
+    return;
+  }
 
   const headers = req?.headers;
   const host = headers?.get?.('host') ?? 'lasmesasbarcafet.com';
@@ -280,6 +288,14 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   const URLSearchParamsCtor = g.URLSearchParams;
 
   // ------------------------------------------------------------------
+  // Identificadores del pedido.
+  // El id de la tabla pedidos es de tipo uuid, asi que pedido_id debe ser
+  // un uuid. El codigo legible 'PED-XXXX' va aparte, en codigo.
+  const codigoPedido = generarCodigoPedido();
+  const pedidoId = generarUuid();
+  const tipoPedido = mesa ? 'mesa' : tipoEntrega === 'domicilio' ? 'domicilio' : 'recogida';
+  const telefonoCliente = telefono || 'Sin telefono';
+
   // 1. Customer de Stripe con los datos ya rellenados.
   // ------------------------------------------------------------------
   let customerId = '';
@@ -319,7 +335,34 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   }
 
   // ------------------------------------------------------------------
-  // 2. Sesión de checkout.
+  // 2. Crear el pedido en Supabase (tabla pedidos).
+  //    El flujo de n8n lo lee para enviar el Telegram con el detalle y
+  //    el total reales. Si Supabase no esta configurado, lo crea n8n.
+  // ------------------------------------------------------------------
+  if (supabaseDisponible()) {
+    const lineasPedido = items.map((i) => ({
+      id: i.id,
+      nombre: i.name,
+      unit: aCentavos(i.price) / 100,
+      qty: i.quantity,
+      subtotal: (aCentavos(i.price) * i.quantity) / 100,
+    }));
+
+    await crearPedido({
+      id: pedidoId,
+      mesa_id: mesa ? Number(mesa) : null,
+      tipo: tipoPedido === 'mesa' ? 'mesa' : 'domicilio',
+      items: lineasPedido,
+      total: totalCentimos / 100,
+      estado: 'pendiente_pago',
+      cliente_nombre: nombre,
+      cliente_telefono: telefonoCliente,
+      direccion: tipoEntrega === 'domicilio' ? direccionCompleta : 'Recogida en el local',
+    });
+  }
+
+  // ------------------------------------------------------------------
+  // 3. Sesión de checkout.
   // ------------------------------------------------------------------
   const params = new URLSearchParamsCtor();
   params.set('mode', 'payment');
@@ -352,12 +395,12 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   // El flujo de la app de hamburgueseria lee estos nombres concretos del
   // metadata de la sesion de Stripe. Se ponen TODOS los alias posibles para
   // que funcione aunque el flujo use uno u otro.
-  const codigoPedido = generarCodigoPedido();
-  const tipoPedido = mesa ? 'mesa' : tipoEntrega === 'domicilio' ? 'domicilio' : 'recogida';
-  const telefonoCliente = telefono || 'Sin teléfono';
+  // El id de la tabla `pedidos` es de tipo uuid, asi que pedido_id debe ser un
+  // Identificadores del pedido.
 
-  params.set('metadata[pedido_id]', codigoPedido);
-  params.set('metadata[pedido_codigo]', codigoPedido);
+  params.set('metadata[pedido_id]', pedidoId);
+  params.set('metadata[pedido_codigo]', pedidoId);
+  params.set('metadata[codigo_pedido]', codigoPedido);
   params.set('metadata[codigo]', codigoPedido);
   params.set('metadata[tipo]', tipoPedido);
   params.set('metadata[mesa_id]', mesa);
@@ -446,6 +489,11 @@ export default async function handler(req: Req, res: Res): Promise<void> {
       return;
     }
 
+    // Enlazar la sesion de Stripe con el pedido en Supabase.
+    if (supabaseDisponible()) {
+      await guardarSessionId(pedidoId, datos.id);
+    }
+
     info('[checkout] Sesión creada correctamente', {
       sessionId: datos.id,
       url: datos.url,
@@ -460,7 +508,8 @@ export default async function handler(req: Req, res: Res): Promise<void> {
       // Resumen de lo que se ha cobrado: util para comprobar en el navegador.
       total: (totalCentimos / 100).toFixed(2),
       totalCentimos,
-      pedido_id: codigoPedido,
+      pedido_id: pedidoId,
+      codigo_pedido: codigoPedido,
       articulos: items.map((i) => ({
         id: i.id,
         name: i.name,

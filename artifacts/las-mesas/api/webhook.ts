@@ -38,6 +38,8 @@ interface Res {
   send(cuerpo: unknown): void;
 }
 
+import { marcarPagado } from '../src/supabase';
+
 function entorno(): Record<string, string | undefined> {
   return (g.process?.env ?? {}) as Record<string, string | undefined>;
 }
@@ -315,6 +317,13 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     telefonoRestaurante: '+34 928 896 097',
     whatsappRestaurante: '346010000000',
   };
+
+  // Si el pedido se creo en Supabase desde /api/checkout, se marca como pagado
+  // para que el panel de administracion lo muestre pendiente de confirmar.
+  const pedidoUuid = String(metadata.pedido_id ?? '');
+  if (pedidoUuid && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(pedidoUuid)) {
+    await marcarPagado(pedidoUuid, objeto.payment_intent ?? null);
+  }
 
   info('[webhook] Reenviando pedido a n8n', { destino, idPedido: pedido.idPedido, total: pedido.total });
 
