@@ -309,6 +309,40 @@ function columnaInexistente(mensaje: string): string {
 }
 
 /**
+ * Detalle del pedido en texto plano, una linea por articulo, para que el
+ * nodo de Telegram del flujo de n8n pueda pintarlo sin bucles ni parsear JSON.
+ */
+function detalleEnTexto(
+  lineas: Array<{ nombre: string; cantidad: number; precio: number }>,
+): string {
+  return lineas
+    .map((l) => {
+      const precio = l.precio.toFixed(2).replace('.', ',');
+      const unidades = l.cantidad > 1 ? `${l.cantidad} x ` : '';
+      return `${unidades}${l.nombre} - ${precio} €`;
+    })
+    .join('\n');
+}
+
+/**
+ * Resumen del pedido en texto plano, listo para pegar en un mensaje.
+ */
+function resumenEnTexto(datos: {
+  nombre: string;
+  telefono: string;
+  direccion: string;
+  total: number;
+}): string {
+  const total = datos.total.toFixed(2).replace('.', ',');
+  return [
+    `Cliente: ${datos.nombre}`,
+    `Telefono: ${datos.telefono}`,
+    `Direccion: ${datos.direccion}`,
+    `TOTAL: ${total} €`,
+  ].join('\n');
+}
+
+/**
  * Lineas del pedido en el formato que usa el flujo de n8n para pintar el
  * detalle: el precio como texto con el formato de la carta ("6,50 EUR") y
  * los importes en centimos.
@@ -532,6 +566,16 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     items: lineas,
     detalle: lineasTexto,
     numArticulos: String(lineas.length),
+    detalle_texto: detalleEnTexto(lineas),
+    resumen: resumenEnTexto({
+      nombre: nombreCliente,
+      telefono: telefonoCliente,
+      direccion: direccionCliente,
+      total: totalPedido,
+    }),
+    total_texto: totalPedido.toFixed(2),
+    total_euros: totalPedido.toFixed(2),
+    origen: 'las-mesas-web',
 
     // ── Nombres del contrato anterior (para que no cambien los nodos) ──
     evento: 'checkout.session.completed',
@@ -573,7 +617,6 @@ export default async function handler(req: Req, res: Res): Promise<void> {
       codigoPostal: metadata.codigoPostal ?? '',
       ciudad: metadata.ciudad ?? '',
     },
-    total_texto: totalPedido.toFixed(2),
     total_centimos: Math.round(totalPedido * 100),
     total_cents: Math.round(totalPedido * 100),
     moneda: 'eur',

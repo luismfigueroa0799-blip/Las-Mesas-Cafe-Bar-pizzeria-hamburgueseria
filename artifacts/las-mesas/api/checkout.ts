@@ -424,6 +424,43 @@ async function crearSesionStripePropia(
 }
 
 /**
+ * Detalle del pedido en texto plano, una linea por articulo.
+ *
+ * Va en el metadata de Stripe para que el nodo de Telegram del flujo de n8n
+ * pueda pintarlo sin bucles ni parsear JSON:
+ *   {{ $json.data.object.metadata.detalle_texto }}
+ */
+function detalleEnTexto(
+  lineas: Array<{ nombre: string; cantidad: number; precio: number }>,
+): string {
+  return lineas
+    .map((l) => {
+      const precio = l.precio.toFixed(2).replace('.', ',');
+      const unidades = l.cantidad > 1 ? `${l.cantidad} x ` : '';
+      return `${unidades}${l.nombre} - ${precio} €`;
+    })
+    .join('\n');
+}
+
+/**
+ * Resumen del pedido en texto plano, listo para pegar en un mensaje.
+ */
+function resumenEnTexto(datos: {
+  nombre: string;
+  telefono: string;
+  direccion: string;
+  total: number;
+}): string {
+  const total = datos.total.toFixed(2).replace('.', ',');
+  return [
+    `Cliente: ${datos.nombre}`,
+    `Telefono: ${datos.telefono}`,
+    `Direccion: ${datos.direccion}`,
+    `TOTAL: ${total} €`,
+  ].join('\n');
+}
+
+/**
  * Lineas del pedido en el formato que usa el flujo de n8n para pintar el
  * detalle: el precio como texto con el formato de la carta ("6,50 EUR") y
  * los importes en centimos.
@@ -449,6 +486,60 @@ function lineasComoTexto(
       subtotal_cents: centimos * l.cantidad,
     };
   });
+}
+
+/**
+ * Crea el pedido en la tabla `pedidos` de Supabase.
+ *
+ * Es el plan B: si el flujo de n8n no responde (caido o en error), la web
+ * sigue funcionando creando el pedido y la sesion de pago por su cuenta.
+ */
+async function crearPedidoEnSupabase(datos: {
+  lineas: Array<{ id: number; qty: number; nombre: string; precio: number }>;
+  total: number;
+  nombre: string;
+  telefono: string;
+  direccion: string;
+  tipo: string;
+}): Promise<number | null> {
+  const cfg = configSupabase();
+  if (!cfg) return null;
+  try {
+    const r = await g.fetch(cfg.url + '/rest/v1/pedidos', {
+      method: 'POST',
+      headers: {
+        apikey: cfg.key,
+        Authorization: 'Bearer ' + cfg.key,
+        'Content-Type': 'application/json',
+        Prefer: 'return=representation',
+      },
+      body: JSON.stringify({
+        tipo: datos.tipo,
+        items: datos.lineas.map((l) => ({
+          id: l.id,
+          qty: l.qty,
+          nombre: l.nombre,
+          subtotal: Math.round(l.precio * l.qty * 100) / 100,
+          precio_unitario: l.precio,
+        })),
+        total: datos.total,
+        estado: 'pendiente_pago',
+        cliente_nombre: datos.nombre,
+        cliente_telefono: datos.telefono,
+        direccion: datos.direccion,
+      }),
+    });
+    if (!r.ok) {
+      log('[checkout] no se pudo crear el pedido en Supabase:', r.status, (await r.text()).slice(0, 200));
+      return null;
+    }
+    const filas: any[] = await r.json();
+    const id = Number(filas?.[0]?.id);
+    return Number.isFinite(id) && id > 0 ? id : null;
+  } catch (error) {
+    log('[checkout] error creando el pedido en Supabase:', error);
+    return null;
+  }
 }
 
 /**
@@ -804,6 +895,17 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   const direccionFinal = direccionCompleta || 'Recogida en el local';
   const telefonoFinal = telefono || 'Sin teléfono';
 
+  // El detalle y el resumen en texto plano: para que los nodos de Telegram
+  // y de la tablet del flujo de n8n los puedan pintar sin bucles ni parsear
+  // el JSON del detalle.
+  const textoDetalle = detalleEnTexto(lineas);
+  const textoResumen = resumenEnTexto({
+    nombre,
+    telefono: telefonoFinal,
+    direccion: direccionFinal,
+    total: totalEuros,
+  });
+
   // Urls de retorno: el flujo de n8n deja las suyas (example.com) y el
   // cliente tiene que volver a la web para ver la confirmacion y que se
   // vacie el carrito. Stripe no deja cambiarlas despues, asi que se le piden
@@ -844,6 +946,11 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     articulos: lineasTexto,
     detalle: lineasTexto,
     numArticulos: String(lineas.length),
+    detalle_texto: textoDetalle,
+    resumen: textoResumen,
+    total_texto: totalEuros.toFixed(2),
+    total_euros: totalEuros.toFixed(2),
+    origen: 'las-mesas-web',
     subtotal: totalEuros,
     impuestos: 0,
     metodoPago: 'card',
@@ -868,7 +975,6 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     modo_recogida: mesa ? 'mesa' : 'recogida',
     total_cents: Math.round(totalEuros * 100),
     total_centimos: Math.round(totalEuros * 100),
-    total_texto: totalEuros.toFixed(2),
     moneda: 'eur',
   };
 
@@ -901,33 +1007,51 @@ export default async function handler(req: Req, res: Res): Promise<void> {
       datos = null;
     }
 
+    // Si el flujo de n8n falla (caido, en error, o sin sesion), la web sigue
+    // funcionando: se crea el pedido aqui y se genera la sesion de Stripe con
+    // el metadata completo (que es lo que lee el flujo de confirmacion de
+    // pago de n8n).
+    let pedidoId = '';
+    let urlN8n = '';
+    let totalN8n = totalEuros;
+
     if (!respuesta.ok || !datos?.ok) {
       const mensaje =
         datos?.error ||
         datos?.motivo ||
         datos?.message ||
         `El servidor de pedidos respondió con el código ${respuesta.status}.`;
-      log('[checkout] N8N RECHAZO EL PEDIDO', {
+      log('[checkout] N8N NO PUDO CREAR EL PEDIDO (plan B: lo creamos aqui)', {
         estado: respuesta.status,
         cuerpo: texto,
         datos,
       });
-      responder(res, { error: mensaje }, 400);
-      return;
-    }
 
-    info('[checkout] RESPUESTA DE N8N', {
-      ok: datos?.ok,
-      pedido_id: datos?.pedido_id,
-      total: datos?.total,
-      total_cents: datos?.total_cents,
-      checkout_url: datos?.checkout_url,
-    });
-
-    const urlN8n: string = datos.checkout_url ?? datos.url ?? '';
-    if (!urlN8n) {
-      responder(res, { error: 'El servidor de pedidos no devolvió la pasarela de pago' }, 502);
-      return;
+      const nuevoId = await crearPedidoEnSupabase({
+        lineas,
+        total: totalEuros,
+        nombre,
+        telefono: telefonoFinal,
+        direccion: direccionFinal,
+        tipo: mesa ? 'mesa' : 'domicilio',
+      });
+      if (!nuevoId) {
+        responder(res, { error: mensaje }, 502);
+        return;
+      }
+      pedidoId = String(nuevoId);
+      log('[checkout] Pedido creado por la web (plan B)', { pedido_id: pedidoId });
+    } else {
+      info('[checkout] RESPUESTA DE N8N', {
+        ok: datos?.ok,
+        pedido_id: datos?.pedido_id,
+        total: datos?.total,
+        total_cents: datos?.total_cents,
+        checkout_url: datos?.checkout_url,
+      });
+      pedidoId = String(datos.pedido_id ?? '');
+      urlN8n = datos.checkout_url ?? datos.url ?? '';
+      totalN8n = Number(datos.total ?? totalEuros);
     }
 
     // El pedido en formato plano. Viaja en el metadata de la sesion de Stripe
@@ -938,6 +1062,13 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     // tipos) y las lineas van con el precio como texto ("6,50 EUR"), que es
     // el formato que el flujo de n8n ya conoce.
     const detalleTexto = JSON.stringify(lineasTexto);
+    const textoDetalle = detalleEnTexto(lineas);
+    const textoResumen = resumenEnTexto({
+      nombre,
+      telefono: telefonoFinal,
+      direccion: direccionFinal,
+      total: totalEuros,
+    });
     const metadataPlana: Record<string, string> = {
       // ── Formato plano ──
       order_code: codigoPedido,
@@ -976,14 +1107,21 @@ export default async function handler(req: Req, res: Res): Promise<void> {
       mesa: mesa || '',
       mesa_id: mesa ? String(mesa) : '',
       urlOrigen: String(body.urlOrigen ?? ''),
-      pedido_id: String(datos.pedido_id ?? ''),
+      pedido_id: pedidoId,
+
+      // ── Listos para pintar en Telegram o en la tablet ──
+      detalle_texto: textoDetalle,
+      resumen: textoResumen,
+      total_texto: totalEuros.toFixed(2),
+      total_euros: totalEuros.toFixed(2),
+      origen: 'las-mesas-web',
     };
 
     // Sesion propia de Stripe con las urls de retorno correctas (el flujo de
     // n8n deja las suyas fijas en example.com). Solo se usa si el total
     // coincide con el de n8n; si no, se sigue con la sesion de n8n.
-    const totalN8n = Number(datos.total ?? totalEuros);
-    const cuadra = Math.abs(totalN8n - totalEuros) < 0.01;
+    // Si n8n no ha creado nada (plan B), la sesion propia es la unica.
+    const cuadra = Math.abs(totalN8n - totalEuros) < 0.01 || !urlN8n;
     let urlSesion = urlN8n;
     let sessionId = idSesionDeUrl(urlN8n);
     let metadataActualizada = false;
@@ -1009,6 +1147,11 @@ export default async function handler(req: Req, res: Res): Promise<void> {
       });
     }
 
+    if (!urlSesion) {
+      responder(res, { error: 'No se pudo crear la sesión de pago' }, 502);
+      return;
+    }
+
     // Rellenar los datos del pedido: el flujo de n8n no copia el nombre a la
     // columna cliente_nombre. Ademas se guarda el payment_intent de la sesion
     // para que el trigger "Pago completado en Stripe" de n8n localice el
@@ -1032,7 +1175,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
       stripe_session_id: sessionId || null,
     });
     info('[checkout] Pedido enlazado con Stripe', {
-      pedido_id: datos.pedido_id,
+      pedido_id: pedidoId,
       session_id: sessionId,
       payment_intent: paymentIntent,
       metadata_actualizada: metadataActualizada,
@@ -1040,20 +1183,16 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     });
 
     info('[checkout] Pedido creado', {
-      pedido_id: datos.pedido_id,
-      total_cents: datos.total_cents,
+      pedido_id: pedidoId,
+      total_cents: Math.round(totalEuros * 100),
     });
 
     responder(res, {
       url: urlSesion,
-      pedido_id: datos.pedido_id ?? '',
-      // n8n devuelve el total en euros ("total") y a veces en centimos.
-      total: datos.total_cents
-        ? (datos.total_cents / 100).toFixed(2)
-        : datos.total !== undefined && datos.total !== null
-          ? Number(datos.total).toFixed(2)
-          : '',
-      totalCentimos: datos.total_cents ?? (datos.total ? Math.round(Number(datos.total) * 100) : 0),
+      pedido_id: pedidoId,
+      // El total siempre es el de la carta (el mismo que calcula n8n).
+      total: totalEuros.toFixed(2),
+      totalCentimos: Math.round(totalEuros * 100),
       articulos: (body.items ?? []).map((i) => ({
         id: i.id,
         name: i.name ?? '',
