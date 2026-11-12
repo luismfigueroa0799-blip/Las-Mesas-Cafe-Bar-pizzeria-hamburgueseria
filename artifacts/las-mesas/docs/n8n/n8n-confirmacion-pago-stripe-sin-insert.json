@@ -94,11 +94,11 @@
           "parameters": [
             {
               "name": "object",
-              "value": "¡NUEVO PEDIDO EN COCINA!"
+              "value": "Pedido {{ $('Generar Codigo de Pedido').first().json.order_code }}"
             },
             {
               "name": "body",
-              "value": "=🚨 NUEVO PEDIDO EN COCINA 🚨\n\nCódigo: {{ $('Generar Codigo de Pedido').first().json.order_code }}\nCliente: {{ $('Generar Codigo de Pedido').first().json.cliente_nombre }}\nTeléfono: {{ $('Generar Codigo de Pedido').first().json.telefono }}\nTOTAL: {{ $('Generar Codigo de Pedido').first().json.total_texto }} €"
+              "value": "={{ $('Generar Codigo de Pedido').first().json.order_code }} | {{ $('Generar Codigo de Pedido').first().json.total_texto }} EUR | tel {{ $('Generar Codigo de Pedido').first().json.telefono }}"
             },
             {
               "name": "priority",
@@ -108,7 +108,10 @@
         },
         "options": {
           "timeout": 15000
-        }
+        },
+        "contentType": "form-urlencoded",
+        "sendQueryParameters": false,
+        "sendHeaders": false
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
