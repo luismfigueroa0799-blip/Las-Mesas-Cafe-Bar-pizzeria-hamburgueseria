@@ -736,6 +736,44 @@ async function actualizarPedidoEnNeon(
 }
 
 /**
+ * Stripe admite 500 caracteres por valor del metadata. Si uno se pasa, Stripe
+ * rechaza la sesion entera ("Metadata values can have up to 500 characters").
+ */
+function valorMetadata(valor: unknown): string {
+  const texto = String(valor ?? '');
+  return texto.length <= 500 ? texto : texto.slice(0, 497) + '...';
+}
+
+/**
+ * Lineas del pedido en JSON para el metadata de Stripe.
+ *
+ * Stripe admite 500 caracteres por valor, asi que:
+ *  - se usan las lineas compactas (id, nombre, cantidad y precio),
+ *  - si no cabe el detalle completo se van quitando articulos del final,
+ *  - el JSON siempre es valido (para que el flujo de n8n lo pueda leer).
+ */
+function itemsParaMetadata(
+  lineas: Array<{ id: number; nombre: string; cantidad: number; precio: number }>,
+): string {
+  const compactas = lineas.map((l) => ({
+    id: String(l.id),
+    nombre: l.nombre,
+    cantidad: l.cantidad,
+    qty: l.cantidad,
+    precio: l.precio.toFixed(2).replace('.', ',') + ' €',
+  }));
+  let json = JSON.stringify(compactas);
+  if (json.length <= 500) return json;
+  for (let n = compactas.length - 1; n >= 1; n -= 1) {
+    json = JSON.stringify(compactas.slice(0, n));
+    if (json.length <= 500) return json;
+  }
+  // Ni una sola linea cabe: se deja vacio, pero el detalle_texto lleva el
+  // texto plano (que siempre se puede leer).
+  return '[]';
+}
+
+/**
  * Rellena el metadata de la sesion de Stripe con los datos del pedido y
  * corrige las urls de retorno.
  *
@@ -1310,7 +1348,6 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     // OJO: en el metadata TODOS los valores son texto (Stripe no admite otros
     // tipos) y las lineas van con el precio como texto ("6,50 EUR"), que es
     // el formato que el flujo de n8n ya conoce.
-    const detalleTexto = JSON.stringify(lineasTexto);
     const textoDetalle = detalleEnTexto(lineas);
     const textoResumen = resumenEnTexto({
       nombre,
@@ -1318,16 +1355,16 @@ export default async function handler(req: Req, res: Res): Promise<void> {
       direccion: direccionFinal,
       total: totalEuros,
     });
-    const metadataPlana: Record<string, string> = {
+    const metadataPlanaBruto: Record<string, string> = {
       // ── Formato plano ──
       order_code: codigoPedido,
       cliente_nombre: nombre,
       direccion: direccionFinal,
       telefono: telefonoFinal,
       total: totalEuros.toFixed(2),
-      items: detalleTexto,
-      detalle: detalleTexto,
-      articulos: detalleTexto,
+      items: itemsParaMetadata(lineas),
+      detalle: itemsParaMetadata(lineas),
+      articulos: itemsParaMetadata(lineas),
 
       // ── Nombres que ya usa el flujo de n8n ──
       nombre,
@@ -1365,6 +1402,13 @@ export default async function handler(req: Req, res: Res): Promise<void> {
       total_euros: totalEuros.toFixed(2),
       origen: 'las-mesas-web',
     };
+
+    // Stripe no admite valores de mas de 500 caracteres en el metadata: si
+    // uno se pasa, rechaza la sesion entera.
+    const metadataPlana: Record<string, string> = {};
+    for (const [clave, valor] of Object.entries(metadataPlanaBruto)) {
+      metadataPlana[clave] = valorMetadata(valor);
+    }
 
     // Sesion propia de Stripe con las urls de retorno correctas (el flujo de
     // n8n deja las suyas fijas en example.com). Solo se usa si el total
