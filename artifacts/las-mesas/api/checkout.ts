@@ -362,7 +362,17 @@ export default async function handler(req: Req, res: Res): Promise<void> {
       })),
     });
   } catch (error) {
-    log('[checkout] No se pudo contactar con n8n:', error);
-    responder(res, { error: 'No se pudo contactar con el servidor de pedidos' }, 502);
+    const mensaje = error instanceof Error ? error.message : String(error);
+    log('[checkout] No se pudo contactar con n8n:', mensaje, error);
+    // Se devuelve el motivo real para poder diagnosticarlo desde el navegador.
+    responder(
+      res,
+      {
+        error: 'No se pudo contactar con el servidor de pedidos',
+        detalle: mensaje,
+        url: webhook,
+      },
+      502,
+    );
   }
 }
