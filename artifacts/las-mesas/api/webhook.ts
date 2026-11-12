@@ -367,6 +367,85 @@ function lineasComoTexto(
   });
 }
 
+// ── Conexion con Neon (Postgres gestionado) ──
+//
+// Los pedidos viven en Neon, que es la base de datos que usa el flujo de n8n
+// y la tablet. La conexion se hace con `pg` (node-postgres) usando la
+// variable de entorno DATABASE_URL.
+//
+// Tabla `public.pedidos` de Neon:
+//   id (numero, autogenerado), id_pedido (texto), cliente_nombre (texto),
+//   cliente_telefono (texto), direccion (texto), productos (texto con JSON),
+//   total (numero), tipo_entrega (texto), estado (texto), fecha (fecha)
+
+/** Pool de conexiones a Neon (se crea la primera vez que se usa). */
+let poolNeon: any = null;
+
+/** Devuelve el pool de Neon si hay DATABASE_URL, o null si no la hay. */
+async function poolDeNeon(): Promise<any | null> {
+  const url = String(entorno().DATABASE_URL ?? entorno().NEON_DATABASE_URL ?? '').trim();
+  if (!url) return null;
+  if (poolNeon) return poolNeon;
+  try {
+    const pg: any = await import('pg');
+    const Pool = pg?.default?.Pool ?? pg?.Pool;
+    if (!Pool) return null;
+    poolNeon = new Pool({
+      connectionString: url,
+      max: 2,
+      idleTimeoutMillis: 10000,
+      connectionTimeoutMillis: 10000,
+      ssl: url.includes('sslmode=disable') ? undefined : { rejectUnauthorized: false },
+    });
+    return poolNeon;
+  } catch (error) {
+    log('[webhook] no se pudo cargar el cliente de Postgres (pg):', error);
+    return null;
+  }
+}
+
+/** Ejecuta una consulta en Neon y devuelve las filas. */
+async function consultarNeon(sql: string, valores: unknown[] = []): Promise<any[]> {
+  const pool = await poolDeNeon();
+  if (!pool) return [];
+  try {
+    const r = await pool.query(sql, valores);
+    return r?.rows ?? [];
+  } catch (error) {
+    log('[webhook] error en Neon:', error);
+    return [];
+  }
+}
+
+/** Columnas que se pueden tocar de la tabla `pedidos` de Neon. */
+const COLUMNAS_NEON = [
+  'id_pedido',
+  'cliente_nombre',
+  'cliente_telefono',
+  'direccion',
+  'productos',
+  'total',
+  'tipo_entrega',
+  'estado',
+  'fecha',
+];
+
+/** Actualiza el pedido en Neon (por su id numerico). */
+async function actualizarPedidoEnNeon(
+  id: number,
+  campos: Record<string, unknown>,
+): Promise<boolean> {
+  const claves = Object.keys(campos).filter((c) => COLUMNAS_NEON.includes(c));
+  if (!claves.length || !Number.isFinite(id)) return false;
+  const sets = claves.map((c, i) => `"${c}" = $${i + 1}`).join(', ');
+  const valores = claves.map((c) => campos[c]);
+  const filas = await consultarNeon(
+    `update public.pedidos set ${sets} where id = $${claves.length + 1} returning id`,
+    [...valores, id],
+  );
+  return filas.length > 0;
+}
+
 /**
  * Actualiza el pedido omitiendo las columnas que todavia no existen en la
  * tabla `pedidos`.
@@ -468,8 +547,30 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     if (r.ok && Array.isArray(r.datos) && r.datos.length) pedido = r.datos[0];
   }
 
+  // El pedido tambien puede estar en Neon (la base de datos de los pedidos).
+  // Si esta, se lee de ahi para tener el detalle y el total exactos.
+  let pedidoNeon: any = null;
+  if (/^\d+$/.test(pedidoId)) {
+    const filas = await consultarNeon(
+      'select id, id_pedido, cliente_nombre, cliente_telefono, direccion, productos, total, tipo_entrega, estado from public.pedidos where id = $1',
+      [Number(pedidoId)],
+    );
+    if (filas.length) pedidoNeon = filas[0];
+  }
+
   // Si no se encuentra en la tabla, se usan los datos del evento de Stripe.
   let lineas = lineasDesdePedido(pedido?.items);
+
+  // El detalle puede venir en Neon (columna `productos`, que es un texto con
+  // el JSON de las lineas).
+  if (!lineas.length && pedidoNeon?.productos) {
+    try {
+      const parsed = JSON.parse(String(pedidoNeon.productos));
+      if (Array.isArray(parsed)) lineas = lineasDesdePedido(parsed);
+    } catch {
+      /* el detalle no es JSON: se sigue con el pedido */
+    }
+  }
 
   // Respaldo: el metadata de la sesion lleva el detalle del pedido en JSON
   // (lo rellena /api/checkout al crear la sesion).
@@ -482,32 +583,62 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     }
   }
 
-  const totalPedido = pedido?.total !== undefined && pedido?.total !== null
-    ? Number(pedido.total)
-    : metadata.total !== undefined && metadata.total !== null && metadata.total !== ''
-      ? Number(metadata.total)
-      : objeto.amount_total
-        ? Math.round((objeto.amount_total / 100) * 100) / 100
-        : 0;
+  const totalPedido =
+    pedido?.total !== undefined && pedido?.total !== null
+      ? Number(pedido.total)
+      : pedidoNeon?.total !== undefined && pedidoNeon?.total !== null
+        ? Number(pedidoNeon.total)
+        : metadata.total !== undefined && metadata.total !== null && metadata.total !== ''
+          ? Number(metadata.total)
+          : objeto.amount_total
+            ? Math.round((objeto.amount_total / 100) * 100) / 100
+            : 0;
 
   const nombreCliente = String(
     pedido?.cliente_nombre ??
+      pedidoNeon?.cliente_nombre ??
       metadata.cliente_nombre ??
       metadata.nombre ??
       detalles.name ??
       '',
   );
   const telefonoCliente = normalizarTelefono(
-    pedido?.cliente_telefono ?? metadata.cliente_telefono ?? metadata.telefono ?? detalles.phone ?? '',
+    pedido?.cliente_telefono ??
+      pedidoNeon?.cliente_telefono ??
+      metadata.cliente_telefono ??
+      metadata.telefono ??
+      detalles.phone ??
+      '',
   );
   const direccionCliente = String(
-    pedido?.direccion ?? metadata.direccion ?? metadata.cliente_direccion ?? '',
+    pedido?.direccion ??
+      pedidoNeon?.direccion ??
+      metadata.direccion ??
+      metadata.cliente_direccion ??
+      '',
   );
   const orderCode = String(
     metadata.codigo ?? metadata.order_code ?? metadata.codigo_pedido ?? generarCodigo(),
   );
 
   // ── 2) Actualizar el pedido: pagado, con su intent y sus datos ──
+  //
+  // En Neon (la base de datos de los pedidos) se marca como "pagado" y se
+  // rellenan los datos que falten.
+  if (pedidoId && /^\d+$/.test(pedidoId)) {
+    const okNeon = await actualizarPedidoEnNeon(Number(pedidoId), {
+      estado: 'pagado',
+      cliente_nombre: nombreCliente || null,
+      cliente_telefono: telefonoCliente || null,
+      direccion: direccionCliente || null,
+      total: totalPedido,
+      productos: JSON.stringify(lineas),
+      id_pedido: orderCode,
+    });
+    if (okNeon) log('[webhook] Pedido marcado como pagado en Neon', { id: pedidoId });
+  }
+
+  // En Supabase se guardan tambien el estado y el payment_intent.
   //
   // La tabla `pedidos` no tiene todas las columnas (por ejemplo `pagado_at` o
   // `stripe_session_id`). Si se manda un campo que no existe, Supabase

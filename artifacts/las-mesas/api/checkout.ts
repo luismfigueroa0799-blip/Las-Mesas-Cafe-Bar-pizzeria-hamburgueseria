@@ -302,6 +302,30 @@ function generarCodigoPedido(): string {
 }
 
 /**
+ * Comprueba si ahora mismo el local esta abierto.
+ *
+ * Mismo horario que valida el flujo de n8n: de 08:00 a 23:00, todos los
+ * dias, en hora de Canarias (Atlantic/Canary).
+ */
+function localAbierto(): boolean {
+  try {
+    const partes = new Intl.DateTimeFormat('es-ES', {
+      timeZone: 'Atlantic/Canary',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).formatToParts(new Date());
+    const hora = Number(partes.find((p) => p.type === 'hour')?.value ?? '0');
+    const minuto = Number(partes.find((p) => p.type === 'minute')?.value ?? '0');
+    const minutos = hora * 60 + minuto;
+    return minutos >= 8 * 60 && minutos < 23 * 60;
+  } catch (error) {
+    log('[checkout] no se pudo comprobar el horario:', error);
+    return true;
+  }
+}
+
+/**
  * Devuelve el nombre y el precio (en euros) de los productos indicados.
  *
  * Los precios se sacan de la tabla `productos` (la misma que usa n8n) para
@@ -310,13 +334,16 @@ function generarCodigoPedido(): string {
  */
 async function catalogoProductos(
   ids: number[],
-): Promise<Map<number, { nombre: string; precio: number }>> {
-  const mapa = new Map<number, { nombre: string; precio: number }>();
+): Promise<Map<number, { nombre: string; precio: number; disponible: boolean }>> {
+  const mapa = new Map<number, { nombre: string; precio: number; disponible: boolean }>();
   const cfg = configSupabase();
   if (!cfg || !ids.length) return mapa;
   try {
     const r = await g.fetch(
-      cfg.url + '/rest/v1/productos?select=id,nombre,precio&id=in.(' + ids.join(',') + ')',
+      cfg.url +
+        '/rest/v1/productos?select=id,nombre,precio,disponible&id=in.(' +
+        ids.join(',') +
+        ')',
       {
         headers: { apikey: cfg.key, Authorization: 'Bearer ' + cfg.key },
         signal: AbortSignal.timeout(15000),
@@ -328,6 +355,7 @@ async function catalogoProductos(
       mapa.set(Number(fila.id), {
         nombre: String(fila.nombre ?? ''),
         precio: Number(fila.precio ?? 0),
+        disponible: fila.disponible !== false,
       });
     }
   } catch (error) {
@@ -489,19 +517,52 @@ function lineasComoTexto(
 }
 
 /**
- * Crea el pedido en la tabla `pedidos` de Supabase.
+ * Crea el pedido en la base de datos.
+ *
+ * La base de datos de los pedidos es **Neon** (la misma que usa el flujo de
+ * n8n y la tablet). Si la web todavia no tiene `DATABASE_URL` de Neon, se usa
+ * Supabase como fallback.
  *
  * Es el plan B: si el flujo de n8n no responde (caido o en error), la web
  * sigue funcionando creando el pedido y la sesion de pago por su cuenta.
  */
-async function crearPedidoEnSupabase(datos: {
+async function crearPedido(datos: {
   lineas: Array<{ id: number; qty: number; nombre: string; precio: number }>;
   total: number;
   nombre: string;
   telefono: string;
   direccion: string;
   tipo: string;
-}): Promise<number | null> {
+  codigo: string;
+}): Promise<{ id: number; base: 'neon' | 'supabase' } | null> {
+  const productos = datos.lineas.map((l) => ({
+    id: l.id,
+    qty: l.qty,
+    nombre: l.nombre,
+    subtotal: Math.round(l.precio * l.qty * 100) / 100,
+    precio_unitario: l.precio,
+  }));
+
+  // 1) Neon (la base de datos de los pedidos)
+  if (await poolDeNeon()) {
+    const id = await crearPedidoEnNeon({
+      idPedido: datos.codigo,
+      nombre: datos.nombre,
+      telefono: datos.telefono,
+      direccion: datos.direccion,
+      productos,
+      total: datos.total,
+      tipoEntrega: datos.tipo,
+      estado: 'pendiente',
+    });
+    if (id) {
+      log('[checkout] Pedido creado en Neon', { id, id_pedido: datos.codigo });
+      return { id, base: 'neon' };
+    }
+    log('[checkout] no se pudo crear el pedido en Neon');
+  }
+
+  // 2) Supabase (fallback)
   const cfg = configSupabase();
   if (!cfg) return null;
   try {
@@ -515,13 +576,7 @@ async function crearPedidoEnSupabase(datos: {
       },
       body: JSON.stringify({
         tipo: datos.tipo,
-        items: datos.lineas.map((l) => ({
-          id: l.id,
-          qty: l.qty,
-          nombre: l.nombre,
-          subtotal: Math.round(l.precio * l.qty * 100) / 100,
-          precio_unitario: l.precio,
-        })),
+        items: productos,
         total: datos.total,
         estado: 'pendiente_pago',
         cliente_nombre: datos.nombre,
@@ -535,11 +590,130 @@ async function crearPedidoEnSupabase(datos: {
     }
     const filas: any[] = await r.json();
     const id = Number(filas?.[0]?.id);
-    return Number.isFinite(id) && id > 0 ? id : null;
+    if (!Number.isFinite(id) || id <= 0) return null;
+    log('[checkout] Pedido creado en Supabase (fallback)', { id });
+    return { id, base: 'supabase' };
   } catch (error) {
     log('[checkout] error creando el pedido en Supabase:', error);
     return null;
   }
+}
+
+// ── Conexion con Neon (Postgres gestionado) ──
+//
+// Los pedidos se guardan en Neon, que es la base de datos que usa el flujo de
+// n8n y la tablet. La conexion se hace con `pg` (node-postgres) usando la
+// variable de entorno DATABASE_URL.
+//
+// Tabla `public.pedidos` de Neon:
+//   id (numero, autogenerado), id_pedido (texto), cliente_nombre (texto),
+//   cliente_telefono (texto), direccion (texto), productos (texto con JSON),
+//   total (numero), tipo_entrega (texto), estado (texto), fecha (fecha)
+
+/** Pool de conexiones a Neon (se crea la primera vez que se usa). */
+let poolNeon: any = null;
+
+/**
+ * Devuelve el pool de Neon si hay DATABASE_URL configurada, o null si la web
+ * todavia no tiene conexion con Neon (en ese caso se usa Supabase).
+ */
+async function poolDeNeon(): Promise<any | null> {
+  const url = String(entorno().DATABASE_URL ?? entorno().NEON_DATABASE_URL ?? '').trim();
+  if (!url) return null;
+  if (poolNeon) return poolNeon;
+  try {
+    const pg: any = await import('pg');
+    const Pool = pg?.default?.Pool ?? pg?.Pool;
+    if (!Pool) return null;
+    poolNeon = new Pool({
+      connectionString: url,
+      max: 2,
+      idleTimeoutMillis: 10000,
+      connectionTimeoutMillis: 10000,
+      ssl: url.includes('sslmode=disable') ? undefined : { rejectUnauthorized: false },
+    });
+    return poolNeon;
+  } catch (error) {
+    log('[checkout] no se pudo cargar el cliente de Postgres (pg):', error);
+    return null;
+  }
+}
+
+/** Ejecuta una consulta en Neon y devuelve las filas. */
+async function consultarNeon(sql: string, valores: unknown[] = []): Promise<any[]> {
+  const pool = await poolDeNeon();
+  if (!pool) return [];
+  try {
+    const r = await pool.query(sql, valores);
+    return r?.rows ?? [];
+  } catch (error) {
+    log('[checkout] error en Neon:', error);
+    return [];
+  }
+}
+
+/** Columnas que se pueden tocar de la tabla `pedidos` de Neon. */
+const COLUMNAS_NEON = [
+  'id_pedido',
+  'cliente_nombre',
+  'cliente_telefono',
+  'direccion',
+  'productos',
+  'total',
+  'tipo_entrega',
+  'estado',
+  'fecha',
+];
+
+/**
+ * Inserta el pedido en la tabla `pedidos` de Neon y devuelve su id.
+ */
+async function crearPedidoEnNeon(datos: {
+  idPedido: string;
+  nombre: string;
+  telefono: string;
+  direccion: string;
+  productos: unknown[];
+  total: number;
+  tipoEntrega: string;
+  estado?: string;
+}): Promise<number | null> {
+  const filas = await consultarNeon(
+    `insert into public.pedidos
+       (id_pedido, cliente_nombre, cliente_telefono, direccion, productos, total, tipo_entrega, estado, fecha)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, now())
+     returning id`,
+    [
+      datos.idPedido,
+      datos.nombre,
+      datos.telefono,
+      datos.direccion,
+      JSON.stringify(datos.productos),
+      datos.total,
+      datos.tipoEntrega,
+      datos.estado ?? 'pendiente',
+    ],
+  );
+  const id = Number(filas?.[0]?.id);
+  return Number.isFinite(id) && id > 0 ? id : null;
+}
+
+/**
+ * Actualiza el pedido en Neon (por su id numerico).
+ */
+async function actualizarPedidoEnNeon(
+  id: number,
+  campos: Record<string, unknown>,
+): Promise<boolean> {
+  const claves = Object.keys(campos).filter((c) => COLUMNAS_NEON.includes(c));
+  if (!claves.length || !Number.isFinite(id)) return false;
+  const sets = claves.map((c, i) => `"${c}" = $${i + 1}`).join(', ');
+  const valores = claves.map((c) => campos[c]);
+  const filas = await consultarNeon(
+    `update public.pedidos set ${sets} where id = $${claves.length + 1} returning id`,
+    [...valores, id],
+  );
+  return filas.length > 0;
 }
 
 /**
@@ -684,10 +858,39 @@ function columnaInexistente(mensaje: string): string {
   return postgres?.[1] ?? '';
 }
 
+/**
+ * Convierte los campos del pedido al esquema de la tabla `pedidos` de Neon.
+ */
+function camposParaNeon(campos: Record<string, unknown>): Record<string, unknown> {
+  const salida: Record<string, unknown> = {};
+  if (campos.cliente_nombre !== undefined) salida.cliente_nombre = campos.cliente_nombre;
+  if (campos.cliente_telefono !== undefined) salida.cliente_telefono = campos.cliente_telefono;
+  if (campos.direccion !== undefined) salida.direccion = campos.direccion;
+  if (campos.total !== undefined) salida.total = campos.total;
+  if (campos.estado !== undefined) salida.estado = campos.estado;
+  if (campos.items !== undefined) salida.productos = JSON.stringify(campos.items);
+  if (campos.tipo !== undefined) salida.tipo_entrega = campos.tipo;
+  if (campos.id_pedido !== undefined) salida.id_pedido = campos.id_pedido;
+  return salida;
+}
+
+/**
+ * Actualiza el pedido en Neon y en Supabase.
+ *
+ * Neon es la base de datos de los pedidos (la que usa el flujo de n8n y la
+ * tablet); Supabase se actualiza tambien para no dejar nada a medias.
+ */
 async function actualizarPedido(
   pedidoId: string | number,
   campos: Record<string, unknown>,
 ): Promise<void> {
+  // 1) Neon
+  const idNumero = Number(pedidoId);
+  if (Number.isFinite(idNumero) && idNumero > 0) {
+    const ok = await actualizarPedidoEnNeon(idNumero, camposParaNeon(campos));
+    if (ok) log('[checkout] Pedido actualizado en Neon', { id: idNumero });
+  }
+
   // Se usa urlSupabase() / claveSupabase() para que funcione aunque las
   // variables de entorno falten o contengan placeholders.
   const cfg = configSupabase();
@@ -808,6 +1011,16 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     }
   }
 
+  // Horario del local (mismo que valida el flujo de n8n).
+  if (!localAbierto()) {
+    responder(
+      res,
+      { error: 'Estamos fuera del horario de atención. No se aceptan pedidos ahora.' },
+      403,
+    );
+    return;
+  }
+
   // El id de cada articulo es el de la tabla `productos` de Supabase.
   // n8n los usa para recalcular los precios.
   const crudos = (body.items ?? []).filter(
@@ -852,6 +1065,19 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   // Catalogo con los nombres y los precios reales de los articulos (los
   // precios de la tabla `productos`, los mismos que usa n8n para el total).
   const catalogo = await catalogoProductos(items.map((item) => item.id));
+
+  // Producto agotado: el flujo de n8n tambien lo rechaza.
+  for (const item of items) {
+    const producto = catalogo.get(item.id);
+    if (producto && !producto.disponible) {
+      responder(
+        res,
+        { error: `El producto ${producto.nombre || item.id} no está disponible.` },
+        409,
+      );
+      return;
+    }
+  }
 
   // Precio que declara el navegador: solo se usa si el producto no esta en
   // el catalogo (si esta, manda el precio de la base de datos).
@@ -1027,20 +1253,24 @@ export default async function handler(req: Req, res: Res): Promise<void> {
         datos,
       });
 
-      const nuevoId = await crearPedidoEnSupabase({
+      const nuevo = await crearPedido({
         lineas,
         total: totalEuros,
         nombre,
         telefono: telefonoFinal,
         direccion: direccionFinal,
         tipo: mesa ? 'mesa' : 'domicilio',
+        codigo: codigoPedido,
       });
-      if (!nuevoId) {
+      if (!nuevo) {
         responder(res, { error: mensaje }, 502);
         return;
       }
-      pedidoId = String(nuevoId);
-      log('[checkout] Pedido creado por la web (plan B)', { pedido_id: pedidoId });
+      pedidoId = String(nuevo.id);
+      log('[checkout] Pedido creado por la web (plan B)', {
+        pedido_id: pedidoId,
+        base: nuevo.base,
+      });
     } else {
       info('[checkout] RESPUESTA DE N8N', {
         ok: datos?.ok,
@@ -1165,9 +1395,12 @@ export default async function handler(req: Req, res: Res): Promise<void> {
       metadataActualizada = await actualizarMetadataStripe(sessionId, metadataPlana);
     }
 
-    await actualizarPedido(datos.pedido_id, {
+    await actualizarPedido(pedidoId, {
       cliente_nombre: nombre,
       cliente_telefono: telefonoFinal,
+      // El codigo del pedido (PED-XXXX) en Neon, para poder correlacionar el
+      // pedido con el mensaje de Telegram y con la tablet.
+      id_pedido: codigoPedido,
       // OJO: en esta base de datos la columna se llama payment_intent.
       payment_intent: paymentIntent || null,
       // El id de la sesion de Stripe: es lo que permite al trigger "Pago
