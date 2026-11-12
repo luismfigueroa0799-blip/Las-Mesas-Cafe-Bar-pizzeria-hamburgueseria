@@ -81,14 +81,14 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   // Se muestra la URL que se usaria de verdad (con el valor por defecto si
   // la variable del entorno es un placeholder).
   const urlN8n = urlWebhookN8n(true);
-  const urlSupabase = urlSupabase();
+  const urlSupabaseReal = urlSupabase();
   const keySupabase =
     env.SUPABASE_SECRET_KEY ?? env.SUPABASE_SERVICE_ROLE_KEY ?? '';
 
   const resultado: Record<string, unknown> = {
     variables: {
       N8N_WEBHOOK_URL: urlN8n,
-      SUPABASE_URL: urlSupabase,
+      SUPABASE_URL: urlSupabaseReal,
       SUPABASE_SECRET_KEY: claveSupabase() ? 'configurada' : 'FALTA',
       N8N_WEBHOOK_URL_TEST: env.N8N_WEBHOOK_URL_TEST ? 'configurada' : 'no',
       STRIPE_SECRET_KEY: env.STRIPE_SECRET_KEY ? 'configurada' : 'FALTA',
@@ -123,10 +123,10 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   }
 
   // 2) Supabase: lectura de la tabla productos
-  if (urlSupabase && keySupabase) {
+  if (urlSupabaseReal && claveSupabase()) {
     try {
-      const r = await g.fetch(urlSupabase + '/rest/v1/productos?select=id&limit=1', {
-        headers: { apikey: keySupabase, Authorization: 'Bearer ' + keySupabase },
+      const r = await g.fetch(urlSupabaseReal + '/rest/v1/productos?select=id&limit=1', {
+        headers: { apikey: claveSupabase(), Authorization: 'Bearer ' + claveSupabase() },
         signal: AbortSignal.timeout(15000),
       });
       const texto = await r.text();
