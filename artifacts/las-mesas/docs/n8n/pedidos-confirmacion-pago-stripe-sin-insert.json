@@ -1,0 +1,185 @@
+{
+  "name": "Pedidos: confirmación de pago Stripe",
+  "nodes": [
+    {
+      "parameters": {
+        "events": [
+          "checkout.session.completed"
+        ]
+      },
+      "id": "8a52307c-d797-422b-af90-35c7f9ae1902",
+      "name": "Pago completado en Stripe",
+      "type": "n8n-nodes-base.stripeTrigger",
+      "typeVersion": 1,
+      "position": [
+        -304,
+        -400
+      ],
+      "webhookId": "6c8d3a58-72e0-4cce-a773-ddd1382fddbd",
+      "credentials": {
+        "stripeApi": {
+          "id": "pUBcgXLy44KcEpje",
+          "name": "Stripe account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "8279256563",
+        "text": "=🚨 NUEVO PEDIDO EN COCINA 🚨\n\nCódigo: {{ $('Generar Codigo de Pedido').first().json.order_code }}\nCliente: {{ $('Generar Codigo de Pedido').first().json.cliente_nombre }}\nTeléfono: {{ $('Generar Codigo de Pedido').first().json.telefono }}\nDirección: {{ $('Generar Codigo de Pedido').first().json.direccion }}\n-------------------------\nDETALLE:\n{{ $('Generar Codigo de Pedido').first().json.detalle_texto }}\n-------------------------\nTOTAL: {{ $('Generar Codigo de Pedido').first().json.total_texto }} €",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "d5e2869b-af4f-43d9-b70a-b6548c511a36",
+      "name": "Avisar domicilio por Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        352,
+        -384
+      ],
+      "webhookId": "4ffa0cb1-8151-4cf9-9531-6931b98c79d3",
+      "retryOnFail": true,
+      "credentials": {
+        "telegramApi": {
+          "id": "sIFKDmcGc2Y9u7TU",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Los datos del pedido llegan en el metadata de la sesion de Stripe: es\n// donde la web (las mesas/cocina) deja el nombre, el telefono, la direccion,\n// el total y el detalle del pedido.\n//\n// Antes se leian de customer_details y de data.object.items, pero Stripe no\n// rellena el nombre ni el telefono (el checkout no los pide) y \"items\" no\n// existe en el evento: por ahi salia \"Cliente\", \"Sin telefono\" y \"0 EUR\".\n\nconst salida = [];\n\nfor (const item of $input.all()) {\n  const evento = item.json || {};\n\n  // El objeto de la sesion de checkout dentro del evento.\n  const objeto = (evento.data && evento.data.object) || evento.object || {};\n  const metadata = objeto.metadata || {};\n  const detalles = objeto.customer_details || {};\n\n  const idSesion = String(objeto.id || evento.id || '');\n  const codigoPedido =\n    metadata.codigo ||\n    metadata.order_code ||\n    metadata.codigo_pedido ||\n    ('PED-' + idSesion.slice(-4).toUpperCase());\n\n  const nombre =\n    metadata.cliente_nombre ||\n    metadata.nombre ||\n    detalles.name ||\n    'Cliente';\n\n  const telefono =\n    metadata.telefono ||\n    metadata.cliente_telefono ||\n    detalles.phone ||\n    'Sin telefono';\n\n  const direccion =\n    metadata.direccion ||\n    metadata.cliente_direccion ||\n    'Sin direccion';\n\n  const correo =\n    metadata.email ||\n    metadata.correo ||\n    metadata.cliente_correo ||\n    detalles.email ||\n    '';\n\n  // Total: el metadata lo lleva en euros como texto. Si no esta, se usa el\n  // de Stripe, que va en centimos.\n  let total = Number(metadata.total);\n  if (!isFinite(total) || total <= 0) total = (Number(objeto.amount_total) || 0) / 100;\n  const totalTexto = metadata.total_texto || total.toFixed(2);\n\n  // Detalle del pedido: el metadata lleva el JSON de las lineas.\n  let items = [];\n  try {\n    const parseado = JSON.parse(metadata.detalle || metadata.items || '[]');\n    if (Array.isArray(parseado)) items = parseado;\n  } catch (e) {\n    items = [];\n  }\n\n  const detalleTexto =\n    metadata.detalle_texto ||\n    items\n      .map(function (it) {\n        const precio =\n          typeof it.precio === 'number'\n            ? it.precio.toFixed(2).replace('.', ',') + ' EUR'\n            : it.precio || '';\n        const unidades = (it.cantidad || it.qty || 1) > 1 ? (it.cantidad || it.qty) + ' x ' : '';\n        return unidades + (it.nombre || it.name || '') + ' - ' + precio;\n      })\n      .join('\\n');\n\n  const resumen =\n    metadata.resumen ||\n    [\n      'Cliente: ' + nombre,\n      'Telefono: ' + telefono,\n      'Direccion: ' + direccion,\n      'TOTAL: ' + totalTexto + ' EUR',\n    ].join('\\n');\n\n  salida.push({\n    json: {\n      ...evento,\n      order_code: codigoPedido,\n      codigo: codigoPedido,\n      cliente_nombre: nombre,\n      nombre: nombre,\n      telefono: telefono,\n      cliente_telefono: telefono,\n      direccion: direccion,\n      cliente_direccion: direccion,\n      total: total,\n      total_texto: totalTexto,\n      email: correo,\n      correo: correo,\n      items: items,\n      detalle_texto: detalleTexto,\n      resumen: resumen,\n      tipo_entrega: metadata.tipoEntrega || metadata.modo_entrega || 'domicilio',\n      pedido_id: metadata.pedido_id || '',\n    },\n  });\n}\n\nreturn salida;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        16,
+        -176
+      ],
+      "id": "ae359560-c005-406c-9c07-b03843cd5eba",
+      "name": "Generar Codigo de Pedido"
+    },
+    {
+      "parameters": {
+        "fromEmail": "=lasmesascafeteriabar@gmail.com",
+        "toEmail": "={{ $('Generar Codigo de Pedido').first().json.email || 'luism.figueroa0799@gmail.com' }}",
+        "subject": "=Nuevo pedido {{ $('Generar Codigo de Pedido').first().json.order_code }} - Las Mesas",
+        "html": "=<h2>¡Gracias por tu pedido!</h2>\n<p>Hemos recibido tu pedido <b>{{ $('Generar Codigo de Pedido').first().json.order_code }}</b>.</p>\n<p>Cliente: <b>{{ $('Generar Codigo de Pedido').first().json.cliente_nombre }}</b></p>\n<p>Teléfono: <b>{{ $('Generar Codigo de Pedido').first().json.telefono }}</b></p>\n<p>Dirección: <b>{{ $('Generar Codigo de Pedido').first().json.direccion }}</b></p>\n<hr>\n<p><b>DETALLE:</b></p>\n<pre>{{ $('Generar Codigo de Pedido').first().json.detalle_texto }}</pre>\n<hr>\n<p><b>TOTAL: {{ $('Generar Codigo de Pedido').first().json.total_texto }} €</b></p>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        560,
+        -384
+      ],
+      "id": "9b37a2a0-5439-41df-9005-a868fe079397",
+      "name": "Send an Email",
+      "webhookId": "9e02037c-f975-4dc1-a1af-99b5417d7320",
+      "credentials": {
+        "smtp": {
+          "id": "37Y454cF62lUwfaT",
+          "name": "SMTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://hooknotifier.com/1794488773416/throbbing-voice",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "object",
+              "value": "¡NUEVO PEDIDO EN COCINA!"
+            },
+            {
+              "name": "body",
+              "value": "=🚨 NUEVO PEDIDO EN COCINA 🚨\\n\\nCódigo: {{ $('Generar Codigo de Pedido').first().json.order_code }}\\nCliente: {{ $('Generar Codigo de Pedido').first().json.cliente_nombre }}\\nTeléfono: {{ $('Generar Codigo de Pedido').first().json.telefono }}\\nDirección: {{ $('Generar Codigo de Pedido').first().json.direccion }}\\n-------------------------\\nDETALLE:\\n{{ $('Generar Codigo de Pedido').first().json.detalle_texto }}\\n-------------------------\\nTOTAL: {{ $('Generar Codigo de Pedido').first().json.total_texto }} €"
+            },
+            {
+              "name": "priority",
+              "value": "high"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        496,
+        -176
+      ],
+      "id": "8370b12a-3db4-460e-be7a-d4f6ecd4b161",
+      "name": "HTTP Request"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Pago completado en Stripe": {
+      "main": [
+        [
+          {
+            "node": "Generar Codigo de Pedido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generar Codigo de Pedido": {
+      "main": [
+        [
+          {
+            "node": "Avisar domicilio por Telegram",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Avisar domicilio por Telegram": {
+      "main": [
+        [
+          {
+            "node": "Send an Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send an Email": {
+      "main": [
+        []
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "d2b92223-28ad-4b81-9833-0cd006f1e7ba",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "91f9c812266692c02151b84cfda10ce4a643b978c44e62a952c0574d0a918cfa"
+  },
+  "nodeGroups": [],
+  "id": "4JHtPelUydFM55e6",
+  "tags": []
+}
