@@ -196,6 +196,63 @@ function idNumerico(id: string | number): number | null {
   return /^\d+$/.test(soloNumero) ? Number(soloNumero) : null;
 }
 
+/**
+ * Resuelve los ids de los articulos contra la tabla `productos`.
+ *
+ * Si el articulo llega con un id numerico se usa tal cual. Si no (por ejemplo
+ * un carrito guardado en el navegador con una version antigua de la carta), se
+ * busca por nombre en la base de datos. Asi el pedido se crea igual.
+ */
+async function resolverIds(
+  items: Array<{ id: string; nombre?: string; qty: number }>,
+): Promise<Array<{ id: number; qty: number }> | null> {
+  const resueltos: Array<{ id: number; qty: number }> = [];
+  const porNombre: string[] = [];
+
+  for (const item of items) {
+    const id = idNumerico(item?.id ?? '');
+    if (id !== null) {
+      resueltos.push({ id, qty: Math.floor(Number(item.qty) || 1) });
+    } else if (item?.nombre) {
+      porNombre.push(item.nombre);
+    } else {
+      return null;
+    }
+  }
+
+  if (!porNombre.length) return resueltos;
+
+  const cfg = configSupabase();
+  if (!cfg) return null;
+
+  try {
+    const lista = porNombre.map((n) => '"' + n.replace(/"/g, '') + '"').join(',');
+    const r = await g.fetch(
+      cfg.url + '/rest/v1/productos?select=id,nombre&nombre=in.(' + lista + ')',
+      {
+        headers: { apikey: cfg.key, Authorization: 'Bearer ' + cfg.key },
+        signal: AbortSignal.timeout(15000),
+      },
+    );
+    if (!r.ok) return null;
+    const filas: any[] = await r.json();
+    const porNombreId = new Map<string, number>();
+    for (const fila of filas) porNombreId.set(String(fila.nombre), Number(fila.id));
+
+    for (const item of items) {
+      if (idNumerico(item?.id ?? '') !== null) continue;
+      const encontrado = porNombreId.get(String(item.nombre));
+      if (!encontrado) return null;
+      resueltos.push({ id: encontrado, qty: Math.floor(Number(item.qty) || 1) });
+    }
+
+    return resueltos;
+  } catch (error) {
+    log('[checkout] no se pudieron resolver los ids por nombre:', error);
+    return null;
+  }
+}
+
 /** Lee el cuerpo de la petición. */
 function leerCuerpo(req: Req): any {
   const body = req.body;
@@ -316,18 +373,23 @@ export default async function handler(req: Req, res: Res): Promise<void> {
 
   // El id de cada articulo es el de la tabla `productos` de Supabase.
   // n8n los usa para recalcular los precios.
-  const items: Array<{ id: number; qty: number }> = [];
-  for (const item of body.items ?? []) {
-    const id = idNumerico(item?.id ?? '');
-    const qty = Number(item?.quantity ?? 0);
-    if (id === null || !Number.isFinite(qty) || qty < 1) {
-      responder(res, { error: 'El carrito tiene artículos no válidos' }, 400);
-      return;
-    }
-    items.push({ id, qty: Math.floor(qty) });
-  }
-  if (!items.length) {
+  const crudos = (body.items ?? []).filter(
+    (item) => item && Number(item.quantity) > 0,
+  );
+  if (!crudos.length) {
     responder(res, { error: 'El carrito está vacío' }, 400);
+    return;
+  }
+
+  const items = await resolverIds(
+    crudos.map((item) => ({
+      id: String(item.id ?? ''),
+      nombre: item.name,
+      qty: Number(item.quantity),
+    })),
+  );
+  if (!items) {
+    responder(res, { error: 'El carrito tiene artículos no válidos' }, 400);
     return;
   }
 
