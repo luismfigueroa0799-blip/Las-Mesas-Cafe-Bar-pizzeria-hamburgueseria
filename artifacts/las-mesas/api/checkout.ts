@@ -109,10 +109,11 @@ function normalizarTelefono(valor: string | undefined): string {
 
 /** Envía la respuesta y cierra la petición. */
 function responder(res: Res, cuerpo: unknown, estado = 200): void {
+  // res.json() es el metodo nativo de Vercel: pone el Content-Type, envia el
+  // cuerpo y cierra la peticion. Con res.end() el cuerpo llegaba vacio.
   res.status(estado);
-  res.setHeader('Content-Type', 'application/json');
   res.setHeader('Cache-Control', 'no-store, max-age=0');
-  res.end(JSON.stringify(cuerpo));
+  res.json(cuerpo);
 }
 
 function log(...args: unknown[]): void {
