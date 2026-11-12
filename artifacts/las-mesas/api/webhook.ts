@@ -38,6 +38,8 @@ interface Res {
   send(cuerpo: unknown): void;
 }
 
+import { construirPedido } from './_shared/pedido';
+
 function entorno(): Record<string, string | undefined> {
   return (g.process?.env ?? {}) as Record<string, string | undefined>;
 }
@@ -195,92 +197,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     return;
   }
 
-  const datos = (evento?.data ?? {}) as Record<string, any>;
-  const objeto = (datos.object ?? evento?.object ?? {}) as Record<string, any>;
-  const detalles = (objeto.customer_details ?? {}) as Record<string, any>;
-  const metadata = (objeto.metadata ?? {}) as Record<string, any>;
-
-  // Dirección: si Stripe la recogió de forma nativa (envío a domicilio) tiene
-  // prioridad sobre la que rellenó el cliente en el carrito.
-  const envio = (objeto.shipping ?? null) as Record<string, any> | null;
-  const direccionStripe = envio?.address
-    ? {
-        calle: [envio.address.line1, envio.address.line2].filter(Boolean).join(', '),
-        codigoPostal: envio.address.postal_code ?? '',
-        ciudad: envio.address.city ?? '',
-        pais: envio.address.country ?? '',
-      }
-    : null;
-
-  const direccion = {
-    calle: metadata.calle ?? direccionStripe?.calle ?? '',
-    numero: metadata.numero ?? '',
-    piso: metadata.piso ?? '',
-    codigoPostal: metadata.codigoPostal ?? direccionStripe?.codigoPostal ?? '',
-    ciudad: metadata.ciudad ?? direccionStripe?.ciudad ?? '',
-    pais: direccionStripe?.pais ?? 'ES',
-  };
-  const direccionCompleta =
-    metadata.direccion ||
-    [direccion.calle, direccion.numero, direccion.piso, direccion.codigoPostal, direccion.ciudad]
-      .filter(Boolean)
-      .join(', ');
-
-  let articulos: unknown = [];
-  try {
-    articulos = metadata.items ? JSON.parse(metadata.items) : [];
-  } catch {
-    articulos = [];
-  }
-
-  const tipoEntrega = metadata.tipoEntrega ?? (envio ? 'domicilio' : 'recogida');
-  const telefono = normalizarTelefono(
-    metadata.cliente_telefono ?? metadata.telefono ?? detalles.phone ?? '',
-  );
-
-  const pedido = {
-    // Identificación
-    evento: tipo || 'checkout.session.completed',
-    idPedido: objeto.id ?? '',
-    idPago: objeto.payment_intent ?? '',
-    fecha: objeto.created
-      ? new Date(objeto.created * 1000).toISOString()
-      : new Date().toISOString(),
-    modoPrueba: !livemode,
-
-    // Cliente
-    correo: metadata.correo ?? detalles.email ?? objeto.customer_email ?? '',
-    nombre: metadata.nombre ?? detalles.name ?? '',
-    telefono,
-    cliente_telefono: telefono,
-
-    // Entrega
-    tipoEntrega,
-    recogida: tipoEntrega === 'recogida',
-    domicilio: tipoEntrega === 'domicilio',
-    direccion: direccionCompleta,
-    direccionDetalle: direccion,
-    modoRecogida: metadata.modoRecogida ?? (tipoEntrega === 'recogida' ? 'recogida' : 'domicilio'),
-    mesa: metadata.mesa ?? '',
-
-    // Dinero
-    total: objeto.amount_total ? (objeto.amount_total / 100).toFixed(2) : '',
-    moneda: objeto.currency ?? 'eur',
-    subtotal: objeto.amount_subtotal ? (objeto.amount_subtotal / 100).toFixed(2) : '',
-    impuestos: objeto.total_tax_amounts?.length
-      ? (objeto.total_tax_amounts[0].amount / 100).toFixed(2)
-      : '0.00',
-    metodoPago: objeto.payment_method_types?.[0] ?? '',
-
-    // Artículos
-    articulos,
-
-    // Contexto
-    urlOrigen: metadata.urlOrigen ?? '',
-    restaurante: 'Las Mesas · Café & Bar',
-    telefonoRestaurante: '+34 928 896 097',
-    whatsappRestaurante: '346010000000',
-  };
+  const pedido = construirPedido(evento);
 
   info('[webhook] Reenviando pedido a n8n', { destino, idPedido: pedido.idPedido, total: pedido.total });
 
