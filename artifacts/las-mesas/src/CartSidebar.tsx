@@ -49,9 +49,12 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
   const errores = useMemo(() => {
     const lista: string[] = [];
     if (!datos.nombre.trim()) lista.push('El nombre es obligatorio.');
-    // El telefono es opcional: solo se valida el formato si se ha escrito.
+    // El telefono es opcional, salvo para entrega a domicilio, donde el
+    // servidor de pedidos lo necesita para preparar el reparto.
     if (datos.telefono.trim() && !telefonoValido(datos.telefono.trim())) {
       lista.push('Revisa el teléfono: debe tener entre 9 y 20 dígitos.');
+    } else if (!datos.telefono.trim() && datos.tipoEntrega === 'domicilio') {
+      lista.push('Para entrega a domicilio hace falta el teléfono.');
     }
     // El correo es obligatorio y tiene que incluir el dominio.
     if (!datos.email.trim()) {

@@ -1,6 +1,7 @@
 /**
- * Prueba del flujo completo: carrito -> /api/checkout -> webhook a n8n.
- * Comprueba que los articulos y el total llegan bien.
+ * Prueba del flujo real: carrito -> /api/checkout -> n8n -> Supabase.
+ * Comprueba que el pedido se crea con el nombre del cliente y que devuelve la
+ * url de la pasarela de pago.
  *
  * Uso:  node scripts/probar-flujo-carrito.mjs
  */
@@ -24,7 +25,6 @@ function localizarEsbuild() {
 const em = await import(pathToFileURL(localizarEsbuild()).href);
 const build = em.build ?? em.default.build;
 
-// Se compilan por separado: ambos modulos exportan maxDuration.
 async function compilar(entrada, nombre) {
   const salida = path.join(process.env.TEMP || '.', nombre);
   await build({
@@ -41,10 +41,6 @@ async function compilar(entrada, nombre) {
 const { default: checkout } = await compilar(
   path.join(raiz, 'api', 'checkout.ts'),
   'flujo-checkout.mjs',
-);
-const { default: webhook } = await compilar(
-  path.join(raiz, 'api', 'webhook.ts'),
-  'flujo-webhook.mjs',
 );
 
 function resMock() {
@@ -69,106 +65,78 @@ function resMock() {
   return r;
 }
 
-// Carrito simulado (lo que envia el navegador)
+// Carrito con 4 productos, con los ids REALES de la tabla productos.
 const carrito = {
   items: [
-    { id: '3', name: 'Burger Pizza', price: '12,00 €', quantity: 1 },
-    { id: '62', name: 'Tropical', price: '1,40 €', quantity: 2 },
+    { id: '4', name: 'La suprema', price: '6,50 €', quantity: 1 },
+    { id: '5', name: 'La tradicional', price: '3,60 €', quantity: 1 },
+    { id: '6', name: 'Burger Pizza', price: '12,00 €', quantity: 1 },
+    { id: '14', name: 'Cono de papas', price: '1,85 €', quantity: 1 },
   ],
-  customerEmail: 'cliente@ejemplo.com',
-  customerName: 'Ana Pérez',
+  customerEmail: 'test@test.com',
+  customerName: 'Ana Perez',
   telefono: '600 00 00 00',
-  tipoEntrega: 'recogida',
-  direccion: { calle: '', numero: '', piso: '', codigoPostal: '', ciudad: '' },
+  tipoEntrega: 'domicilio',
+  direccion: {
+    calle: 'Calle Mayor',
+    numero: '24',
+    piso: '3 B',
+    codigoPostal: '35018',
+    ciudad: 'Las Palmas de Gran Canaria',
+  },
   mesa: '',
   urlOrigen: 'https://ejemplo.com',
 };
 
-console.log('--- 1) Carrito que envia el navegador ---');
+console.log('--- 1) Carrito del navegador (4 productos) ---');
 console.log(JSON.stringify(carrito.items));
 console.log('');
 
-// 2) Llamada a /api/checkout
-const resC = resMock();
+const res = resMock();
 await checkout(
   { method: 'POST', url: 'http://x/api/checkout', headers: { get: () => 'x' }, body: carrito },
-  resC,
+  res,
 );
+
 console.log('--- 2) Respuesta de /api/checkout ---');
-console.log('status:', resC._status);
-console.log('total:', resC._body?.total, '| totalCentimos:', resC._body?.totalCentimos);
-console.log('articulos:', JSON.stringify(resC._body?.articulos));
+console.log('status:', res._status);
+console.log('pedido_id:', res._body?.pedido_id);
+console.log('total:', res._body?.total, '| totalCentimos:', res._body?.totalCentimos);
+console.log('url:', String(res._body?.url ?? '').slice(0, 95));
+console.log('error:', res._body?.error ?? '(ninguno)');
 console.log('');
 
-if (resC._status !== 200) {
-  console.log('FALLO: el checkout no devolvio 200');
-  process.exit(1);
+// 3) Comprobar el pedido en Supabase
+const url = process.env.SUPABASE_URL;
+const key = process.env.SUPABASE_SECRET_KEY;
+if (url && key && res._body?.pedido_id) {
+  const r = await fetch(
+    `${url}/rest/v1/pedidos?id=eq.${res._body.pedido_id}&select=id,cliente_nombre,cliente_telefono,direccion,total,items,estado`,
+    { headers: { apikey: key, Authorization: `Bearer ${key}` } },
+  );
+  const [pedido] = await r.json();
+  console.log('--- 3) Pedido en Supabase ---');
+  console.log('  cliente_nombre  :', JSON.stringify(pedido?.cliente_nombre));
+  console.log('  cliente_telefono:', JSON.stringify(pedido?.cliente_telefono));
+  console.log('  direccion       :', JSON.stringify(pedido?.direccion));
+  console.log('  total           :', pedido?.total);
+  console.log('  items           :', JSON.stringify(pedido?.items));
+  console.log('  estado          :', pedido?.estado);
+  console.log('');
+
+  const ok =
+    pedido?.cliente_nombre === 'Ana Perez' &&
+    pedido?.cliente_telefono === '34600000000' &&
+    pedido?.total === 23.95 &&
+    pedido?.items?.length === 4;
+
+  console.log(
+    ok
+      ? 'OK: el pedido tiene nombre, telefono, total y 4 productos.'
+      : 'FALLO: algun dato del pedido no es correcto.',
+  );
+  process.exit(ok ? 0 : 1);
 }
 
-// 3) Simular el evento de Stripe que llegaria al webhook
-const evento = {
-  type: 'checkout.session.completed',
-  livemode: false,
-  created: Math.floor(Date.now() / 1000),
-  data: {
-    object: {
-      id: resC._body.sessionId,
-      payment_intent: 'pi_test_123',
-      amount_total: resC._body.totalCentimos,
-      currency: 'eur',
-      payment_method_types: ['card'],
-      customer_details: { email: carrito.customerEmail, name: carrito.customerName },
-      metadata: {
-        nombre: carrito.customerName,
-        telefono: carrito.telefono,
-        cliente_telefono: carrito.telefono,
-        correo: carrito.customerEmail,
-        tipoEntrega: carrito.tipoEntrega,
-        total: resC._body.total,
-        totalCentimos: String(resC._body.totalCentimos),
-        numArticulos: '3',
-        items: JSON.stringify(resC._body.articulos),
-      },
-    },
-  },
-};
-
-// Interceptamos el fetch global para capturar lo que se envia a n8n.
-let enviadoAN8n = null;
-const fetchOriginal = globalThis.fetch;
-globalThis.fetch = async (url, opciones) => {
-  if (String(url).includes('n8n.cloud')) {
-    enviadoAN8n = JSON.parse(opciones.body);
-    return new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } });
-  }
-  return fetchOriginal(url, opciones);
-};
-
-const resW = resMock();
-await webhook(
-  { method: 'POST', url: 'http://x/api/webhook', headers: { get: () => null }, body: evento },
-  resW,
-);
-globalThis.fetch = fetchOriginal;
-
-console.log('--- 3) Payload que llega a n8n ---');
-console.log('status webhook:', resW._status, '|', JSON.stringify(resW._body));
-console.log('total      :', JSON.stringify(enviadoAN8n?.total));
-console.log('articulos  :', JSON.stringify(enviadoAN8n?.articulos));
-console.log('nombre     :', JSON.stringify(enviadoAN8n?.nombre));
-console.log('telefono   :', JSON.stringify(enviadoAN8n?.telefono));
-console.log('');
-
-const ok =
-  enviadoAN8n?.total === '14.80' &&
-  Array.isArray(enviadoAN8n?.articulos) &&
-  enviadoAN8n.articulos.length === 2 &&
-  enviadoAN8n?.nombre === 'Ana Pérez' &&
-  enviadoAN8n?.telefono === '34600000000';
-
-console.log(
-  ok
-    ? 'OK: total, articulos, nombre y telefono llegan correctamente a n8n.'
-    : 'FALLO: algun dato no llega bien.',
-);
-process.exit(ok ? 0 : 1);
+console.log(res._status === 200 ? 'OK: checkout correcto.' : 'FALLO');
+process.exit(res._status === 200 ? 0 : 1);

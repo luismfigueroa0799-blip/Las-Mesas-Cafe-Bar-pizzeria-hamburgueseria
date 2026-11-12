@@ -1,21 +1,18 @@
-// Webhook de pedidos: recibe el evento checkout.session.completed de Stripe
-// y lo reenvía al flujo de n8n con los datos del pedido.
+// Webhook de Stripe: recibe checkout.session.completed y actualiza el pedido en
+// la tabla `pedidos` de Supabase, para que el flujo de n8n (trigger "Pago
+// completado en Stripe") lo encuentre con el estado correcto y notifique por
+// Telegram y email.
 //
 // Variables de entorno:
-//   N8N_WEBHOOK_URL       → URL del flujo en producción (n8n ".../webhook/...")
-//   N8N_WEBHOOK_URL_TEST  → URL del flujo de pruebas  (n8n ".../webhook-test/...")
-//   SUPABASE_URL           → opcional
-//   SUPABASE_SERVICE_ROLE_KEY → opcional; marca el pedido como pagado
-//
-// Si el evento viene en modo prueba (livemode = false) se usa la URL de test
-// cuando esté configurada; en producción se usa siempre la URL de producción.
+//   SUPABASE_URL, SUPABASE_SECRET_KEY → para actualizar el pedido
+//   N8N_WEBHOOK_URL, N8N_WEBHOOK_URL_TEST → aviso directo a n8n (opcional)
 //
 // IMPORTANTE:
 //   - Las serverless functions de Vercel usan el estilo Node (req, res). Si se
-//     devuelve un objeto Response en vez de llamar a res.end(), la petición
+//     devuelve un objeto Response en vez de llamar a res.end(), la peticion
 //     nunca se completa.
-//   - El código de Supabase va aqui dentro (sin imports externos) porque Vercel
-//     no empaqueta ficheros externos a la carpeta api/.
+//   - El codigo de Supabase va aqui dentro (sin imports externos) porque
+//     Vercel no empaqueta ficheros externos a la carpeta api/.
 //
 // Tipos globales mínimos para que este archivo compile con cualquier tsconfig
 // (sin depender de "lib": ["dom"] ni de @types/node).
@@ -147,43 +144,32 @@ function leerCuerpoCrudo(req: Req): string {
 function configSupabase(): { url: string; key: string } | null {
   const env = entorno();
   const url = (env.SUPABASE_URL ?? '').replace(/\/+$/, '');
-  // La clave de servicio nueva se llama SUPABASE_SECRET_KEY; se acepta
-  // tambien el nombre antiguo por compatibilidad.
   const key = env.SUPABASE_SECRET_KEY ?? env.SUPABASE_SERVICE_ROLE_KEY ?? '';
   if (!url || !key) return null;
   return { url, key };
 }
 
-/** Un id de pedido tiene que ser un uuid (columna `pedidos.id`). */
-function esUuid(valor: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(valor);
-}
-
-/** Marca el pedido como pagado en la tabla `pedidos`. */
-async function marcarPagado(
+/** Actualiza la fila del pedido en la tabla `pedidos`. */
+async function actualizarPedido(
   pedidoId: string,
-  paymentIntent?: string | null,
+  campos: Record<string, unknown>,
 ): Promise<void> {
   const cfg = configSupabase();
-  if (!cfg || !esUuid(pedidoId)) return;
+  if (!cfg || !pedidoId || !/^\d+$/.test(pedidoId)) return;
 
   try {
-    await g.fetch(`${cfg.url}/rest/v1/pedidos?id=eq.${pedidoId}`, {
+    await g.fetch(cfg.url + '/rest/v1/pedidos?id=eq.' + pedidoId, {
       method: 'PATCH',
       headers: {
         apikey: cfg.key,
-        Authorization: `Bearer ${cfg.key}`,
+        Authorization: 'Bearer ' + cfg.key,
         'Content-Type': 'application/json',
         Prefer: 'return=minimal',
       },
-      body: JSON.stringify({
-        estado: 'pendiente_confirmacion',
-        stripe_payment_intent: paymentIntent ?? null,
-        pagado_at: new Date().toISOString(),
-      }),
+      body: JSON.stringify(campos),
     });
   } catch (error) {
-    log('[webhook] no se pudo marcar el pedido como pagado:', error);
+    log('[webhook] no se pudo actualizar el pedido:', error);
   }
 }
 
@@ -197,7 +183,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
       configurado: Boolean(env.N8N_WEBHOOK_URL || env.N8N_WEBHOOK_URL_TEST),
       destinoTest: Boolean(env.N8N_WEBHOOK_URL_TEST),
       firmaVerificada: Boolean(env.STRIPE_WEBHOOK_SECRET),
-      supabase: Boolean(env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY),
+      supabase: Boolean(env.SUPABASE_URL && (env.SUPABASE_SECRET_KEY || env.SUPABASE_SERVICE_ROLE_KEY)),
     });
     return;
   }
@@ -238,20 +224,12 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   }
 
   const livemode = evento?.livemode === true;
-  const destino = urlDestino(livemode);
-  if (!destino) {
-    log('N8N_WEBHOOK_URL no configurada: se acepta el evento sin reenviar.');
-    responder(res, { received: true, forwarded: false, motivo: 'sin URL de n8n' });
-    return;
-  }
-
   const datos = (evento?.data ?? {}) as Record<string, any>;
   const objeto = (datos.object ?? evento?.object ?? {}) as Record<string, any>;
   const detalles = (objeto.customer_details ?? {}) as Record<string, any>;
   const metadata = (objeto.metadata ?? {}) as Record<string, any>;
 
-  // Dirección: si Stripe la recogió de forma nativa (envío a domicilio) tiene
-  // prioridad sobre la que rellenó el cliente en el carrito.
+  // Dirección: si Stripe la recogió de forma nativa tiene prioridad.
   const envio = (objeto.shipping ?? null) as Record<string, any> | null;
   const direccionStripe = envio?.address
     ? {
@@ -294,7 +272,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     metadata.cliente_telefono ?? metadata.telefono ?? detalles.phone ?? '',
   );
 
-  // Lineas con todos los alias de formato: {id, nombre, name, cantidad, qty, precio, price}
+  // Lineas con todos los alias: {id, nombre, name, cantidad, qty, precio, price}
   const lineas = articulos.map((a) => ({
     id: a.id,
     nombre: a.nombre ?? a.name ?? '',
@@ -305,13 +283,32 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     price: a.price ?? a.precio ?? '',
   }));
 
-  const codigoPedido = String(metadata.pedido_id ?? metadata.pedido_codigo ?? metadata.codigo ?? '');
-  const nombreCliente = String(metadata.cliente_nombre ?? metadata.nombre ?? detalles.name ?? '');
+  const pedidoId = String(metadata.pedido_id ?? metadata.pedido_codigo ?? '');
+  const codigoPedido = String(metadata.codigo_pedido ?? metadata.codigo ?? '');
+  const nombreCliente = String(metadata.nombre ?? metadata.cliente_nombre ?? detalles.name ?? '');
   const telefonoCliente = telefono || 'Sin telefono';
   const direccionCliente = direccionCompleta || 'Sin direccion';
 
+  // 1) Marcar el pedido como pagado en Supabase: el flujo de n8n lo lee de ahi
+  //    para enviar el Telegram y el email.
+  await actualizarPedido(pedidoId, {
+    estado: 'pendiente_confirmacion',
+    stripe_payment_intent: objeto.payment_intent ?? null,
+    pagado_at: new Date().toISOString(),
+    // El flujo de n8n no copia el nombre del cliente a esta columna.
+    cliente_nombre: nombreCliente || null,
+    cliente_telefono: telefonoCliente,
+    direccion: direccionCliente,
+  });
+
+  // 2) Aviso directo a n8n (opcional; el trigger de Stripe ya hace la notificacion).
+  const destino = urlDestino(livemode);
+  if (!destino) {
+    responder(res, { received: true, forwarded: false, motivo: 'sin URL de n8n' });
+    return;
+  }
+
   const pedido = {
-    // Identificación
     evento: tipo || 'checkout.session.completed',
     idPedido: objeto.id ?? '',
     idPago: objeto.payment_intent ?? '',
@@ -320,9 +317,8 @@ export default async function handler(req: Req, res: Res): Promise<void> {
       : new Date().toISOString(),
     modoPrueba: !livemode,
 
-    // Alias con los nombres que usa el flujo de n8n
     codigo: codigoPedido,
-    pedido_id: codigoPedido,
+    pedido_id: pedidoId,
     pedido_codigo: codigoPedido,
     cliente_nombre: nombreCliente,
     cliente_telefono: telefonoCliente,
@@ -336,12 +332,9 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     total_centimos: objeto.amount_total ?? Number(metadata.totalCentimos ?? 0),
     total_cents: objeto.amount_total ?? Number(metadata.totalCentimos ?? 0),
 
-    // Cliente
     correo: metadata.correo ?? detalles.email ?? objeto.customer_email ?? '',
     nombre: nombreCliente,
     telefono,
-
-    // Entrega
     tipoEntrega,
     recogida: tipoEntrega === 'recogida',
     domicilio: tipoEntrega === 'domicilio',
@@ -351,9 +344,6 @@ export default async function handler(req: Req, res: Res): Promise<void> {
       metadata.modoRecogida ?? (tipoEntrega === 'recogida' ? 'recogida' : 'domicilio'),
     mesa: metadata.mesa ?? '',
 
-    // Dinero
-    // El total sale de Stripe; si no viene, se usa el que se guardo en el
-    // metadata al crear la sesion (para que nunca llegue 0 a n8n).
     total: objeto.amount_total
       ? (objeto.amount_total / 100).toFixed(2)
       : (metadata.total ?? ''),
@@ -366,25 +356,17 @@ export default async function handler(req: Req, res: Res): Promise<void> {
       : '0.00',
     metodoPago: objeto.payment_method_types?.[0] ?? '',
 
-    // Artículos
-
-    // Contexto
     urlOrigen: metadata.urlOrigen ?? '',
     restaurante: 'Las Mesas · Café & Bar',
     telefonoRestaurante: '+34 928 896 097',
     whatsappRestaurante: '346010000000',
   };
 
-  // Si el pedido se creo en Supabase desde /api/checkout, se marca como pagado
-  // para que el panel de administracion lo muestre pendiente de confirmar.
-  await marcarPagado(
-    String(metadata.pedido_id ?? ''),
-    objeto.payment_intent ?? null,
-  );
-
   info('[webhook] Reenviando pedido a n8n', {
     destino,
-    idPedido: pedido.idPedido,
+    pedido_id: pedidoId,
+    total: pedido.total,
+    articulos: lineas.length,
   });
 
   try {
