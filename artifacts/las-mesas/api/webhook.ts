@@ -45,6 +45,58 @@ function entorno(): Record<string, string | undefined> {
   return (g.process?.env ?? {}) as Record<string, string | undefined>;
 }
 
+// ── Configuracion comun (inline: Vercel no empaqueta imports fuera de api/) ──
+
+/** Webhook de n8n que crea el pedido y devuelve la url de la pasarela de Stripe. */
+const N8N_WEBHOOK_POR_DEFECTO =
+  'https://barcafeteria.app.n8n.cloud/webhook/crear-pedido-domicilio';
+/** Version de pruebas (solo responde una llamada tras "Execute workflow"). */
+const N8N_WEBHOOK_TEST_POR_DEFECTO =
+  'https://barcafeteria.app.n8n.cloud/webhook-test/crear-pedido-domicilio';
+/** Proyecto de Supabase (misma base de datos que usa el flujo de n8n). */
+const SUPABASE_URL_POR_DEFECTO = 'https://fohxajfpnriusuybdteu.supabase.co';
+
+/** Una URL es valida si es http(s) y no contiene un placeholder sin cambiar. */
+function esUrlValida(valor: string | undefined): boolean {
+  const texto = String(valor ?? '').trim();
+  if (!texto) return false;
+  if (texto.includes('<') || texto.includes('>')) return false;
+  if (texto.includes('cambiar') || texto.includes('PEGAR_AQUI')) return false;
+  return /^https?:\/\/[^\s]+$/.test(texto);
+}
+
+/** URL del webhook de n8n (la del entorno si es valida, si no la de por defecto). */
+function urlWebhookN8n(produccion = true): string {
+  const env = entorno();
+  const configurada = (produccion ? env.N8N_WEBHOOK_URL : env.N8N_WEBHOOK_URL_TEST) ?? '';
+  if (esUrlValida(configurada)) return configurada.trim().replace(/\/+$/, '');
+  return (produccion ? N8N_WEBHOOK_POR_DEFECTO : N8N_WEBHOOK_TEST_POR_DEFECTO).replace(
+    /\/+$/,
+    '',
+  );
+}
+
+/** URL de Supabase (la del entorno si es valida, si no la de por defecto). */
+function urlSupabase(): string {
+  const configurada = entorno().SUPABASE_URL ?? '';
+  if (esUrlValida(configurada)) return configurada.trim().replace(/\/+$/, '');
+  return SUPABASE_URL_POR_DEFECTO.replace(/\/+$/, '');
+}
+
+/** Clave de servicio de Supabase (necesaria para escribir en la tabla pedidos). */
+function claveSupabase(): string {
+  const env = entorno();
+  return env.SUPABASE_SECRET_KEY ?? env.SUPABASE_SERVICE_ROLE_KEY ?? '';
+}
+
+/** Configuracion de Supabase para la API REST, o null si no hay clave. */
+function configSupabase(): { url: string; key: string } | null {
+  const key = claveSupabase();
+  if (!key) return null;
+  return { url: urlSupabase(), key };
+}
+
+
 /** Envía la respuesta y cierra la petición. */
 function responder(res: Res, cuerpo: unknown, estado = 200): void {
   res.status(estado);
@@ -87,9 +139,9 @@ function limpiarUrl(url: string): string {
  * - livemode true  (real)     → N8N_WEBHOOK_URL
  */
 function urlDestino(livemode: boolean): string | null {
-  const env = entorno();
-  const produccion = env.N8N_WEBHOOK_URL ? limpiarUrl(env.N8N_WEBHOOK_URL) : '';
-  const test = env.N8N_WEBHOOK_URL_TEST ? limpiarUrl(env.N8N_WEBHOOK_URL_TEST) : '';
+  // Si las variables no estan puestas o son placeholders, se usan las de por defecto.
+  const test = urlWebhookN8n(false);
+  const produccion = urlWebhookN8n(true);
 
   if (!livemode && test) return test;
   if (produccion) return produccion;
@@ -141,13 +193,7 @@ function leerCuerpoCrudo(req: Req): string {
 }
 
 /** Configuración de Supabase (solo si hay clave de servicio). */
-function configSupabase(): { url: string; key: string } | null {
-  const env = entorno();
-  const url = (env.SUPABASE_URL ?? '').replace(/\/+$/, '');
-  const key = env.SUPABASE_SECRET_KEY ?? env.SUPABASE_SERVICE_ROLE_KEY ?? '';
-  if (!url || !key) return null;
-  return { url, key };
-}
+
 
 /** Actualiza la fila del pedido en la tabla `pedidos`. */
 async function actualizarPedido(

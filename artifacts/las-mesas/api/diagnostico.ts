@@ -24,18 +24,72 @@ function entorno(): Record<string, string | undefined> {
   return (g.process?.env ?? {}) as Record<string, string | undefined>;
 }
 
+// ── Configuracion comun (inline: Vercel no empaqueta imports fuera de api/) ──
+
+/** Webhook de n8n que crea el pedido y devuelve la url de la pasarela de Stripe. */
+const N8N_WEBHOOK_POR_DEFECTO =
+  'https://barcafeteria.app.n8n.cloud/webhook/crear-pedido-domicilio';
+/** Version de pruebas (solo responde una llamada tras "Execute workflow"). */
+const N8N_WEBHOOK_TEST_POR_DEFECTO =
+  'https://barcafeteria.app.n8n.cloud/webhook-test/crear-pedido-domicilio';
+/** Proyecto de Supabase (misma base de datos que usa el flujo de n8n). */
+const SUPABASE_URL_POR_DEFECTO = 'https://fohxajfpnriusuybdteu.supabase.co';
+
+/** Una URL es valida si es http(s) y no contiene un placeholder sin cambiar. */
+function esUrlValida(valor: string | undefined): boolean {
+  const texto = String(valor ?? '').trim();
+  if (!texto) return false;
+  if (texto.includes('<') || texto.includes('>')) return false;
+  if (texto.includes('cambiar') || texto.includes('PEGAR_AQUI')) return false;
+  return /^https?:\/\/[^\s]+$/.test(texto);
+}
+
+/** URL del webhook de n8n (la del entorno si es valida, si no la de por defecto). */
+function urlWebhookN8n(produccion = true): string {
+  const env = entorno();
+  const configurada = (produccion ? env.N8N_WEBHOOK_URL : env.N8N_WEBHOOK_URL_TEST) ?? '';
+  if (esUrlValida(configurada)) return configurada.trim().replace(/\/+$/, '');
+  return (produccion ? N8N_WEBHOOK_POR_DEFECTO : N8N_WEBHOOK_TEST_POR_DEFECTO).replace(
+    /\/+$/,
+    '',
+  );
+}
+
+/** URL de Supabase (la del entorno si es valida, si no la de por defecto). */
+function urlSupabase(): string {
+  const configurada = entorno().SUPABASE_URL ?? '';
+  if (esUrlValida(configurada)) return configurada.trim().replace(/\/+$/, '');
+  return SUPABASE_URL_POR_DEFECTO.replace(/\/+$/, '');
+}
+
+/** Clave de servicio de Supabase (necesaria para escribir en la tabla pedidos). */
+function claveSupabase(): string {
+  const env = entorno();
+  return env.SUPABASE_SECRET_KEY ?? env.SUPABASE_SERVICE_ROLE_KEY ?? '';
+}
+
+/** Configuracion de Supabase para la API REST, o null si no hay clave. */
+function configSupabase(): { url: string; key: string } | null {
+  const key = claveSupabase();
+  if (!key) return null;
+  return { url: urlSupabase(), key };
+}
+
+
 export default async function handler(req: Req, res: Res): Promise<void> {
   const env = entorno();
-  const urlN8n = (env.N8N_WEBHOOK_URL ?? '').trim();
-  const urlSupabase = (env.SUPABASE_URL ?? '').trim();
+  // Se muestra la URL que se usaria de verdad (con el valor por defecto si
+  // la variable del entorno es un placeholder).
+  const urlN8n = urlWebhookN8n(true);
+  const urlSupabase = urlSupabase();
   const keySupabase =
     env.SUPABASE_SECRET_KEY ?? env.SUPABASE_SERVICE_ROLE_KEY ?? '';
 
   const resultado: Record<string, unknown> = {
     variables: {
-      N8N_WEBHOOK_URL: urlN8n ? 'configurada' : 'FALTA',
-      SUPABASE_URL: urlSupabase ? 'configurada' : 'FALTA',
-      SUPABASE_SECRET_KEY: keySupabase ? 'configurada' : 'FALTA',
+      N8N_WEBHOOK_URL: urlN8n,
+      SUPABASE_URL: urlSupabase,
+      SUPABASE_SECRET_KEY: claveSupabase() ? 'configurada' : 'FALTA',
       N8N_WEBHOOK_URL_TEST: env.N8N_WEBHOOK_URL_TEST ? 'configurada' : 'no',
       STRIPE_SECRET_KEY: env.STRIPE_SECRET_KEY ? 'configurada' : 'FALTA',
     },
