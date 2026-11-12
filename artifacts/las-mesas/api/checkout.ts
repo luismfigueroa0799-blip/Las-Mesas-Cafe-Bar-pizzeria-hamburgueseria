@@ -39,7 +39,9 @@ const g = globalThis as unknown as Global;
 interface Req {
   method?: string;
   url?: string;
-  headers?: { get?: (nombre: string) => string | null };
+  headers?:
+    | { get?: (nombre: string) => string | null }
+    | Record<string, string | string[] | undefined>;
   body?: unknown;
   query?: Record<string, string | string[] | undefined>;
 }
@@ -515,23 +517,35 @@ async function actualizarMetadataStripe(
 }
 
 /**
+ * Lee una cabecera de la petición.
+ *
+ * Las serverless functions de Vercel (runtime Node) entregan `req.headers`
+ * como un objeto normal, no como un `Headers`, asi que hay que supporting las
+ * dos formas.
+ */
+function valorCabecera(req: Req, nombre: string): string {
+  const cabeceras: any = req?.headers;
+  if (!cabeceras) return '';
+  if (typeof cabeceras.get === 'function') return String(cabeceras.get(nombre) ?? '');
+  return String(cabeceras[nombre] ?? '');
+}
+
+/**
  * Url base de la web (la misma que esta viendo el cliente) para construir las
  * urls de exito y de cancelacion de Stripe.
  */
 function urlBaseDeLaPeticion(req: Req): string {
-  const cabeceras = req?.headers;
-  const host = String(
-    cabeceras?.get?.('x-forwarded-host') ?? cabeceras?.get?.('host') ?? '',
-  ).split(',')[0].trim();
+  const host = valorCabecera(req, 'x-forwarded-host') || valorCabecera(req, 'host');
+  const dominio = host.split(',')[0].trim();
   // Solo se usa si parece un nombre de dominio de verdad.
-  if (host && host.includes('.') && !host.includes(' ')) {
-    const proto = cabeceras?.get?.('x-forwarded-proto') ?? 'https';
-    return proto + '://' + host.replace(/:\d+$/, '');
+  if (dominio && dominio.includes('.') && !dominio.includes(' ')) {
+    const proto = valorCabecera(req, 'x-forwarded-proto') || 'https';
+    return proto + '://' + dominio.replace(/:\d+$/, '');
   }
   const env = entorno();
   const configurada = String(env.NEXT_PUBLIC_URL ?? env.PUBLIC_URL ?? '').trim();
   if (esUrlValida(configurada)) return configurada.replace(/\/+$/, '');
-  return 'https://las-mesas-cafe-bar-pizzeria-hamburgueseria.vercel.app';
+  return 'https://las-mesas-cafe-bar-pizzeria-hamburgueseria-7l1h-git-main-luism4.vercel.app';
 }
 
 /** Lee el cuerpo de la petición. */

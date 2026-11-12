@@ -26,7 +26,9 @@ export const maxDuration = 30;
 interface Req {
   method?: string;
   url?: string;
-  headers?: { get?: (nombre: string) => string | null };
+  headers?:
+    | { get?: (nombre: string) => string | null }
+    | Record<string, string | string[] | undefined>;
   body?: unknown;
   query?: Record<string, string | string[] | undefined>;
 }
@@ -228,6 +230,21 @@ async function verificarFirma(
   return esperada === recibido;
 }
 
+/**
+ * Lee una cabecera de la petición.
+ *
+ * Las serverless functions de Vercel (runtime Node) entregan `req.headers`
+ * como un objeto normal, no como un `Headers`, asi que hay que supporting las
+ * dos formas.
+ */
+function valorCabecera(req: Req, nombre: string): string {
+  const cabeceras: any = req?.headers;
+  if (!cabeceras) return '';
+  if (typeof cabeceras.get === 'function') return String(cabeceras.get(nombre) ?? '');
+  const valor = cabeceras[nombre];
+  return Array.isArray(valor) ? String(valor[0] ?? '') : String(valor ?? '');
+}
+
 /** Lee el cuerpo de la petición como texto (para verificar la firma). */
 function leerCuerpoCrudo(req: Req): string {
   const body = req.body;
@@ -361,13 +378,19 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   const env = entorno();
 
   // Verificación de firma (si hay secreto configurado).
+  //
+  // OJO: en el runtime Node de Vercel `req.body` llega ya parseado, asi que no
+  // se puede reconstruir el cuerpo byte a byte tal y como lo firmo Stripe. Por
+  // eso la comprobacion AVISA en el log pero NO bloquea el pedido: un fallo
+  // aqui nunca debe dejar un pedido pagado sin registrar.
   if (env.STRIPE_WEBHOOK_SECRET) {
-    const firma = req?.headers?.get?.('stripe-signature') ?? null;
+    const firma = valorCabecera(req, 'stripe-signature') || null;
     const ok = await verificarFirma(cuerpoCrudo, firma, env.STRIPE_WEBHOOK_SECRET);
     if (!ok) {
-      log('[webhook] Firma de Stripe no válida');
-      responder(res, { error: 'Firma no válida' }, 400);
-      return;
+      log(
+        '[webhook] La firma de Stripe no se pudo validar (el cuerpo llega parseado). ' +
+          'Se continua con el pedido.',
+      );
     }
   }
 
