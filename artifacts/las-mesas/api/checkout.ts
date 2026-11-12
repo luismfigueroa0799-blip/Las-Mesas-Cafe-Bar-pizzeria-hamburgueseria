@@ -221,22 +221,25 @@ async function actualizarPedido(
   pedidoId: string | number,
   campos: Record<string, unknown>,
 ): Promise<void> {
-  const env = entorno();
-  const url = (env.SUPABASE_URL ?? '').replace(/\/+$/, '');
-  const key = env.SUPABASE_SECRET_KEY ?? env.SUPABASE_SERVICE_ROLE_KEY ?? '';
-  if (!url || !key || !pedidoId) return;
+  // Se usa urlSupabase() / claveSupabase() para que funcione aunque las
+  // variables de entorno falten o contengan placeholders.
+  const cfg = configSupabase();
+  if (!cfg || !pedidoId) return;
 
   try {
-    await g.fetch(url + '/rest/v1/pedidos?id=eq.' + pedidoId, {
+    const r = await g.fetch(cfg.url + '/rest/v1/pedidos?id=eq.' + pedidoId, {
       method: 'PATCH',
       headers: {
-        apikey: key,
-        Authorization: 'Bearer ' + key,
+        apikey: cfg.key,
+        Authorization: 'Bearer ' + cfg.key,
         'Content-Type': 'application/json',
         Prefer: 'return=minimal',
       },
       body: JSON.stringify(campos),
     });
+    if (!r.ok) {
+      log('[checkout] Supabase no acepto la actualizacion:', r.status);
+    }
   } catch (error) {
     log('[checkout] no se pudo actualizar el pedido:', error);
   }
