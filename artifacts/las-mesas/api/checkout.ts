@@ -8,11 +8,33 @@
 //      página de pago de Stripe los muestre pre-rellenados (el cliente no repite).
 //   2. Guardarlos en `metadata` de la sesión, para que el webhook los envíe a n8n.
 //
+// IMPORTANTE: las serverless functions de Vercel usan el estilo Node
+// (req, res). Si se devuelve un objeto Response en vez de llamar a res.end(),
+// la petición nunca se completa y el cliente se queda esperando.
+//
 // Tipos globales mínimos para que este archivo compile con cualquier tsconfig
 // (sin depender de "lib": ["dom"] ni de @types/node).
 type Global = Record<string, any>;
 
 const g = globalThis as unknown as Global;
+
+/** Petición de Vercel (Node). */
+interface Req {
+  method?: string;
+  url?: string;
+  headers?: { get?: (nombre: string) => string | null };
+  body?: unknown;
+  query?: Record<string, string | string[] | undefined>;
+}
+
+/** Respuesta de Vercel (Node). */
+interface Res {
+  status(codigo: number): Res;
+  json(cuerpo: unknown): void;
+  setHeader(clave: string, valor: string): void;
+  end(cuerpo?: unknown): void;
+  send(cuerpo: unknown): void;
+}
 
 interface ItemCarrito {
   id: string;
@@ -85,12 +107,12 @@ function normalizarTelefono(valor: string | undefined): string {
   return digitos;
 }
 
-function responder(cuerpo: unknown, estado = 200): any {
-  const ResponseCtor = g.Response;
-  return new ResponseCtor(JSON.stringify(cuerpo), {
-    status: estado,
-    headers: { 'Content-Type': 'application/json' },
-  });
+/** Envía la respuesta y cierra la petición. */
+function responder(res: Res, cuerpo: unknown, estado = 200): void {
+  res.status(estado);
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Cache-Control', 'no-store, max-age=0');
+  res.end(JSON.stringify(cuerpo));
 }
 
 function log(...args: unknown[]): void {
@@ -115,27 +137,41 @@ function direccionLegible(d: Direccion): string {
   return partes.join(', ');
 }
 
-export default async function handler(req: any): Promise<any> {
+/** Lee el cuerpo de la petición (Vercel ya lo parsea si es JSON). */
+function leerCuerpo(req: Req): any {
+  const body = req.body;
+  if (typeof body === 'string') {
+    try {
+      return JSON.parse(body);
+    } catch {
+      return null;
+    }
+  }
+  return body ?? null;
+}
+
+export default async function handler(req: Req, res: Res): Promise<void> {
   const inicio = Date.now();
 
   info('[checkout] Petición recibida', {
     metodo: req?.method,
     url: req?.url,
-    origen: req?.headers?.get?.('origin') ?? '(sin origin)',
   });
 
   if (req?.method && req.method !== 'POST') {
     log('[checkout] Método no permitido:', req?.method);
-    return responder({ error: 'Método no permitido' }, 405);
+    responder(res, { error: 'Método no permitido' }, 405);
+    return;
   }
 
   const secretKey = entorno().STRIPE_SECRET_KEY;
   if (!secretKey) {
     log('[checkout] Falta STRIPE_SECRET_KEY en el servidor');
-    return responder({ error: 'Falta STRIPE_SECRET_KEY en el servidor' }, 500);
+    responder(res, { error: 'Falta STRIPE_SECRET_KEY en el servidor' }, 500);
+    return;
   }
 
-  let body: {
+  const body = leerCuerpo(req) as {
     items?: ItemCarrito[];
     customerEmail?: string;
     customerName?: string;
@@ -144,12 +180,12 @@ export default async function handler(req: any): Promise<any> {
     direccion?: Direccion;
     mesa?: string;
     urlOrigen?: string;
-  };
-  try {
-    body = (await req.json()) as typeof body;
-  } catch (error) {
-    log('[checkout] Cuerpo no válido', error);
-    return responder({ error: 'Cuerpo de la petición no válido' }, 400);
+  } | null;
+
+  if (!body) {
+    log('[checkout] Cuerpo no válido');
+    responder(res, { error: 'Cuerpo de la petición no válido' }, 400);
+    return;
   }
 
   info('[checkout] Cuerpo recibido', {
@@ -167,7 +203,8 @@ export default async function handler(req: any): Promise<any> {
   );
   if (!items.length) {
     log('[checkout] Carrito vacío o precios no válidos');
-    return responder({ error: 'El carrito está vacío' }, 400);
+    responder(res, { error: 'El carrito está vacío' }, 400);
+    return;
   }
 
   info('[checkout] Precios convertidos a céntimos', {
@@ -182,27 +219,35 @@ export default async function handler(req: any): Promise<any> {
 
   const email = String(body.customerEmail ?? '').trim();
   const nombre = String(body.customerName ?? '').trim();
-  const telefono = normalizarTelefono(String(body.telefono ?? '').trim());
+  const telefonoOriginal = String(body.telefono ?? '').trim();
   const tipoEntrega = body.tipoEntrega === 'domicilio' ? 'domicilio' : 'recogida';
   const direccion = body.direccion ?? {};
   const mesa = String(body.mesa ?? '').trim();
   const direccionCompleta = direccionLegible(direccion);
 
   if (!email) {
-    return responder({ error: 'Falta el correo electrónico del cliente' }, 400);
+    responder(res, { error: 'Falta el correo electrónico del cliente' }, 400);
+    return;
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
-    return responder({ error: 'El correo electrónico no es válido' }, 400);
+    responder(res, { error: 'El correo electrónico no es válido' }, 400);
+    return;
   }
   if (!nombre) {
-    return responder({ error: 'Falta el nombre del cliente' }, 400);
+    responder(res, { error: 'Falta el nombre del cliente' }, 400);
+    return;
   }
   // El teléfono es opcional: solo se rechaza si viene escrito y es inválido.
-  if (telefono && !/^\d{9,15}$/.test(telefono)) {
-    return responder({ error: 'El teléfono no es válido' }, 400);
+  // Se valida el texto ORIGINAL (antes de normalizar) para no descartar en
+  // silencio lo que la persona haya escrito.
+  if (telefonoOriginal && !/^\+?[\d\s.-]{9,20}$/.test(telefonoOriginal)) {
+    responder(res, { error: 'El teléfono no es válido' }, 400);
+    return;
   }
+  const telefono = normalizarTelefono(telefonoOriginal);
   if (tipoEntrega === 'domicilio' && !direccionCompleta) {
-    return responder({ error: 'Falta la dirección de entrega' }, 400);
+    responder(res, { error: 'Falta la dirección de entrega' }, 400);
+    return;
   }
 
   const headers = req?.headers;
@@ -336,10 +381,12 @@ export default async function handler(req: any): Promise<any> {
         error: datos?.error,
         ms: Date.now() - inicio,
       });
-      return responder(
+      responder(
+        res,
         { error: datos?.error?.message ?? 'Stripe rechazó la sesión' },
         502,
       );
+      return;
     }
 
     info('[checkout] Sesión creada correctamente', {
@@ -349,13 +396,13 @@ export default async function handler(req: any): Promise<any> {
       ms: Date.now() - inicio,
     });
 
-    return responder({
+    responder(res, {
       sessionId: datos.id,
       url: datos.url,
       cliente: customerId,
     });
   } catch (error) {
     log('[checkout] Error contacting Stripe', error);
-    return responder({ error: 'No se pudo contactar con Stripe' }, 500);
+    responder(res, { error: 'No se pudo contactar con Stripe' }, 500);
   }
 }

@@ -4,22 +4,60 @@
 // Variables de entorno:
 //   N8N_WEBHOOK_URL       → URL del flujo en producción (n8n ".../webhook/...")
 //   N8N_WEBHOOK_URL_TEST  → URL del flujo de pruebas  (n8n ".../webhook-test/...")
-//   STRIPE_WEBHOOK_SECRET → opcional; si se define, se verifica la firma de Stripe
 //
 // Si el evento viene en modo prueba (livemode = false) se usa la URL de test
 // cuando esté configurada; en producción se usa siempre la URL de producción.
 //
+// IMPORTANTE: las serverless functions de Vercel usan el estilo Node (req, res).
+// Si se devuelve un objeto Response en vez de llamar a res.end(), la petición
+// nunca se completa y el cliente se queda esperando.
+//
 // Tipos globales mínimos para que este archivo compile con cualquier tsconfig
 // (sin depender de "lib": ["dom"] ni de @types/node).
-// Margen de ejecucion de la funcion.
-export const maxDuration = 30;
-
 type Global = Record<string, any>;
 
 const g = globalThis as unknown as Global;
 
+// Margen de ejecución de la función.
+export const maxDuration = 30;
+
+/** Petición de Vercel (Node). */
+interface Req {
+  method?: string;
+  url?: string;
+  headers?: { get?: (nombre: string) => string | null };
+  body?: unknown;
+}
+
+/** Respuesta de Vercel (Node). */
+interface Res {
+  status(codigo: number): Res;
+  json(cuerpo: unknown): void;
+  setHeader(clave: string, valor: string): void;
+  end(cuerpo?: unknown): void;
+  send(cuerpo: unknown): void;
+}
+
 function entorno(): Record<string, string | undefined> {
   return (g.process?.env ?? {}) as Record<string, string | undefined>;
+}
+
+/** Envía la respuesta y cierra la petición. */
+function responder(res: Res, cuerpo: unknown, estado = 200): void {
+  res.status(estado);
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Cache-Control', 'no-store, max-age=0');
+  res.end(JSON.stringify(cuerpo));
+}
+
+function log(...args: unknown[]): void {
+  const c = g.console;
+  if (c && typeof c.error === 'function') c.error(...args);
+}
+
+function info(...args: unknown[]): void {
+  const c = g.console;
+  if (c && typeof c.log === 'function') c.log(...args);
 }
 
 /**
@@ -33,19 +71,6 @@ function normalizarTelefono(valor: string | undefined): string {
   if (digitos.length === 10 && digitos.startsWith('6')) return `34${digitos}`;
   if (digitos.length === 11 && digitos.startsWith('34')) return digitos;
   return digitos;
-}
-
-function responder(cuerpo: unknown, estado = 200): any {
-  const ResponseCtor = g.Response;
-  return new ResponseCtor(JSON.stringify(cuerpo), {
-    status: estado,
-    headers: { 'Content-Type': 'application/json' },
-  });
-}
-
-function log(...args: unknown[]): void {
-  const c = g.console;
-  if (c && typeof c.error === 'function') c.error(...args);
 }
 
 /** Quita barras finales y espacios para poder concatenar rutas sin duplicar. */
@@ -69,7 +94,11 @@ function urlDestino(livemode: boolean): string | null {
 }
 
 /** Verifica la firma Stripe con Web Crypto (HMAC-SHA256), sin dependencias. */
-async function verificarFirma(cuerpoCrudo: string, firma: string | null, secreto: string): Promise<boolean> {
+async function verificarFirma(
+  cuerpoCrudo: string,
+  firma: string | null,
+  secreto: string,
+): Promise<boolean> {
   if (!firma || !secreto) return true;
   const subtle = g.crypto?.subtle;
   if (!subtle) return true; // Si no hay Web Crypto, no bloqueamos el flujo.
@@ -96,36 +125,45 @@ async function verificarFirma(cuerpoCrudo: string, firma: string | null, secreto
   return esperada === recibido;
 }
 
-export default async function handler(req: any): Promise<any> {
+/** Lee el cuerpo de la petición como texto (para verificar la firma). */
+function leerCuerpoCrudo(req: Req): string {
+  const body = req.body;
+  if (typeof body === 'string') return body;
+  if (body === undefined || body === null) return '';
+  try {
+    return JSON.stringify(body);
+  } catch {
+    return '';
+  }
+}
+
+export default async function handler(req: Req, res: Res): Promise<void> {
   // Endpoint de salud: útil para comprobar que la función está desplegada.
   if (req?.method === 'GET') {
     const env = entorno();
-    return responder({
+    responder(res, {
       status: 'ok',
       message: 'Webhook de pedidos activo',
       configurado: Boolean(env.N8N_WEBHOOK_URL || env.N8N_WEBHOOK_URL_TEST),
       destinoTest: Boolean(env.N8N_WEBHOOK_URL_TEST),
       firmaVerificada: Boolean(env.STRIPE_WEBHOOK_SECRET),
     });
+    return;
   }
 
   if (req?.method && req.method !== 'POST') {
-    return responder({ error: 'Método no permitido' }, 405);
+    responder(res, { error: 'Método no permitido' }, 405);
+    return;
   }
 
-  // Leemos el cuerpo en texto para poder verificar la firma de Stripe.
-  let cuerpoCrudo = '';
-  try {
-    cuerpoCrudo = await req.text();
-  } catch {
-    return responder({ error: 'No se pudo leer el cuerpo' }, 400);
-  }
+  const cuerpoCrudo = leerCuerpoCrudo(req);
 
   let evento: Record<string, any>;
   try {
     evento = JSON.parse(cuerpoCrudo || '{}');
   } catch {
-    return responder({ error: 'Cuerpo no válido' }, 400);
+    responder(res, { error: 'Cuerpo no válido' }, 400);
+    return;
   }
 
   const env = entorno();
@@ -136,21 +174,24 @@ export default async function handler(req: any): Promise<any> {
     const ok = await verificarFirma(cuerpoCrudo, firma, env.STRIPE_WEBHOOK_SECRET);
     if (!ok) {
       log('Firma de Stripe no válida');
-      return responder({ error: 'Firma no válida' }, 400);
+      responder(res, { error: 'Firma no válida' }, 400);
+      return;
     }
   }
 
   // Solo nos interesan los pedidos completados.
   const tipo = String(evento?.type ?? '');
   if (tipo && !tipo.includes('checkout.session.completed')) {
-    return responder({ received: true, forwarded: false, ignored: tipo });
+    responder(res, { received: true, forwarded: false, ignored: tipo });
+    return;
   }
 
   const livemode = evento?.livemode === true;
   const destino = urlDestino(livemode);
   if (!destino) {
     log('N8N_WEBHOOK_URL no configurada: se acepta el evento sin reenviar.');
-    return responder({ received: true, forwarded: false, motivo: 'sin URL de n8n' });
+    responder(res, { received: true, forwarded: false, motivo: 'sin URL de n8n' });
+    return;
   }
 
   const datos = (evento?.data ?? {}) as Record<string, any>;
@@ -192,6 +233,9 @@ export default async function handler(req: any): Promise<any> {
   }
 
   const tipoEntrega = metadata.tipoEntrega ?? (envio ? 'domicilio' : 'recogida');
+  const telefono = normalizarTelefono(
+    metadata.cliente_telefono ?? metadata.telefono ?? detalles.phone ?? '',
+  );
 
   const pedido = {
     // Identificación
@@ -206,8 +250,8 @@ export default async function handler(req: any): Promise<any> {
     // Cliente
     correo: metadata.correo ?? detalles.email ?? objeto.customer_email ?? '',
     nombre: metadata.nombre ?? detalles.name ?? '',
-    telefono: normalizarTelefono(metadata.telefono ?? metadata.cliente_telefono ?? detalles.phone ?? ''),
-    cliente_telefono: normalizarTelefono(metadata.cliente_telefono ?? metadata.telefono ?? detalles.phone ?? ''),
+    telefono,
+    cliente_telefono: telefono,
 
     // Entrega
     tipoEntrega,
@@ -237,6 +281,8 @@ export default async function handler(req: any): Promise<any> {
     whatsappRestaurante: '346010000000',
   };
 
+  info('[webhook] Reenviando pedido a n8n', { destino, idPedido: pedido.idPedido, total: pedido.total });
+
   try {
     const respuesta = await g.fetch(destino, {
       method: 'POST',
@@ -246,12 +292,13 @@ export default async function handler(req: any): Promise<any> {
 
     if (!respuesta.ok) {
       log('n8n respondió con', respuesta.status, destino);
-      return responder({ received: true, forwarded: false, destino }, 502);
+      responder(res, { received: true, forwarded: false, destino }, 502);
+      return;
     }
 
-    return responder({ received: true, forwarded: true, destino, modoPrueba: !livemode });
+    responder(res, { received: true, forwarded: true, destino, modoPrueba: !livemode });
   } catch (error) {
     log('Error al enviar a n8n:', error);
-    return responder({ received: true, forwarded: false, destino }, 500);
+    responder(res, { received: true, forwarded: false, destino }, 500);
   }
 }

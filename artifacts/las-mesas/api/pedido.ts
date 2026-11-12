@@ -1,55 +1,76 @@
 // Consulta una sesión de Stripe para confirmar que el pago se completó.
 // Se usa en la página de retorno para mostrar la confirmación del pedido.
+//
 // Variables de entorno: STRIPE_SECRET_KEY
-
-// Margen de ejecucion de la funcion.
-export const maxDuration = 30;
-
+//
+// IMPORTANTE: las serverless functions de Vercel usan el estilo Node (req, res).
+// Si se devuelve un objeto Response en vez de llamar a res.end(), la petición
+// nunca se completa y el cliente se queda esperando.
 type Global = Record<string, any>;
 
 const g = globalThis as unknown as Global;
+
+// Margen de ejecución de la función.
+export const maxDuration = 30;
+
+/** Petición de Vercel (Node). */
+interface Req {
+  method?: string;
+  url?: string;
+  headers?: { get?: (nombre: string) => string | null };
+  body?: unknown;
+  query?: Record<string, string | string[] | undefined>;
+}
+
+/** Respuesta de Vercel (Node). */
+interface Res {
+  status(codigo: number): Res;
+  json(cuerpo: unknown): void;
+  setHeader(clave: string, valor: string): void;
+  end(cuerpo?: unknown): void;
+  send(cuerpo: unknown): void;
+}
 
 function entorno(): Record<string, string | undefined> {
   return (g.process?.env ?? {}) as Record<string, string | undefined>;
 }
 
-function responder(cuerpo: unknown, estado = 200): any {
-  const ResponseCtor = g.Response;
-  return new ResponseCtor(JSON.stringify(cuerpo), {
-    status: estado,
-    headers: { 'Content-Type': 'application/json' },
-  });
+/** Envía la respuesta y cierra la petición. */
+function responder(res: Res, cuerpo: unknown, estado = 200): void {
+  res.status(estado);
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Cache-Control', 'no-store, max-age=0');
+  res.end(JSON.stringify(cuerpo));
 }
 
-export default async function handler(req: any): Promise<any> {
-  if (req?.method && req.method !== 'GET' && req?.method !== 'POST') {
-    return responder({ error: 'Método no permitido' }, 405);
+/** Obtiene un parámetro de la query string. */
+function param(req: Req, nombre: string): string {
+  const valor = req?.query?.[nombre];
+  if (Array.isArray(valor)) return valor[0] ?? '';
+  return valor ?? '';
+}
+
+export default async function handler(req: Req, res: Res): Promise<void> {
+  if (req?.method && req.method !== 'GET' && req.method !== 'POST') {
+    responder(res, { error: 'Método no permitido' }, 405);
+    return;
   }
 
   const secretKey = entorno().STRIPE_SECRET_KEY;
   if (!secretKey) {
-    return responder({ error: 'Falta STRIPE_SECRET_KEY en el servidor' }, 500);
+    responder(res, { error: 'Falta STRIPE_SECRET_KEY en el servidor' }, 500);
+    return;
   }
 
   // El session_id puede venir en la query (GET) o en el cuerpo (POST).
-  let sessionId = '';
-  try {
-    const url = new g.URL(req?.url ?? 'http://localhost');
-    sessionId = url.searchParams.get('session_id') ?? '';
-  } catch {
-    sessionId = '';
-  }
-  if (!sessionId && req?.method === 'POST') {
-    try {
-      const cuerpo = await req.json();
-      sessionId = String(cuerpo?.session_id ?? '');
-    } catch {
-      sessionId = '';
-    }
+  let sessionId = param(req, 'session_id');
+  if (!sessionId && req?.method === 'POST' && req.body && typeof req.body === 'object') {
+    sessionId = String((req.body as Record<string, unknown>).session_id ?? '');
   }
 
   if (!sessionId) {
-    return responder({ error: 'Falta session_id' }, 400);
+    responder(res, { error: 'Falta session_id' }, 400);
+    return;
   }
 
   try {
@@ -62,7 +83,8 @@ export default async function handler(req: any): Promise<any> {
 
     const datos: any = await respuesta.json();
     if (!respuesta.ok) {
-      return responder({ error: datos?.error?.message ?? 'Sesión no encontrada' }, 404);
+      responder(res, { error: datos?.error?.message ?? 'Sesión no encontrada' }, 404);
+      return;
     }
 
     const pagado = datos.payment_status === 'paid' || datos.status === 'complete';
@@ -73,7 +95,7 @@ export default async function handler(req: any): Promise<any> {
       articulos = [];
     }
 
-    return responder({
+    responder(res, {
       idPedido: datos.id,
       pagado,
       estado: datos.payment_status,
@@ -86,6 +108,6 @@ export default async function handler(req: any): Promise<any> {
       fecha: datos.created ? new Date(datos.created * 1000).toISOString() : '',
     });
   } catch (error) {
-    return responder({ error: 'No se pudo consultar Stripe' }, 502);
+    responder(res, { error: 'No se pudo consultar Stripe' }, 502);
   }
 }

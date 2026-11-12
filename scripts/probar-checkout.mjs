@@ -47,12 +47,36 @@ await build({
 
 const { default: handler } = await import(pathToFileURL(salida).href);
 
+// Mock del estilo Node de Vercel: (req, res)
 function peticion(cuerpo) {
   return {
     method: 'POST',
+    url: 'http://localhost/api/checkout',
     headers: { get: () => 'localhost' },
-    json: async () => cuerpo,
+    body: cuerpo,
   };
+}
+
+function respuestaMock() {
+  const r = {
+    _status: 200,
+    _body: null,
+    status(codigo) {
+      r._status = codigo;
+      return r;
+    },
+    json(cuerpo) {
+      r._body = cuerpo;
+    },
+    setHeader() {},
+    end(cuerpo) {
+      if (cuerpo !== undefined) r._body = cuerpo;
+    },
+    send(cuerpo) {
+      r._body = cuerpo;
+    },
+  };
+  return r;
 }
 
 const base = {
@@ -105,13 +129,14 @@ const casos = [
 let fallos = 0;
 
 for (const caso of casos) {
-  const respuesta = await handler(peticion(caso.cuerpo));
-  const cuerpo = await respuesta.json();
-  const ok = respuesta.status === caso.espera;
+  const res = respuestaMock();
+  await handler(peticion(caso.cuerpo), res);
+  const cuerpo = res._body ?? {};
+  const ok = res._status === caso.espera;
   if (!ok) fallos += 1;
 
   console.log(`${ok ? 'OK  ' : 'FALLO'} ${caso.titulo}`);
-  console.log(`      estado=${respuesta.status} (esperado ${caso.espera})`);
+  console.log(`      estado=${res._status} (esperado ${caso.espera})`);
   if (cuerpo.url) console.log(`      url=${cuerpo.url.slice(0, 70)}…`);
   if (cuerpo.error) console.log(`      error=${cuerpo.error}`);
   if (cuerpo.sessionId) console.log(`      sessionId=${cuerpo.sessionId}`);
