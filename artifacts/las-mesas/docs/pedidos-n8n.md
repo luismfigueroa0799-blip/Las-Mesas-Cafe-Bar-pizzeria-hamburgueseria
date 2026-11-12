@@ -50,7 +50,7 @@ node scripts/ver-config-pedidos.mjs
 |---|---|---|
 | `STRIPE_SECRET_KEY` | `sk_test_…` | Panel de Stripe → Developers → API keys |
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | `pk_test_…` | Panel de Stripe → Developers → API keys |
-| `NEXT_PUBLIC_URL` | `https://las-mesas-cafe-bar-pizzeria-hamburgueseria-7l1h-cgcz0at74.vercel.app` | Dominio de producción |
+| `NEXT_PUBLIC_URL` | `https://las-mesas-cafe-bar-pizzeria-hamburgueseria-7l1h-git-main-luism4.vercel.app` | Dominio de producción |
 | `N8N_WEBHOOK_URL` | `https://<host-n8n>/webhook/las-mesas` | **Producción** (n8n muestra "Production URL") |
 | `N8N_WEBHOOK_URL_TEST` | `https://<host-n8n>/webhook-test/las-mesas` | **Pruebas** (n8n muestra "Test URL") |
 | `STRIPE_WEBHOOK_SECRET` | `whsec_…` | Opcional. Si se define, se verifica la firma |
@@ -64,7 +64,7 @@ Panel de Stripe → **Developers → Webhooks → Add endpoint**
 
 - **URL**:
   ```
-  https://las-mesas-cafe-bar-pizzeria-hamburgueseria-7l1h-cgcz0at74.vercel.app/api/webhook
+  https://las-mesas-cafe-bar-pizzeria-hamburgueseria-7l1h-git-main-luism4.vercel.app/api/webhook
   ```
 - **Events**: seleccionar `checkout.session.completed`
 - Copiar el **Signing secret** (`whsec_…`) → pegarlo en `STRIPE_WEBHOOK_SECRET`
@@ -72,6 +72,16 @@ Panel de Stripe → **Developers → Webhooks → Add endpoint**
 > En modo test puedes probar con `stripe trigger checkout.session.completed`
 > (CLI de Stripe) o desde la propia web con una tarjeta de prueba `4242 4242 4242 4242`.
 
+
+> **Importante**: la URL del webhook de Stripe tiene que ser la del despliegue
+> **que tiene las funciones de la API** (la que termina en
+> `-git-main-luism4.vercel.app`). Si apunta a un despliegue antiguo, Stripe
+> recibe el HTML de la web en vez de la respuesta de la funcion y el pedido
+> pagado nunca se registra en la base de datos.
+>
+> Ademas, las urls de retorno de Stripe (exito y cancelacion) las pone la web
+> al crear la sesion, asi que apuntan al dominio desde el que el cliente esta
+> viendo la carta.
 ## 3. Flujo de n8n
 
 Nodo **Webhook** (Trigger) → nodo de acción (WhatsApp, email, hoja de cálculo…).
@@ -162,7 +172,7 @@ Nodo **Webhook** (Trigger) → nodo de acción (WhatsApp, email, hoja de cálcul
 Para verificar el estado sin pagar:
 
 ```bash
-curl https://las-mesas-cafe-bar-pizzeria-hamburgueseria-7l1h-cgcz0at74.vercel.app/api/webhook
+curl https://las-mesas-cafe-bar-pizzeria-hamburgueseria-7l1h-git-main-luism4.vercel.app/api/webhook
 ```
 
 ## 5. Endpoints disponibles
