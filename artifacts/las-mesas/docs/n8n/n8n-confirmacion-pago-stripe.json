@@ -243,7 +243,7 @@
             },
             {
               "name": "body",
-              "value": "=🚨 NUEVO PEDIDO EN COCINA 🚨\\n\\nCódigo: {{ $('Generar Codigo de Pedido').first().json.order_code }}\\nCliente: {{ $('Generar Codigo de Pedido').first().json.cliente_nombre }}\\nTeléfono: {{ $('Generar Codigo de Pedido').first().json.telefono }}\\nDirección: {{ $('Generar Codigo de Pedido').first().json.direccion }}\\n-------------------------\\nDETALLE:\\n{{ $('Generar Codigo de Pedido').first().json.detalle_texto }}\\n-------------------------\\nTOTAL: {{ $('Generar Codigo de Pedido').first().json.total_texto }} €"
+              "value": "=🚨 NUEVO PEDIDO EN COCINA 🚨\n\nCódigo: {{ $('Generar Codigo de Pedido').first().json.order_code }}\nCliente: {{ $('Generar Codigo de Pedido').first().json.cliente_nombre }}\nTeléfono: {{ $('Generar Codigo de Pedido').first().json.telefono }}\nTOTAL: {{ $('Generar Codigo de Pedido').first().json.total_texto }} €"
             },
             {
               "name": "priority",
@@ -251,7 +251,9 @@
             }
           ]
         },
-        "options": {}
+        "options": {
+          "timeout": 15000
+        }
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
@@ -260,7 +262,8 @@
         -176
       ],
       "id": "8370b12a-3db4-460e-be7a-d4f6ecd4b161",
-      "name": "HTTP Request"
+      "name": "HTTP Request",
+      "onError": "continueRegularOutput"
     }
   ],
   "pinData": {},
