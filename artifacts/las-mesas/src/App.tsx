@@ -51,7 +51,7 @@ type AvisoPedido =
 
 function App() {
   const [activeSlug, setActiveSlug] = useState(CATEGORIES[0].slug);
-  const [productos] = useState<Product[]>([]);
+  const [productos, setProductos] = useState<Product[]>([]);
   const [categorias, setCategorias] = useState<Category[]>(CATEGORIES);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [reservationStatus, setReservationStatus] = useState('');
@@ -65,6 +65,19 @@ function App() {
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
   const activeCategory = categorias.find((c) => c.slug === activeSlug) ?? categorias[0];
   const productosActivos = productos.filter((p) => p.category_slug === activeCategory.slug);
+
+  // Cargar la carta desde la API (lee Supabase: ids y precios reales).
+  useEffect(() => {
+    let vigente = true;
+    (async () => {
+      const todos = await getProductos();
+      if (!vigente) return;
+      setProductos(todos);
+    })();
+    return () => {
+      vigente = false;
+    };
+  }, []);
 
   // Categorias derivadas del catalogo de productos.
   useEffect(() => {
