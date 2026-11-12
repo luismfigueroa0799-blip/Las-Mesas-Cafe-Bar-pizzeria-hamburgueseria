@@ -337,28 +337,6 @@ async function catalogoProductos(
 }
 
 /**
- * Convierte las lineas del pedido en el texto JSON que se guarda en el
- * metadata de Stripe. Stripe admite 500 caracteres por valor, asi que si el
- * detalle no cabe se van quitando articulos del final.
- */
-function itemsParaMetadata(
-  lineas: Array<{ nombre: string; cantidad: number; precio: number }>,
-): string {
-  const simples = lineas.map((l) => ({
-    nombre: l.nombre,
-    cantidad: l.cantidad,
-    precio: l.precio,
-  }));
-  let json = JSON.stringify(simples);
-  if (json.length <= 500) return json;
-  for (let n = simples.length - 1; n >= 1; n -= 1) {
-    json = JSON.stringify(simples.slice(0, n));
-    if (json.length <= 500) return json;
-  }
-  return JSON.stringify([simples[0] ?? { nombre: '', cantidad: 1, precio: 0 }]).slice(0, 500);
-}
-
-/**
  * Añade los parametros de un objeto al cuerpo de la peticion a Stripe, que
  * los espera en formato formulario (`a[b][c]=valor`).
  */
@@ -443,6 +421,34 @@ async function crearSesionStripePropia(
     log('[checkout] no se pudo crear la sesion propia de Stripe:', error);
     return null;
   }
+}
+
+/**
+ * Lineas del pedido en el formato que usa el flujo de n8n para pintar el
+ * detalle: el precio como texto con el formato de la carta ("6,50 EUR") y
+ * los importes en centimos.
+ *
+ * Es el mismo formato que ya usa el otro proyecto (el de la app de
+ * hamburgueseria), que es el que el flujo de n8n sabe leer.
+ */
+function lineasComoTexto(
+  lineas: Array<{ id?: number | string; nombre: string; cantidad: number; precio: number }>,
+): Array<Record<string, unknown>> {
+  return lineas.map((l) => {
+    const precioTexto = l.precio.toFixed(2).replace('.', ',') + ' €';
+    const centimos = Math.round(l.precio * 100);
+    return {
+      id: String(l.id ?? ''),
+      nombre: l.nombre,
+      name: l.nombre,
+      cantidad: l.cantidad,
+      qty: l.cantidad,
+      precio: precioTexto,
+      price: precioTexto,
+      unit_cents: centimos,
+      subtotal_cents: centimos * l.cantidad,
+    };
+  });
 }
 
 /**
@@ -782,8 +788,14 @@ export default async function handler(req: Req, res: Res): Promise<void> {
       price: precioRedondeado,
       subtotal: Math.round(precioRedondeado * item.qty * 100) / 100,
       precio_unitario: precioRedondeado,
+      unit_cents: Math.round(precioRedondeado * 100),
+      subtotal_cents: Math.round(precioRedondeado * item.qty * 100),
     };
   });
+
+  // Las mismas lineas en el formato que pinta el flujo de n8n (precio como
+  // texto "6,50 EUR" y centimos).
+  const lineasTexto = lineasComoTexto(lineas);
 
   // Total con los precios de la carta (es el que cobra n8n).
   const totalEuros =
@@ -829,12 +841,9 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     recogida: tipoEntrega !== 'domicilio',
     domicilio: tipoEntrega === 'domicilio',
     modoRecogida: mesa ? 'mesa' : 'recogida',
-    articulos: lineas.map((l) => ({
-      id: l.id,
-      name: l.nombre,
-      qty: l.cantidad,
-      price: l.precio.toFixed(2).replace('.', ',') + ' €',
-    })),
+    articulos: lineasTexto,
+    detalle: lineasTexto,
+    numArticulos: String(lineas.length),
     subtotal: totalEuros,
     impuestos: 0,
     metodoPago: 'card',
@@ -924,25 +933,50 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     // El pedido en formato plano. Viaja en el metadata de la sesion de Stripe
     // (lo lee el trigger "Pago completado en Stripe" de n8n) y tambien se
     // manda al flujo de n8n con el webhook de creacion.
+    //
+    // OJO: en el metadata TODOS los valores son texto (Stripe no admite otros
+    // tipos) y las lineas van con el precio como texto ("6,50 EUR"), que es
+    // el formato que el flujo de n8n ya conoce.
+    const detalleTexto = JSON.stringify(lineasTexto);
     const metadataPlana: Record<string, string> = {
+      // ── Formato plano ──
       order_code: codigoPedido,
       cliente_nombre: nombre,
       direccion: direccionFinal,
       telefono: telefonoFinal,
       total: totalEuros.toFixed(2),
-      items: itemsParaMetadata(lineas),
+      items: detalleTexto,
+      detalle: detalleTexto,
+      articulos: detalleTexto,
+
+      // ── Nombres que ya usa el flujo de n8n ──
       nombre,
       cliente_telefono: telefonoFinal,
       cliente_direccion: direccionFinal,
-      total_centimos: String(Math.round(totalEuros * 100)),
-      codigo: codigoPedido,
+      correo: email,
+      cliente_correo: email,
       email,
-      pedido_id: String(datos.pedido_id ?? ''),
+      codigo: codigoPedido,
+      codigo_pedido: codigoPedido,
+      pedido_codigo: codigoPedido,
+      totalCentimos: String(Math.round(totalEuros * 100)),
+      total_centimos: String(Math.round(totalEuros * 100)),
+      numArticulos: String(lineas.length),
       tipo: mesa ? 'mesa' : 'domicilio',
-      modo_entrega: tipoEntrega,
+      tipoEntrega: tipoEntrega,
       modoRecogida: mesa ? 'mesa' : 'recogida',
+      modo_entrega: tipoEntrega,
+      recogida: String(tipoEntrega !== 'domicilio'),
+      domicilio: String(tipoEntrega === 'domicilio'),
+      calle: direccion.calle ?? '',
+      numero: direccion.numero ?? '',
+      piso: direccion.piso ?? '',
+      codigoPostal: direccion.codigoPostal ?? '',
+      ciudad: direccion.ciudad ?? '',
       mesa: mesa || '',
       mesa_id: mesa ? String(mesa) : '',
+      urlOrigen: String(body.urlOrigen ?? ''),
+      pedido_id: String(datos.pedido_id ?? ''),
     };
 
     // Sesion propia de Stripe con las urls de retorno correctas (el flujo de

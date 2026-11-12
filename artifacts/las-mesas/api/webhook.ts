@@ -309,6 +309,31 @@ function columnaInexistente(mensaje: string): string {
 }
 
 /**
+ * Lineas del pedido en el formato que usa el flujo de n8n para pintar el
+ * detalle: el precio como texto con el formato de la carta ("6,50 EUR") y
+ * los importes en centimos.
+ */
+function lineasComoTexto(
+  lineas: Array<{ id?: unknown; nombre: string; cantidad: number; precio: number }>,
+): Array<Record<string, unknown>> {
+  return lineas.map((l) => {
+    const precioTexto = l.precio.toFixed(2).replace('.', ',') + ' €';
+    const centimos = Math.round(l.precio * 100);
+    return {
+      id: String(l.id ?? ''),
+      nombre: l.nombre,
+      name: l.nombre,
+      cantidad: l.cantidad,
+      qty: l.cantidad,
+      precio: precioTexto,
+      price: precioTexto,
+      unit_cents: centimos,
+      subtotal_cents: centimos * l.cantidad,
+    };
+  });
+}
+
+/**
  * Actualiza el pedido omitiendo las columnas que todavia no existen en la
  * tabla `pedidos`.
  *
@@ -494,12 +519,8 @@ export default async function handler(req: Req, res: Res): Promise<void> {
 
   // Lineas en el formato antiguo ("articulos"): precio como texto con el
   // formato de la carta ("6,50 EUR").
-  const articulos = lineas.map((l) => ({
-    id: l.id ?? '',
-    name: l.nombre,
-    qty: l.cantidad,
-    price: l.precio.toFixed(2).replace('.', ',') + ' €',
-  }));
+  const lineasTexto = lineasComoTexto(lineas);
+  const articulos = lineasTexto;
 
   const payload = {
     // ── Formato plano que espera el flujo de n8n ──
@@ -509,6 +530,8 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     telefono: telefonoCliente,
     total: totalPedido,
     items: lineas,
+    detalle: lineasTexto,
+    numArticulos: String(lineas.length),
 
     // ── Nombres del contrato anterior (para que no cambien los nodos) ──
     evento: 'checkout.session.completed',
