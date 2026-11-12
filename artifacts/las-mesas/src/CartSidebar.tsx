@@ -180,13 +180,14 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
           }
 
           if (!respuesta.ok) {
-            const mensaje =
+            const base =
               datosRespuesta?.error?.message ||
               datosRespuesta?.error ||
-              datosRespuesta?.detalle ||
               datosRespuesta?.message ||
               `HTTP ${respuesta.status}`;
-            fallos.push(`${ruta.etiqueta}: ${mensaje}`);
+            // El detalle es el motivo real del fallo (lo devuelve la API).
+            const detalle = datosRespuesta?.detalle || datosRespuesta?.stripe || '';
+            fallos.push(detalle ? `${base}: ${detalle}` : base);
             continue;
           }
 

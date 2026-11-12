@@ -384,9 +384,15 @@ function anadirParametros(destino: string[], prefijo: string, valor: unknown): v
 }
 
 /**
+ * Ultimo error al crear la sesion de Stripe. Se guarda para poder devolverlo
+ * al navegador en vez de un mensaje generico.
+ */
+let ultimoErrorStripe = '';
+
+/**
  * Crea una sesion de pago de Stripe con las urls de retorno de nuestra web.
  *
- * El flujo de n8n deja las suyas fijas (example.com) y Stripe no deja
+ * El flujo de n8n deja las suyas fijas en example.com y Stripe no deja
  * cambiarlas despues de crear la sesion, asi que se crea una sesion propia
  * con los mismos articulos, las urls correctas y el pedido plano en el
  * metadata (asi lo leen tanto el trigger de Stripe de n8n como nuestra
@@ -402,7 +408,14 @@ async function crearSesionStripePropia(
   urlCancelacion: string,
 ): Promise<{ id: string; url: string } | null> {
   const secretKey = entorno().STRIPE_SECRET_KEY;
-  if (!secretKey || !lineas.length) return null;
+  if (!secretKey) {
+    ultimoErrorStripe = 'Falta STRIPE_SECRET_KEY en el servidor';
+    return null;
+  }
+  if (!lineas.length) {
+    ultimoErrorStripe = 'El pedido no tiene articulos';
+    return null;
+  }
 
   try {
     const partes: string[] = [];
@@ -438,14 +451,20 @@ async function crearSesionStripePropia(
 
     const texto = await r.text();
     if (!r.ok) {
-      log('[checkout] Stripe no acepto la sesion propia:', r.status, texto.slice(0, 300));
+      ultimoErrorStripe = `Stripe ${r.status}: ${texto.slice(0, 400)}`;
+      log('[checkout] Stripe no acepto la sesion propia:', r.status, texto.slice(0, 400));
       return null;
     }
     const datos: any = JSON.parse(texto);
     const url = String(datos?.url ?? '');
-    if (!url) return null;
+    if (!url) {
+      ultimoErrorStripe = 'Stripe no devolvio la url de la sesion';
+      return null;
+    }
+    ultimoErrorStripe = '';
     return { id: String(datos?.id ?? ''), url };
   } catch (error) {
+    ultimoErrorStripe = `No se pudo llamar a Stripe: ${error instanceof Error ? error.message : String(error)}`;
     log('[checkout] no se pudo crear la sesion propia de Stripe:', error);
     return null;
   }
@@ -1378,7 +1397,19 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     }
 
     if (!urlSesion) {
-      responder(res, { error: 'No se pudo crear la sesión de pago' }, 502);
+      // Se devuelve el motivo real (el error de Stripe y el de n8n) para que
+      // se pueda diagnosticar desde el navegador.
+      responder(
+        res,
+        {
+          error: 'No se pudo crear la sesión de pago',
+          detalle: ultimoErrorStripe || 'El flujo de n8n tampoco devolvió una url de pago.',
+          stripe: ultimoErrorStripe,
+          n8n: urlN8n ? 'n8n sí devolvió una url' : 'n8n no devolvió ninguna url',
+          pedido_id: pedidoId,
+        },
+        502,
+      );
       return;
     }
 

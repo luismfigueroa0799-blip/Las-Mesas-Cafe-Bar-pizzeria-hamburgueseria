@@ -92,6 +92,8 @@ export default async function handler(req: Req, res: Res): Promise<void> {
       SUPABASE_SECRET_KEY: claveSupabase() ? 'configurada' : 'FALTA',
       N8N_WEBHOOK_URL_TEST: env.N8N_WEBHOOK_URL_TEST ? 'configurada' : 'no',
       STRIPE_SECRET_KEY: env.STRIPE_SECRET_KEY ? 'configurada' : 'FALTA',
+      DATABASE_URL: env.DATABASE_URL ? 'configurada' : 'FALTA (los pedidos van a Supabase)',
+      N8N_WEBHOOK_NOTIFICAR: env.N8N_WEBHOOK_NOTIFICAR ? 'configurada' : 'no',
     },
   };
 
@@ -139,6 +141,58 @@ export default async function handler(req: Req, res: Res): Promise<void> {
       resultado.supabase = {
         ok: false,
         error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  // 3) Neon (base de datos de los pedidos): conexion y estado de la tabla
+  const urlNeon = String(env.DATABASE_URL ?? env.NEON_DATABASE_URL ?? '').trim();
+  if (!urlNeon) {
+    resultado.neon = {
+      ok: false,
+      error: 'Falta DATABASE_URL: los pedidos se guardan en Supabase en vez de en Neon.',
+    };
+  } else {
+    try {
+      const pg: any = await import('pg');
+      const Pool = pg?.default?.Pool ?? pg?.Pool;
+      const pool = new Pool({
+        connectionString: urlNeon,
+        max: 1,
+        connectionTimeoutMillis: 10000,
+        ssl: urlNeon.includes('sslmode=disable') ? undefined : { rejectUnauthorized: false },
+      });
+      const inicio = Date.now();
+      try {
+        const r = await pool.query(
+          "select count(*)::int as total from information_schema.tables where table_schema = 'public' and table_name = 'pedidos'",
+        );
+        const existe = Number(r?.rows?.[0]?.total ?? 0) > 0;
+        let columnas = '';
+        if (existe) {
+          const c = await pool.query(
+            "select column_name from information_schema.columns where table_schema = 'public' and table_name = 'pedidos' order by ordinal_position",
+          );
+          columnas = (c?.rows ?? []).map((x: any) => x.column_name).join(', ');
+        }
+        const pedidos = existe
+          ? await pool.query('select count(*)::int as total from public.pedidos')
+          : null;
+        resultado.neon = {
+          ok: true,
+          ms: Date.now() - inicio,
+          tablaPedidos: existe,
+          columnas,
+          pedidos: pedidos?.rows?.[0]?.total ?? null,
+        };
+      } finally {
+        await pool.end().catch(() => {});
+      }
+    } catch (error) {
+      resultado.neon = {
+        ok: false,
+        error: error instanceof Error ? error.message : String(error),
+        causa: error instanceof Error ? String(error.cause ?? '') : '',
       };
     }
   }
