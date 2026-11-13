@@ -24,6 +24,17 @@ function entorno(): Record<string, string | undefined> {
   return (g.process?.env ?? {}) as Record<string, string | undefined>;
 }
 
+/** Host de Neon (sin la contraseña), para comparar con la de n8n. */
+function hostDeNeon(): string {
+  const url = String(entorno().DATABASE_URL ?? entorno().NEON_DATABASE_URL ?? '').trim();
+  if (!url) return '';
+  try {
+    return new URL(url).host;
+  } catch {
+    return '(DATABASE_URL no es una URL valida)';
+  }
+}
+
 // ── Configuracion comun (inline: Vercel no empaqueta imports fuera de api/) ──
 
 /** Webhook de n8n que crea el pedido y devuelve la url de la pasarela de Stripe. */
@@ -93,6 +104,9 @@ export default async function handler(req: Req, res: Res): Promise<void> {
       N8N_WEBHOOK_URL_TEST: env.N8N_WEBHOOK_URL_TEST ? 'configurada' : 'no',
       STRIPE_SECRET_KEY: env.STRIPE_SECRET_KEY ? 'configurada' : 'FALTA',
       DATABASE_URL: env.DATABASE_URL ? 'configurada' : 'FALTA (los pedidos van a Supabase)',
+      // Host de Neon (sin contraseña): sirve para comprobar que la credencial
+      // de Postgres de n8n apunta a esta misma base de datos.
+      NEON_HOST: env.DATABASE_URL ? hostDeNeon() : '',
       N8N_WEBHOOK_NOTIFICAR: env.N8N_WEBHOOK_NOTIFICAR ? 'configurada' : 'no',
     },
   };
