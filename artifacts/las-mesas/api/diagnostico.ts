@@ -200,9 +200,25 @@ export default async function handler(req: Req, res: Res): Promise<void> {
           const np = await pool.query('select count(*)::int as total from public.products');
           productos = np?.rows?.[0]?.total ?? 0;
         }
+        // Prueba de escritura (sin escribir nada): comprueba que los tipos
+        // de la tabla products son los que espera la importacion.
+        let pruebaProductos = 'no se pudo comprobar';
+        if (existeProductos) {
+          try {
+            await pool.query(
+              "select id, name, description, price, image_url, is_available, category_id from products where false",
+            );
+            pruebaProductos = 'ok (los tipos encajan con la importacion)';
+          } catch (error) {
+            pruebaProductos =
+              'FALLO: ' + (error instanceof Error ? error.message : String(error)).slice(0, 200);
+          }
+        }
+
         resultado.neon = {
           ok: true,
           ms: Date.now() - inicio,
+          pruebaProductos,
           tablas: (tablas?.rows ?? []).map((t: any) => t.table_name),
           clavesPrimarias: (pk?.rows ?? []).map(
             (x: any) => x.table_name + '.' + x.column_name,
