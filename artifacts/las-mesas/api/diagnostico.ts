@@ -178,6 +178,11 @@ export default async function handler(req: Req, res: Res): Promise<void> {
         const pedidos = existe
           ? await pool.query('select count(*)::int as total from public.pedidos')
           : null;
+        // Claves primarias: hacen falta para saber si se puede usar
+        // "on conflict" al importar productos.
+        const pk = await pool.query(
+          "select tc.table_name, kcu.column_name from information_schema.table_constraints tc join information_schema.key_column_usage kcu on kcu.constraint_name = tc.constraint_name and kcu.table_schema = tc.table_schema where tc.table_schema = 'public' and tc.constraint_type = 'PRIMARY KEY'",
+        );
         // La tabla de productos (la carta) y su numero de filas.
         const tablas = await pool.query(
           "select table_name from information_schema.tables where table_schema = 'public' order by table_name",
@@ -199,6 +204,9 @@ export default async function handler(req: Req, res: Res): Promise<void> {
           ok: true,
           ms: Date.now() - inicio,
           tablas: (tablas?.rows ?? []).map((t: any) => t.table_name),
+          clavesPrimarias: (pk?.rows ?? []).map(
+            (x: any) => x.table_name + '.' + x.column_name,
+          ),
           tablaPedidos: existe,
           columnas,
           pedidos: pedidos?.rows?.[0]?.total ?? null,

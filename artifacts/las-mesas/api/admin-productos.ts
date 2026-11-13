@@ -229,27 +229,30 @@ export default async function handler(req: Req, res: Res): Promise<void> {
         const nombre = String(p.nombre ?? '');
         const precio = Number(p.precio ?? 0);
         const disponible = p.disponible !== false;
-        const r = await pool.query(
-          `insert into products (id, name, description, price, image_url, is_available, category_id)
-           values ($1, $2, $3, $4, $5, $6, $7)
-           on conflict (id) do update
-             set name = excluded.name,
-                 price = excluded.price,
-                 is_available = excluded.is_available
-           returning id, (xmax = 0) as insertado`,
-          [
-            id,
-            nombre,
-            p.descripcion ?? null,
-            precio,
-            p.image_url ?? null,
-            disponible,
-            p.categoria_id ?? null,
-          ],
-        );
-        const fueInsertado = r?.rows?.[0]?.insertado === true;
-        if (fueInsertado) insertados += 1;
-        else actualizados += 1;
+        // Primero se busca si ya existe (para no depender de que
+        // `id` sea clave primaria) y se actualiza o se inserta.
+        const existe = await pool.query('select id from products where id = $1', [id]);
+        if (existe?.rowCount) {
+          await pool.query(
+            'update products set name = $2, price = $3, is_available = $4 where id = $1',
+            [id, nombre, precio, disponible],
+          );
+          actualizados += 1;
+        } else {
+          await pool.query(
+            'insert into products (id, name, description, price, image_url, is_available, category_id) values ($1, $2, $3, $4, $5, $6, $7)',
+            [
+              id,
+              nombre,
+              p.descripcion ?? null,
+              precio,
+              p.image_url ?? null,
+              disponible,
+              p.categoria_id ?? null,
+            ],
+          );
+          insertados += 1;
+        }
       }
     } catch (error) {
       g.console?.error?.('[admin] error importando la carta:', error);
