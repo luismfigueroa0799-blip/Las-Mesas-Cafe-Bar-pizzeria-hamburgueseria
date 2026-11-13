@@ -88,30 +88,15 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://hooknotifier.com/1794488773416/throbbing-voice",
+        "url": "https://ntfy.sh/nombre-del-tema",
         "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "object",
-              "value": "Pedido {{ $('Generar Codigo de Pedido').first().json.order_code }}"
-            },
-            {
-              "name": "body",
-              "value": "={{ $('Generar Codigo de Pedido').first().json.order_code }} | {{ $('Generar Codigo de Pedido').first().json.total_texto }} EUR | tel {{ $('Generar Codigo de Pedido').first().json.telefono }}"
-            },
-            {
-              "name": "priority",
-              "value": "high"
-            }
-          ]
-        },
+        "contentType": "raw",
+        "rawBody": "=---------------------------------\nPedido: {{ $('Generar Codigo de Pedido').first().json.order_code }}\n---------------------------------\nDetalles:\n{{ $('Generar Codigo de Pedido').first().json.detalle_texto }}\n---------------------------------\nTotal: {{ $('Generar Codigo de Pedido').first().json.total_texto }} €",
+        "sendQueryParameters": false,
+        "sendHeaders": false,
         "options": {
           "timeout": 15000
-        },
-        "contentType": "form-urlencoded",
-        "sendQueryParameters": false,
-        "sendHeaders": false
+        }
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
