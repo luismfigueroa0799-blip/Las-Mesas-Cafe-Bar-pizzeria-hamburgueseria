@@ -13,6 +13,26 @@ import { LogIn, UtensilsCrossed } from 'lucide-react';
 
 const CLAVE_TOKEN = 'lm_admin_token';
 
+/**
+ * URLs donde vive esta web con la API (el proyecto de Vercel).
+ *
+ * El dominio propio apunta al proyecto estatico, que no tiene ni la API ni
+ * esta pagina: si se abre el panel ahi, el login no puede funcionar y hay
+ * que decirlo en vez de fallar en silencio.
+ */
+export const URLS_CON_API = [
+  'las-mesas-cafe-bar-pizzeria-hamburgueseria-7l1h-git-main-luism4.vercel.app',
+  'las-mesas-cafe-bar-pizzeria-hamburgueseria-7l1h-cgcz0at74.vercel.app',
+];
+
+/** True si la pagina se ha abierto en un sitio que no tiene la API. */
+export function sitioSinApi(): boolean {
+  if (typeof window === 'undefined') return false;
+  const host = window.location.host.toLowerCase();
+  if (host.includes('localhost') || host.includes('127.0.0.1')) return false;
+  return !URLS_CON_API.some((u) => host.includes(u));
+}
+
 export function guardarToken(token: string) {
   try {
     sessionStorage.setItem(CLAVE_TOKEN, token);
@@ -53,7 +73,25 @@ const Login: React.FC<{ destino?: string }> = ({ destino = '/admin/inventario' }
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
-      const datos = await r.json();
+
+      // Si la respuesta no es JSON es que no estamos en el sitio con la API
+      // (por ejemplo, el dominio propio, que apunta al proyecto estatico).
+      const texto = await r.text();
+      let datos: any = null;
+      try {
+        datos = JSON.parse(texto);
+      } catch {
+        datos = null;
+      }
+
+      if (!datos) {
+        setError(
+          'La respuesta del servidor no es valida. Es probable que estes en ' +
+            'lasmesasbarcafet.com (el sitio estatico, sin la API). Abre el panel en: ' +
+            'https://' + URLS_CON_API[0] + '/admin/inventario',
+        );
+        return;
+      }
       if (!r.ok) {
         setError(datos?.error ?? 'No se pudo iniciar sesión');
         return;
@@ -113,6 +151,8 @@ const Login: React.FC<{ destino?: string }> = ({ destino = '/admin/inventario' }
 
         <p className="admin-nota">
           <a href="/">← Volver a la web</a>
+          {' · '}
+          <a href={'https://' + URLS_CON_API[0] + '/admin/inventario'}>Ir al inventario</a>
         </p>
       </form>
     </div>

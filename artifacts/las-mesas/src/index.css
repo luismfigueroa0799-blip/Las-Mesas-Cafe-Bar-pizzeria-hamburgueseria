@@ -1036,3 +1036,19 @@ h1, h2, h3, .hero h1, .play-section h2, .gallery-heading h2, .essence h2 {
   text-underline-offset: 3px;
 }
 .admin-nota a:hover { color: var(--oro); }
+.admin-error-fuerte {
+  margin: 0;
+  padding: 14px 16px;
+  background: rgba(224,87,78,.16);
+  border: 1px solid #e0574e;
+  color: #f6c9c5;
+  font-size: .84rem;
+  line-height: 1.6;
+  max-width: 560px;
+}
+.admin-error-fuerte a {
+  color: #fff;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
