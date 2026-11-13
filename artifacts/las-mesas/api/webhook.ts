@@ -309,6 +309,22 @@ function columnaInexistente(mensaje: string): string {
 }
 
 /**
+ * Detalle del pedido en texto plano, una linea por articulo (para ntfy y para
+ * el nodo de Telegram del flujo de n8n).
+ */
+function detalleTexto(
+  lineas: Array<{ nombre: string; cantidad: number; precio: number }>,
+): string {
+  return lineas
+    .map((l) => {
+      const precio = l.precio.toFixed(2).replace('.', ',');
+      const unidades = l.cantidad > 1 ? `${l.cantidad} x ` : '';
+      return `${unidades}${l.nombre} - ${precio} EUR`;
+    })
+    .join('\n');
+}
+
+/**
  * Detalle del pedido en texto plano, una linea por articulo, para que el
  * nodo de Telegram del flujo de n8n pueda pintarlo sin bucles ni parsear JSON.
  */
@@ -656,7 +672,47 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     });
   }
 
-  // ── 3) Avisar a n8n con el JSON plano que usa el flujo ──
+  // ── 3) Avisar a la tablet por ntfy ──
+  //
+  // El topic se configura con NTFY_TOPIC en el entorno. Es la red de
+  // seguridad del aviso a la tablet: si el nodo de n8n falla, aqui se avisa
+  // igualmente.
+  const topicPedido = req?.query?.ntfy;
+  const topicNtfy = String(
+    (Array.isArray(topicPedido) ? topicPedido[0] : topicPedido) ?? entorno().NTFY_TOPIC ?? '',
+  ).trim();
+  let avisoNtfy: Record<string, unknown> | null = null;
+
+  if (topicNtfy && evento?.type === 'checkout.session.completed' && pedidoId) {
+    try {
+      const textoNtfy = [
+        '---------------------------------',
+        'Pedido: ' + orderCode,
+        '---------------------------------',
+        'Detalles:',
+        detalleTexto(lineas),
+        '---------------------------------',
+        'Total: ' + totalPedido.toFixed(2).replace('.', ',') + ' EUR',
+      ].join('\n');
+      const r = await g.fetch('https://ntfy.sh/' + encodeURIComponent(topicNtfy), {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+        body: textoNtfy,
+      });
+      const respuesta = await r.text();
+      avisoNtfy = { topic: topicNtfy, estado: r.status, ok: r.ok, respuesta: respuesta.slice(0, 200) };
+      log('[webhook] Aviso a la tablet (ntfy):', avisoNtfy);
+    } catch (error) {
+      avisoNtfy = {
+        topic: topicNtfy,
+        ok: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+      log('[webhook] no se pudo avisar a la tablet:', error);
+    }
+  }
+
+  // ── 4) Avisar a n8n con el JSON plano que usa el flujo ──
   // Se avisa al webhook de NOTIFICACION. Si no hay uno configurado, no se
   // envia nada al de creacion (insertaria un pedido duplicado): en ese caso la
   // notificacion la hace el trigger de Stripe de n8n, que lee los datos de la
@@ -667,6 +723,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     responder(res, {
       received: true,
       forwarded: false,
+      ntfy: avisoNtfy,
       motivo: avisarPorWebhook ? 'sin URL de n8n' : 'notificado por el trigger de Stripe de n8n',
     });
     return;
@@ -788,6 +845,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
       destino,
       pedido_id: pedidoId,
       order_code: orderCode,
+      ntfy: avisoNtfy,
     });
   } catch (error) {
     log('[webhook] Error al enviar a n8n:', error);
