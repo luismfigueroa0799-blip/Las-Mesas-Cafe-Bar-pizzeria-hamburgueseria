@@ -1,0 +1,638 @@
+{
+  "name": "Pedidos domicilio: recibir pedido y crear pago",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "crear-pedido-domicilio",
+        "responseMode": "responseNode",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "id": "72b4fb62-13b2-4092-b642-f217a453eb60",
+      "name": "Recibir pedido a domicilio",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        192
+      ],
+      "webhookId": "3fbea119-c765-4fba-aa60-3f01323fd2af"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Horario de atencion (zona Atlantic/Canary). 1 = lunes ... 7 = domingo. null = cerrado.\nconst HORARIO = {\n  1: { abre: '08:00', cierra: '23:00' },\n  2: { abre: '08:00', cierra: '23:00' },\n  3: { abre: '08:00', cierra: '23:00' },\n  4: { abre: '08:00', cierra: '23:00' },\n  5: { abre: '08:00', cierra: '23:00' },\n  6: { abre: '08:00', cierra: '23:00' },\n  7: { abre: '08:00', cierra: '23:00' },\n};\n\nfunction aMinutos(hhmm) {\n  const p = String(hhmm).split(':');\n  return Number(p[0]) * 60 + Number(p[1]);\n}\nfunction rechazar(codigo, error) {\n  return [{ json: { aceptado: false, codigo: codigo, error: error } }];\n}\nfunction texto(v) {\n  return v === undefined || v === null ? '' : String(v).trim();\n}\n\nconst ahora = $now.setZone('Atlantic/Canary');\nconst tramo = HORARIO[ahora.weekday];\nconst minutos = ahora.hour * 60 + ahora.minute;\nif (!tramo || minutos < aMinutos(tramo.abre) || minutos >= aMinutos(tramo.cierra)) {\n  return rechazar(403, 'Estamos fuera del horario de atencion. No se aceptan pedidos ahora.');\n}\n\nconst body = $input.first().json.body || {};\n\n// Datos de entrega obligatorios (sustituyen al token QR de la mesa)\nconst nombre = texto(body.nombre);\nconst direccion = texto(body.direccion);\nconst telefono = texto(body.cliente_telefono);\nif (nombre.length < 2 || nombre.length > 100) return rechazar(400, 'Falta el nombre o no es valido.');\nif (direccion.length < 5 || direccion.length > 300) return rechazar(400, 'Falta la direccion o no es valida.');\nconst digitos = telefono.replace(/[^0-9]/g, '');\nif (!/^[+0-9 ()-]+$/.test(telefono) || digitos.length < 9 || digitos.length > 15) {\n  return rechazar(400, 'Falta el telefono o no es valido.');\n}\n\nif (!Array.isArray(body.items) || body.items.length === 0) {\n  return rechazar(400, 'El pedido no contiene productos.');\n}\n\n// Solo se aceptan id y cantidad. Cualquier precio enviado por el frontend se ignora.\nconst agrupados = {};\nfor (const it of body.items) {\n  const id = it && it.id;\n  const qty = Number(it && it.qty);\n  if (id === undefined || id === null || String(id).trim() === '') {\n    return rechazar(400, 'Hay un producto sin id.');\n  }\n  if (!Number.isInteger(qty) || qty < 1 || qty > 50) {\n    return rechazar(400, 'Cantidad no valida para el producto ' + id + '.');\n  }\n  const clave = String(id);\n  agrupados[clave] = (agrupados[clave] || 0) + qty;\n}\nconst items = Object.keys(agrupados).map(function (id) { return { id: id, qty: agrupados[id] }; });\n\nreturn [{ json: { aceptado: true, nombre: nombre, direccion: direccion, cliente_telefono: telefono, items: items } }];"
+      },
+      "id": "176d39f6-c1e5-42f1-8564-665a574b7348",
+      "name": "Validar horario y datos de entrega",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        272,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "aceptado",
+              "leftValue": "={{ $json.aceptado }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "73988979-79d4-4ef8-9990-fd1b2ef05787",
+      "name": "¿Datos y horario correctos?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        496,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "products",
+          "mode": "list",
+          "cachedResultName": "products"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData"
+        },
+        "options": {
+          "queryBatching": "single"
+        }
+      },
+      "id": "0f8c72c6-084f-4035-a7b8-1136aa1ca1b9",
+      "name": "Consultar productos",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        800,
+        224
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "1X9SZfp6WIb993oR",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// \"No confies en ningun precio del frontend\": el total se calcula solo con precios de la base de datos.\nconst pedido = $('Validar horario y datos de entrega').first().json;\nconst productos = $('Consultar productos').all().map(function (i) { return i.json; }).filter(function (p) { return p && p.id !== undefined && p.id !== null; });\n\nfunction rechazar(codigo, error) {\n  return [{ json: { valido: false, codigo: codigo, error: error } }];\n}\n\nlet totalCentimos = 0;\nconst items = [];\nfor (const it of pedido.items) {\n  const prod = productos.find(function (p) { return String(p.id) === String(it.id); });\n  if (!prod) return rechazar(400, 'El producto ' + it.id + ' no existe.');\n  // La tabla products de Neon usa price e is_available; los nombres antiguos\n  // se siguen admitiendo por si el flujo lee de Supabase.\n  const nombreProd = prod.name !== undefined ? prod.name : prod.nombre;\n  const disponible = prod.is_available !== undefined\n    ? prod.is_available !== false\n    : prod.disponible !== false;\n  if (!disponible) return rechazar(409, 'El producto ' + (nombreProd || it.id) + ' no esta disponible.');\n  const precio = Number(prod.price !== undefined ? prod.price : prod.precio);\n  if (!Number.isFinite(precio) || precio < 0) return rechazar(500, 'Precio no valido para el producto ' + it.id + '.');\n  const unitCent = Math.round(precio * 100);\n  const subCent = unitCent * it.qty;\n  totalCentimos += subCent;\n  items.push({\n    id: prod.id,\n    nombre: prod.name !== undefined ? prod.name : (prod.nombre !== undefined ? prod.nombre : null),\n    qty: it.qty,\n    precio_unitario: unitCent / 100,\n    subtotal: subCent / 100,\n  });\n}\n\nif (totalCentimos <= 0) return rechazar(400, 'El total del pedido no es valido.');\n\nconst total = totalCentimos / 100;\n\n// El detalle en el formato que usa el flujo de confirmacion de pago: el\n// precio como texto (\"6,50 EUR\") y los importes en centimos.\nconst lineasTexto = items.map(function (it) {\n  const precio = Number(it.precio_unitario).toFixed(2).replace('.', ',') + ' €';\n  return {\n    id: String(it.id),\n    nombre: it.nombre,\n    name: it.nombre,\n    cantidad: it.qty,\n    qty: it.qty,\n    precio: precio,\n    price: precio,\n    unit_cents: Math.round(Number(it.precio_unitario) * 100),\n    subtotal_cents: Math.round(Number(it.subtotal) * 100),\n  };\n});\n\nconst detalleTexto = items.map(function (it) {\n  const precio = Number(it.precio_unitario).toFixed(2).replace('.', ',') + ' €';\n  return (it.qty > 1 ? it.qty + ' x ' : '') + it.nombre + ' - ' + precio;\n}).join('\\n');\n\nconst resumen = [\n  'Cliente: ' + pedido.nombre,\n  'Telefono: ' + pedido.cliente_telefono,\n  'Direccion: ' + pedido.direccion,\n  'TOTAL: ' + total.toFixed(2).replace('.', ',') + ' EUR',\n].join('\\n');\n\nreturn [{\n  json: {\n    valido: true,\n    tipo: 'domicilio',\n    mesa_id: null,\n    direccion: pedido.direccion,\n    cliente_telefono: pedido.cliente_telefono,\n    nombre: pedido.nombre,\n    items: items,\n    total: total,\n    total_centimos: totalCentimos,\n    total_texto: total.toFixed(2),\n    items_texto: JSON.stringify(lineasTexto),\n    detalle_texto: detalleTexto,\n    resumen: resumen,\n    numArticulos: String(items.length),\n    estado: 'pendiente_pago',\n  },\n}];"
+      },
+      "id": "651afa42-9630-4785-8cbf-18d0e4103c91",
+      "name": "Recalcular precio real",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1024,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "valido",
+              "leftValue": "={{ $json.valido }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "cf9f8770-1920-41e8-b721-4258805ad4c2",
+      "name": "¿Pedido válido?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1248,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.stripe.com/v1/checkout/sessions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "stripeApi",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "mode",
+              "value": "payment"
+            },
+            {
+              "name": "line_items[0][price_data][currency]",
+              "value": "eur"
+            },
+            {
+              "name": "line_items[0][price_data][product_data][name]",
+              "value": "=Pedido a domicilio #{{ $json.id }}"
+            },
+            {
+              "name": "line_items[0][price_data][unit_amount]",
+              "value": "={{ $('Recalcular precio real').first().json.total_centimos }}"
+            },
+            {
+              "name": "line_items[0][quantity]",
+              "value": "1"
+            },
+            {
+              "name": "client_reference_id",
+              "value": "={{ $json.id }}"
+            },
+            {
+              "name": "metadata[pedido_id]",
+              "value": "={{ $json.id }}"
+            },
+            {
+              "name": "metadata[tipo]",
+              "value": "domicilio"
+            },
+            {
+              "name": "metadata[nombre]",
+              "value": "={{ $('Recalcular precio real').first().json.nombre }}"
+            },
+            {
+              "name": "metadata[cliente_telefono]",
+              "value": "={{ $('Recalcular precio real').first().json.cliente_telefono }}"
+            },
+            {
+              "name": "payment_intent_data[metadata][pedido_id]",
+              "value": "={{ $json.id }}"
+            },
+            {
+              "name": "payment_intent_data[metadata][tipo]",
+              "value": "domicilio"
+            },
+            {
+              "name": "metadata[cliente_nombre]",
+              "value": "={{ $('Recalcular precio real').first().json.nombre }}"
+            },
+            {
+              "name": "metadata[telefono]",
+              "value": "={{ $('Recalcular precio real').first().json.cliente_telefono }}"
+            },
+            {
+              "name": "metadata[cliente_direccion]",
+              "value": "={{ $('Recalcular precio real').first().json.direccion }}"
+            },
+            {
+              "name": "metadata[direccion]",
+              "value": "={{ $('Recalcular precio real').first().json.direccion }}"
+            },
+            {
+              "name": "metadata[total]",
+              "value": "={{ $('Recalcular precio real').first().json.total_texto }}"
+            },
+            {
+              "name": "metadata[total_centimos]",
+              "value": "={{ $('Recalcular precio real').first().json.total_centimos }}"
+            },
+            {
+              "name": "metadata[items]",
+              "value": "={{ $('Recalcular precio real').first().json.items_texto }}"
+            },
+            {
+              "name": "metadata[detalle]",
+              "value": "={{ $('Recalcular precio real').first().json.items_texto }}"
+            },
+            {
+              "name": "metadata[articulos]",
+              "value": "={{ $('Recalcular precio real').first().json.items_texto }}"
+            },
+            {
+              "name": "metadata[detalle_texto]",
+              "value": "={{ $('Recalcular precio real').first().json.detalle_texto }}"
+            },
+            {
+              "name": "metadata[resumen]",
+              "value": "={{ $('Recalcular precio real').first().json.resumen }}"
+            },
+            {
+              "name": "metadata[numArticulos]",
+              "value": "={{ $('Recalcular precio real').first().json.numArticulos }}"
+            },
+            {
+              "name": "metadata[tipoEntrega]",
+              "value": "={{ $('Recalcular precio real').first().json.tipo }}"
+            },
+            {
+              "name": "metadata[modoRecogida]",
+              "value": "={{ $json.tipo }}"
+            },
+            {
+              "name": "success_url",
+              "value": "https://las-mesas-cafe-bar-pizzeria-hamburgueseria-7l1h-git-main-luism4.vercel.app/?pedido=ok&session_id={CHECKOUT_SESSION_ID}"
+            },
+            {
+              "name": "cancel_url",
+              "value": "https://las-mesas-cafe-bar-pizzeria-hamburgueseria-7l1h-git-main-luism4.vercel.app/?pedido=cancelado"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "0d9347b5-cd5b-486f-88c7-e35e81f72a9b",
+      "name": "Crear sesión de pago Stripe",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1488,
+        -128
+      ],
+      "credentials": {
+        "stripeApi": {
+          "id": "pUBcgXLy44KcEpje",
+          "name": "Stripe account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, pedido_id: $('Insert rows in a table').first().json.id, total: $('Recalcular precio real').first().json.total, checkout_url: $json.url }) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "3a736246-6421-4481-9161-ca0385968fa8",
+      "name": "Responder URL de pago",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1792,
+        -128
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: false, error: $json.error }) }}",
+        "options": {
+          "responseCode": "={{ $json.codigo }}"
+        }
+      },
+      "id": "1b435b9e-73ef-4e0d-8fe8-36eaef42cc7f",
+      "name": "Responder pedido inválido",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1664,
+        432
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: false, error: $json.error }) }}",
+        "options": {
+          "responseCode": "={{ $json.codigo }}"
+        }
+      },
+      "id": "f98d6571-0ada-4ef3-b28b-a423208525ba",
+      "name": "Responder rechazo",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        912,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "pedidos",
+          "mode": "list",
+          "cachedResultName": "pedidos"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "=",
+            "id_pedido": "={{ $json.id_pedido ?? '' }}",
+            "cliente_nombre": "={{ $json.nombre }}",
+            "cliente_telefono": "={{ $json.cliente_telefono }}",
+            "direccion": "={{ $json.direccion }}",
+            "productos": "={{ JSON.stringify($json.items) }}",
+            "total": "={{ $json.total }}",
+            "tipo_entrega": "={{ $json.tipo }}",
+            "estado": "pendiente",
+            "fecha": "={{ $now.toISO() }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "id_pedido",
+              "displayName": "id_pedido",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "cliente_nombre",
+              "displayName": "cliente_nombre",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "cliente_telefono",
+              "displayName": "cliente_telefono",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "direccion",
+              "displayName": "direccion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "productos",
+              "displayName": "productos",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "total",
+              "displayName": "total",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "tipo_entrega",
+              "displayName": "tipo_entrega",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "estado",
+              "displayName": "estado",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "fecha",
+              "displayName": "fecha",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        1168,
+        -128
+      ],
+      "id": "93bc0d9c-de7f-4fcd-842b-aac53624b208",
+      "name": "Insert rows in a table",
+      "credentials": {
+        "postgres": {
+          "id": "1X9SZfp6WIb993oR",
+          "name": "Postgres account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Recibir pedido a domicilio": {
+      "main": [
+        [
+          {
+            "node": "Validar horario y datos de entrega",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar horario y datos de entrega": {
+      "main": [
+        [
+          {
+            "node": "¿Datos y horario correctos?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Datos y horario correctos?": {
+      "main": [
+        [
+          {
+            "node": "Consultar productos",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder rechazo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consultar productos": {
+      "main": [
+        [
+          {
+            "node": "Recalcular precio real",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recalcular precio real": {
+      "main": [
+        [
+          {
+            "node": "¿Pedido válido?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Pedido válido?": {
+      "main": [
+        [
+          {
+            "node": "Insert rows in a table",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder pedido inválido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Crear sesión de pago Stripe": {
+      "main": [
+        [
+          {
+            "node": "Responder URL de pago",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert rows in a table": {
+      "main": [
+        [
+          {
+            "node": "Crear sesión de pago Stripe",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "a647fa19-2295-478e-a846-b1cd74947f0c",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "91f9c812266692c02151b84cfda10ce4a643b978c44e62a952c0574d0a918cfa"
+  },
+  "nodeGroups": [
+    {
+      "id": "990d241f-00c4-4e11-bb21-cd43557f148c",
+      "name": "Filtrar horario y entrega",
+      "nodeIds": [
+        "176d39f6-c1e5-42f1-8564-665a574b7348",
+        "73988979-79d4-4ef8-9990-fd1b2ef05787"
+      ],
+      "description": "Rechaza pedidos fuera de horario o sin nombre, dirección o teléfono válidos; del frontend solo se toman id y cantidad"
+    },
+    {
+      "id": "6cb778dd-e029-4c3b-8642-6685421acd4c",
+      "name": "Recalcular importe real",
+      "nodeIds": [
+        "0f8c72c6-084f-4035-a7b8-1136aa1ca1b9",
+        "651afa42-9630-4785-8cbf-18d0e4103c91",
+        "cf9f8770-1920-41e8-b721-4258805ad4c2"
+      ],
+      "description": "Usa precios y disponibilidad de la base de datos; si un producto falla, rechaza el pedido"
+    }
+  ],
+  "id": "x4WKKOybd16mzOuU",
+  "tags": []
+}

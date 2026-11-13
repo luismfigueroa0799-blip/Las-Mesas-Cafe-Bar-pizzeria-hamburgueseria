@@ -178,12 +178,33 @@ export default async function handler(req: Req, res: Res): Promise<void> {
         const pedidos = existe
           ? await pool.query('select count(*)::int as total from public.pedidos')
           : null;
+        // La tabla de productos (la carta) y su numero de filas.
+        const tablas = await pool.query(
+          "select table_name from information_schema.tables where table_schema = 'public' order by table_name",
+        );
+        const existeProductos = (tablas?.rows ?? []).some(
+          (t: any) => t.table_name === 'products',
+        );
+        let productos = null;
+        let columnasProductos = '';
+        if (existeProductos) {
+          const cp = await pool.query(
+            "select column_name from information_schema.columns where table_schema = 'public' and table_name = 'products' order by ordinal_position",
+          );
+          columnasProductos = (cp?.rows ?? []).map((x: any) => x.column_name).join(', ');
+          const np = await pool.query('select count(*)::int as total from public.products');
+          productos = np?.rows?.[0]?.total ?? 0;
+        }
         resultado.neon = {
           ok: true,
           ms: Date.now() - inicio,
+          tablas: (tablas?.rows ?? []).map((t: any) => t.table_name),
           tablaPedidos: existe,
           columnas,
           pedidos: pedidos?.rows?.[0]?.total ?? null,
+          tablaProductos: existeProductos,
+          columnasProductos,
+          productos,
         };
       } finally {
         await pool.end().catch(() => {});
