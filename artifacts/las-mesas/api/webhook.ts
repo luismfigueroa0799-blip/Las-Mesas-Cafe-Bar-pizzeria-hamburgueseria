@@ -723,6 +723,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     responder(res, {
       received: true,
       forwarded: false,
+      version: 'ntfy-v1',
       ntfy: avisoNtfy,
       motivo: avisarPorWebhook ? 'sin URL de n8n' : 'notificado por el trigger de Stripe de n8n',
     });
