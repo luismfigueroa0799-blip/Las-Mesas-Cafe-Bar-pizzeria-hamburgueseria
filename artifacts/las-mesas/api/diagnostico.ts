@@ -9,6 +9,7 @@ const g = globalThis as unknown as Global;
 
 interface Req {
   method?: string;
+  query?: Record<string, string | string[] | undefined>;
   headers?:
     | { get?: (nombre: string) => string | null }
     | Record<string, string | string[] | undefined>;
@@ -351,33 +352,40 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   }
 
   // ── Prueba de ntfy: se manda un mensaje real al topic de la tablet ──
-  const topicNtfy = String(entorno().NTFY_TOPIC ?? '').trim();
-  if (topicNtfy) {
-    try {
-      const mensaje =
-        'Prueba de Las Mesas: ' + new Date().toLocaleString('es-ES') + '\n' +
-        'Si ves esto en la tablet, ntfy funciona y el problema es el topic del flujo.';
-      const r = await g.fetch('https://ntfy.sh/' + encodeURIComponent(topicNtfy), {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain; charset=utf-8' },
-        body: mensaje,
-      });
-      const texto = await r.text();
-      resultado.ntfy = {
-        topic: topicNtfy,
-        estado: r.status,
-        ok: r.ok,
-        respuesta: texto.slice(0, 400),
-      };
-    } catch (error) {
-      resultado.ntfy = {
-        topic: topicNtfy,
-        ok: false,
-        error: error instanceof Error ? error.message : String(error),
-      };
-    }
-  } else {
-    resultado.ntfy = { error: 'Falta NTFY_TOPIC en el entorno' };
+  // El topic se puede indicar con ?ntfy=mi-topic o con NTFY_TOPIC en el
+  // entorno. Si no hay ninguno, se usa uno de pruebas.
+  const pedido = req?.query?.ntfy;
+  const topicPedido = Array.isArray(pedido) ? pedido[0] : pedido;
+  const topicNtfy = String(topicPedido ?? entorno().NTFY_TOPIC ?? 'las-mesas-prueba').trim();
+  try {
+    // El cuerpo es exactamente el que manda el nodo de n8n: texto plano y sin
+    // cabeceras (asi se prueba tambien que ntfy lo acepta sin Content-Type).
+    const mensaje = [
+      '---------------------------------',
+      'Pedido: PED-PRUEBA',
+      '---------------------------------',
+      'Detalles:',
+      '1 x Producto de prueba - 6,50 EUR',
+      '---------------------------------',
+      'Total: 6,50 EUR',
+    ].join('\n');
+    const r = await g.fetch('https://ntfy.sh/' + encodeURIComponent(topicNtfy), {
+      method: 'POST',
+      body: mensaje,
+    });
+    const texto = await r.text();
+    resultado.ntfy = {
+      topic: topicNtfy,
+      estado: r.status,
+      ok: r.ok,
+      respuesta: texto.slice(0, 400),
+    };
+  } catch (error) {
+    resultado.ntfy = {
+      topic: topicNtfy,
+      ok: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
   }
 
   res.status(200);
