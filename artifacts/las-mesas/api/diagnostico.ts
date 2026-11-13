@@ -200,18 +200,20 @@ export default async function handler(req: Req, res: Res): Promise<void> {
           const np = await pool.query('select count(*)::int as total from public.products');
           productos = np?.rows?.[0]?.total ?? 0;
         }
-        // Prueba de escritura (sin escribir nada): comprueba que los tipos
-        // de la tabla products son los que espera la importacion.
+        // Prueba real de escritura: se inserta un producto de prueba y se
+        // borra. Si esto funciona, la importacion del panel tambien.
         let pruebaProductos = 'no se pudo comprobar';
         if (existeProductos) {
           try {
-            await pool.query(
-              "select id, name, description, price, image_url, is_available, category_id from products where false",
+            const r = await pool.query(
+              "insert into products (id, name, description, price, image_url, is_available, category_id) values (-999, 'prueba', null, 0, null, true, null) returning id",
             );
-            pruebaProductos = 'ok (los tipos encajan con la importacion)';
+            const idInsertado = r?.rows?.[0]?.id;
+            await pool.query('delete from products where id = $1', [idInsertado ?? -999]);
+            pruebaProductos = 'ok (se puede escribir y borrar en products)';
           } catch (error) {
             pruebaProductos =
-              'FALLO: ' + (error instanceof Error ? error.message : String(error)).slice(0, 200);
+              'FALLO: ' + (error instanceof Error ? error.message : String(error)).slice(0, 300);
           }
         }
 
