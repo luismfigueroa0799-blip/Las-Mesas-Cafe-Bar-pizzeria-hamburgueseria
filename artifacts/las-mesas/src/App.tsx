@@ -4,6 +4,7 @@ import './index.css';
 import { useCart } from '@/CartContext';
 import CartSidebar from '@/CartSidebar';
 import ProductCard from '@/ProductCard';
+import Inventario from '@/admin/Inventario';
 import { CATEGORIES, categoriasDe, getProductos, type Category, type Product } from '@/products';
 
 const address = 'Pintor Antonio Padrón, 59, Las Mesas Bajas, Las Palmas de Gran Canaria';
@@ -48,6 +49,13 @@ type AvisoPedido =
   | { tipo: 'cancelado' }
   | { tipo: 'error'; mensaje: string }
   | null;
+
+// El panel de inventario vive en su propia ruta (/admin/inventario). El
+// rewrite de Vercel manda esa URL al index.html, asi que la SPA la muestra
+// sin necesidad de un router.
+const esRutaAdmin =
+  typeof window !== 'undefined' &&
+  window.location.pathname.replace(/\/+$/, '').toLowerCase().startsWith('/admin');
 
 function App() {
   const [activeSlug, setActiveSlug] = useState(CATEGORIES[0].slug);
@@ -176,6 +184,8 @@ function App() {
     const message = 'Se ha preparado tu mensaje de WhatsApp. Revísalo y pulsa «Enviar» para hacernos llegar la solicitud. No es una reserva confirmada.';
     kind === 'reserva' ? setReservationStatus(message) : setEventStatus(message);
   }
+
+  if (esRutaAdmin) return <Inventario />;
 
   return (
     <main>

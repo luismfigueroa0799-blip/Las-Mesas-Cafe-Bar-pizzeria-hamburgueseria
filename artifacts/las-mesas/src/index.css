@@ -984,3 +984,34 @@ h1, h2, h3, .hero h1, .play-section h2, .gallery-heading h2, .essence h2 {
   .product-card-add { min-height: 36px; padding: 0 9px; font-size: .5rem; }
   .product-card-buy { gap: 5px; }
 }
+
+/* =====================================================================
+   PRODUCTO AGOTADO (lo marca el panel /admin/inventario)
+   ===================================================================== */
+.product-card-agotado {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  background: rgba(10,10,10,.74);
+  backdrop-filter: blur(1px);
+  color: var(--oro);
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+}
+.product-card:has(.product-card-agotado) { opacity: .85; }
+.product-card-add[disabled] {
+  background: #35353a;
+  color: #8e8e96;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+.product-card-add[disabled]:hover {
+  background: #35353a;
+  box-shadow: none;
+  transform: none;
+}

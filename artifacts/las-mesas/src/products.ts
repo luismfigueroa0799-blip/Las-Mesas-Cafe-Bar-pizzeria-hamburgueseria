@@ -26,6 +26,8 @@ export interface Product {
   category_slug: string;
   /** Precio en euros tal como viene de la base de datos. */
   precio_eur?: number;
+  /** false = producto agotado (lo marca el panel de inventario). */
+  disponible?: boolean;
 }
 
 export interface Category {
@@ -198,6 +200,7 @@ export const PRODUCTS_LOCALES: Product[] = Object.entries(PRESENTACION).map(
     category: datos.categoria,
     category_slug: slugCategoria(datos.categoria),
     precio_eur: datos.precio,
+    disponible: true,
   }),
 );
 
@@ -219,13 +222,16 @@ export async function getProductos(): Promise<Product[]> {
           return {
             id: String(p.id),
             name: String(p.nombre),
-            description: presentacion?.description,
+            // La descripcion y la foto pueden venir ya de la base de datos.
+            description: p.descripcion ?? presentacion?.description,
             price: formatearPrecio(precio),
             allergens: presentacion?.allergens,
-            image_url: presentacion?.image_url ?? null,
+            image_url: p.imagen ?? presentacion?.image_url ?? null,
             category: categoriaNombre,
             category_slug: slugCategoria(categoriaNombre),
             precio_eur: precio,
+            // Agotado: el panel de inventario lo cambia en la base de datos.
+            disponible: p.disponible !== false,
           };
         });
       }

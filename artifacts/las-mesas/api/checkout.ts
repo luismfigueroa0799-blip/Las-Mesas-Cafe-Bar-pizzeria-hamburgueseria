@@ -336,8 +336,29 @@ async function catalogoProductos(
   ids: number[],
 ): Promise<Map<number, { nombre: string; precio: number; disponible: boolean }>> {
   const mapa = new Map<number, { nombre: string; precio: number; disponible: boolean }>();
+  if (!ids.length) return mapa;
+
+  // 1) Neon: la tabla 'products' (id, name, description, price, image_url,
+  //    is_available, category_id) es la fuente de verdad de la carta y la
+  //    que usa el panel de inventario.
+  if (await poolDeNeon()) {
+    const filas = await consultarNeon(
+      'select id, name, price, is_available from products where id = any($1::bigint[])',
+      [ids],
+    );
+    for (const fila of filas) {
+      mapa.set(Number(fila.id), {
+        nombre: String(fila.name ?? ''),
+        precio: Number(fila.price ?? 0),
+        disponible: fila.is_available !== false,
+      });
+    }
+    if (mapa.size) return mapa;
+  }
+
+  // 2) Supabase (respaldo)
   const cfg = configSupabase();
-  if (!cfg || !ids.length) return mapa;
+  if (!cfg) return mapa;
   try {
     const r = await g.fetch(
       cfg.url +

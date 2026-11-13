@@ -12,6 +12,8 @@ export interface Product {
   image_url?: string | null;
   category?: string;
   category_slug?: string;
+  /** false = producto agotado (lo marca el panel /admin/inventario). */
+  disponible?: boolean;
 }
 
 interface ProductCardProps {
@@ -29,6 +31,8 @@ const ProductCard: React.FC<ProductCardProps> = ({
 }) => {
   const [size, setSize] = useState(selectedSize);
   const foto = product.image_url ?? null;
+  // Agotado: el panel de inventario (/admin/inventario) lo marca.
+  const disponible = product.disponible !== false;
 
   return (
     <article className="product-card">
@@ -54,6 +58,12 @@ const ProductCard: React.FC<ProductCardProps> = ({
         {product.allergens && (
           <span className="product-card-allergens" title="Alérgenos">
             {product.allergens}
+          </span>
+        )}
+        {/* Producto agotado: se avisa en la carta y no se puede pedir. */}
+        {!disponible && (
+          <span className="product-card-agotado" title="Producto agotado">
+            Agotado
           </span>
         )}
       </div>
@@ -91,6 +101,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
           <button
             type="button"
             className="product-card-add"
+            disabled={!disponible}
             onClick={() =>
               onAddToCart({
                 name: product.name,
@@ -100,7 +111,13 @@ const ProductCard: React.FC<ProductCardProps> = ({
             }
             data-testid={`button-add-${product.id}`}
           >
-            <span aria-hidden="true">+</span> Añadir
+            {disponible ? (
+              <>
+                <span aria-hidden="true">+</span> Añadir
+              </>
+            ) : (
+              'Agotado'
+            )}
           </button>
         </div>
       </div>
