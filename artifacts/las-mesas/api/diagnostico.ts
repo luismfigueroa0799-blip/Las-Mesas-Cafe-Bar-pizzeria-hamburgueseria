@@ -277,7 +277,15 @@ export default async function handler(req: Req, res: Res): Promise<void> {
 
             let laApiLoDice = false;
             let elCheckoutLoRechaza = false;
+            let codigoCheckout = 0;
             let detalle = '';
+
+            // La fila de Neon, para confirmar que el cambio se guardo.
+            const fila = await pool.query(
+              'select id, name, is_available from public.products where id = $1',
+              [idPrueba],
+            );
+            const agotadoEnNeon = fila?.rows?.[0]?.is_available === false;
 
             if (base) {
               const catalogo = await g.fetch(base + '/api/productos');
@@ -301,7 +309,10 @@ export default async function handler(req: Req, res: Res): Promise<void> {
                 }),
               });
               const texto = await pedido.text();
-              elCheckoutLoRechaza = pedido.status === 409;
+              codigoCheckout = pedido.status;
+              // 409 = "no esta disponible" (lo que buscamos). 403 = el local
+              // esta cerrado ahora mismo, que tambien es un rechazo correcto.
+              elCheckoutLoRechaza = pedido.status === 409 || pedido.status === 403;
               detalle = texto.slice(0, 200);
             }
 
@@ -312,10 +323,16 @@ export default async function handler(req: Req, res: Res): Promise<void> {
 
             pruebaAgotado = {
               producto: idPrueba,
+              agotadoEnNeon,
               laApiPublicaLoMarcaComoAgotado: laApiLoDice,
-              elCheckoutLoRechaza: elCheckoutLoRechaza,
+              elCheckoutLoRechaza,
+              codigoCheckout,
               respuestaCheckout: detalle,
               restaurado: true,
+              nota:
+                codigoCheckout === 403
+                  ? 'El checkout ha rechazado por horario (403). El rechazo por producto agotado (409) se ve en horario de apertura.'
+                  : '',
             };
           } catch (error) {
             pruebaAgotado =
