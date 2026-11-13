@@ -34,9 +34,17 @@ const ProductCard: React.FC<ProductCardProps> = ({
     <article className="product-card">
       {/* Foto del producto. Si no hay image_url se muestra un monograma elegante
           en lugar de una imagen que no corresponde al plato. */}
-      <div className="product-card-media">
+      <div className="product-card-media w-full">
         {foto ? (
-          <img src={foto} alt={product.name} width="400" height="300" loading="lazy" decoding="async" />
+          <img
+            src={foto}
+            alt={product.name}
+            className="h-full w-full object-cover"
+            width="400"
+            height="300"
+            loading="lazy"
+            decoding="async"
+          />
         ) : (
           <div className="product-card-placeholder" aria-hidden="true">
             <span className="product-card-mono">{iniciales(product.name)}</span>
@@ -50,8 +58,8 @@ const ProductCard: React.FC<ProductCardProps> = ({
         )}
       </div>
 
-      <div className="product-card-body">
-        <h3 className="product-card-name">{product.name}</h3>
+      <div className="product-card-body min-w-0">
+        <h3 className="product-card-name break-words">{product.name}</h3>
 
         {product.description && <p className="product-card-desc">{product.description}</p>}
 
@@ -81,6 +89,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
       <div className="product-card-foot">
         <button
           type="button"
+          className="w-full"
           onClick={() =>
             onAddToCart({
               name: product.name,

@@ -233,8 +233,9 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
   return (
     <>
       <div className="cart-overlay" onClick={onClose} aria-hidden="true" />
+      {/* El ancho lo lleva el CSS: 100% en movil y 410px a partir de 600px. */}
       <aside className="cart-drawer" aria-label="Carrito de compra">
-        <header className="cart-drawer-head">
+        <header className="cart-drawer-head shrink-0">
           <h2 className="cart-drawer-title">Mi pedido</h2>
           <button type="button" onClick={onClose} aria-label="Cerrar carrito" className="cart-close">
             <X size={20} />
@@ -242,177 +243,186 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
         </header>
 
         {cart.length === 0 ? (
-          <p className="cart-empty">Tu carrito está vacío. Añade algo rico desde la carta.</p>
+          <div className="cart-drawer-body">
+            <p className="cart-empty">Tu carrito está vacío. Añade algo rico desde la carta.</p>
+          </div>
         ) : (
           <>
-            <ul className="cart-items">
-              {cart.map((item) => (
-                <li key={item.id} className="cart-item">
-                  {item.image ? (
-                    <img src={item.image} alt={item.name} className="cart-item-img" width="56" height="56" loading="lazy" />
-                  ) : (
-                    <span className="cart-item-img cart-item-mono" aria-hidden="true">
-                      {item.name.slice(0, 2).toUpperCase()}
-                    </span>
-                  )}
-                  <div className="cart-item-info">
-                    <strong>{item.name}</strong>
-                    <span>{item.quantity} × {item.price}</span>
+            {/* El contenido scrollea solo, para que el botón de pago y el
+                total se vean siempre sin tener que bajar. */}
+            <div className="cart-drawer-body flex-1 min-h-0 overflow-y-auto">
+              <ul className="cart-items">
+                {cart.map((item) => (
+                  <li key={item.id} className="cart-item">
+                    {item.image ? (
+                      <img src={item.image} alt={item.name} className="cart-item-img" width="56" height="56" loading="lazy" />
+                    ) : (
+                      <span className="cart-item-img cart-item-mono" aria-hidden="true">
+                        {item.name.slice(0, 2).toUpperCase()}
+                      </span>
+                    )}
+                    <div className="cart-item-info">
+                      <strong>{item.name}</strong>
+                      <span>{item.quantity} × {item.price}</span>
+                    </div>
+                    <button type="button" className="cart-item-remove" onClick={() => removeFromCart(item.id)} aria-label={`Quitar ${item.name}`}>
+                      <X size={14} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+
+              <div className="cart-total">
+                <span>Total</span>
+                <strong>{formatearPrecio(total)}</strong>
+              </div>
+
+              {/* ---- Datos de entrega ---- */}
+              <div className="cart-form">
+                <span className="cart-form-title">Datos de entrega</span>
+
+                <label className="cart-field">
+                  <span>Nombre completo *</span>
+                  <input
+                    type="text"
+                    value={datos.nombre}
+                    onChange={(e) => actualizar('nombre', e.target.value)}
+                    placeholder="Nombre y apellidos"
+                    autoComplete="name"
+                    required
+                    aria-invalid={!datos.nombre.trim()}
+                  />
+                </label>
+
+                <label className="cart-field">
+                  <span>Teléfono <em>(opcional)</em></span>
+                  <input
+                    type="tel"
+                    value={datos.telefono}
+                    onChange={(e) => actualizar('telefono', e.target.value)}
+                    placeholder="600 00 00 00"
+                    autoComplete="tel"
+                    aria-invalid={Boolean(datos.telefono.trim()) && !telefonoValido(datos.telefono.trim())}
+                  />
+                </label>
+
+                <label className="cart-field">
+                  <span>Correo electrónico *</span>
+                  <input
+                    type="email"
+                    value={datos.email}
+                    onChange={(e) => actualizar('email', e.target.value)}
+                    placeholder="tu@correo.com"
+                    autoComplete="email"
+                    required
+                    aria-invalid={Boolean(datos.email.trim()) && !EMAIL_VALIDO.test(datos.email.trim())}
+                  />
+                </label>
+
+                <fieldset className="cart-field cart-radio">
+                  <legend>Tipo de entrega *</legend>
+                  <label className={datos.tipoEntrega === 'recogida' ? 'is-active' : ''}>
+                    <input
+                      type="radio"
+                      name="tipoEntrega"
+                      value="recogida"
+                      checked={datos.tipoEntrega === 'recogida'}
+                      onChange={() => actualizar('tipoEntrega', 'recogida')}
+                    />
+                    <span>Recogida en local</span>
+                  </label>
+                  <label className={datos.tipoEntrega === 'domicilio' ? 'is-active' : ''}>
+                    <input
+                      type="radio"
+                      name="tipoEntrega"
+                      value="domicilio"
+                      checked={datos.tipoEntrega === 'domicilio'}
+                      onChange={() => actualizar('tipoEntrega', 'domicilio')}
+                    />
+                    <span>Envío a domicilio</span>
+                  </label>
+                </fieldset>
+
+                {datos.tipoEntrega === 'domicilio' && (
+                  <div className="cart-address">
+                    <label className="cart-field cart-field-wide">
+                      <span>Calle *</span>
+                      <input
+                        type="text"
+                        value={datos.calle}
+                        onChange={(e) => actualizar('calle', e.target.value)}
+                        placeholder="Nombre de la calle"
+                        autoComplete="address-line1"
+                        required
+                      />
+                    </label>
+                    <label className="cart-field">
+                      <span>Número *</span>
+                      <input
+                        type="text"
+                        value={datos.numero}
+                        onChange={(e) => actualizar('numero', e.target.value)}
+                        placeholder="24"
+                        autoComplete="address-line2"
+                        required
+                      />
+                    </label>
+                    <label className="cart-field">
+                      <span>Piso / puerta</span>
+                      <input
+                        type="text"
+                        value={datos.piso}
+                        onChange={(e) => actualizar('piso', e.target.value)}
+                        placeholder="3º B"
+                      />
+                    </label>
+                    <label className="cart-field">
+                      <span>Código postal *</span>
+                      <input
+                        type="text"
+                        value={datos.codigoPostal}
+                        onChange={(e) => actualizar('codigoPostal', e.target.value)}
+                        placeholder="35018"
+                        autoComplete="postal-code"
+                        required
+                      />
+                    </label>
+                    <label className="cart-field">
+                      <span>Población</span>
+                      <input
+                        type="text"
+                        value={datos.ciudad}
+                        onChange={(e) => actualizar('ciudad', e.target.value)}
+                        placeholder="Las Palmas de Gran Canaria"
+                        autoComplete="address-level2"
+                      />
+                    </label>
                   </div>
-                  <button type="button" className="cart-item-remove" onClick={() => removeFromCart(item.id)} aria-label={`Quitar ${item.name}`}>
-                    <X size={14} />
-                  </button>
-                </li>
-              ))}
-            </ul>
+                )}
 
-            <div className="cart-total">
-              <span>Total</span>
-              <strong>{formatearPrecio(total)}</strong>
+                {mesa && (
+                  <p className="cart-mesa">Pedido para la mesa {mesa}.</p>
+                )}
+
+                {errores.length > 0 && (
+                  <ul className="cart-errors" role="alert">
+                    {errores.map((error) => (
+                      <li key={error}>{error}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              {estado && <p className="cart-status" role="status">{estado}</p>}
             </div>
 
-            {/* ---- Datos de entrega ---- */}
-            <div className="cart-form">
-              <span className="cart-form-title">Datos de entrega</span>
-
-              <label className="cart-field">
-                <span>Nombre completo *</span>
-                <input
-                  type="text"
-                  value={datos.nombre}
-                  onChange={(e) => actualizar('nombre', e.target.value)}
-                  placeholder="Nombre y apellidos"
-                  autoComplete="name"
-                  required
-                  aria-invalid={!datos.nombre.trim()}
-                />
-              </label>
-
-              <label className="cart-field">
-                <span>Teléfono <em>(opcional)</em></span>
-                <input
-                  type="tel"
-                  value={datos.telefono}
-                  onChange={(e) => actualizar('telefono', e.target.value)}
-                  placeholder="600 00 00 00"
-                  autoComplete="tel"
-                  aria-invalid={Boolean(datos.telefono.trim()) && !telefonoValido(datos.telefono.trim())}
-                />
-              </label>
-
-              <label className="cart-field">
-                <span>Correo electrónico *</span>
-                <input
-                  type="email"
-                  value={datos.email}
-                  onChange={(e) => actualizar('email', e.target.value)}
-                  placeholder="tu@correo.com"
-                  autoComplete="email"
-                  required
-                  aria-invalid={Boolean(datos.email.trim()) && !EMAIL_VALIDO.test(datos.email.trim())}
-                />
-              </label>
-
-              <fieldset className="cart-field cart-radio">
-                <legend>Tipo de entrega *</legend>
-                <label className={datos.tipoEntrega === 'recogida' ? 'is-active' : ''}>
-                  <input
-                    type="radio"
-                    name="tipoEntrega"
-                    value="recogida"
-                    checked={datos.tipoEntrega === 'recogida'}
-                    onChange={() => actualizar('tipoEntrega', 'recogida')}
-                  />
-                  <span>Recogida en local</span>
-                </label>
-                <label className={datos.tipoEntrega === 'domicilio' ? 'is-active' : ''}>
-                  <input
-                    type="radio"
-                    name="tipoEntrega"
-                    value="domicilio"
-                    checked={datos.tipoEntrega === 'domicilio'}
-                    onChange={() => actualizar('tipoEntrega', 'domicilio')}
-                  />
-                  <span>Envío a domicilio</span>
-                </label>
-              </fieldset>
-
-              {datos.tipoEntrega === 'domicilio' && (
-                <div className="cart-address">
-                  <label className="cart-field cart-field-wide">
-                    <span>Calle *</span>
-                    <input
-                      type="text"
-                      value={datos.calle}
-                      onChange={(e) => actualizar('calle', e.target.value)}
-                      placeholder="Nombre de la calle"
-                      autoComplete="address-line1"
-                      required
-                    />
-                  </label>
-                  <label className="cart-field">
-                    <span>Número *</span>
-                    <input
-                      type="text"
-                      value={datos.numero}
-                      onChange={(e) => actualizar('numero', e.target.value)}
-                      placeholder="24"
-                      autoComplete="address-line2"
-                      required
-                    />
-                  </label>
-                  <label className="cart-field">
-                    <span>Piso / puerta</span>
-                    <input
-                      type="text"
-                      value={datos.piso}
-                      onChange={(e) => actualizar('piso', e.target.value)}
-                      placeholder="3º B"
-                    />
-                  </label>
-                  <label className="cart-field">
-                    <span>Código postal *</span>
-                    <input
-                      type="text"
-                      value={datos.codigoPostal}
-                      onChange={(e) => actualizar('codigoPostal', e.target.value)}
-                      placeholder="35018"
-                      autoComplete="postal-code"
-                      required
-                    />
-                  </label>
-                  <label className="cart-field">
-                    <span>Población</span>
-                    <input
-                      type="text"
-                      value={datos.ciudad}
-                      onChange={(e) => actualizar('ciudad', e.target.value)}
-                      placeholder="Las Palmas de Gran Canaria"
-                      autoComplete="address-level2"
-                    />
-                  </label>
-                </div>
-              )}
-
-              {mesa && (
-                <p className="cart-mesa">Pedido para la mesa {mesa}.</p>
-              )}
-
-              {errores.length > 0 && (
-                <ul className="cart-errors" role="alert">
-                  {errores.map((error) => (
-                    <li key={error}>{error}</li>
-                  ))}
-                </ul>
-              )}
+            {/* ---- Pie fijo: el total y el pago siempre a mano ---- */}
+            <div className="cart-drawer-foot">
+              <button type="button" className="cart-checkout w-full" onClick={irAlPago} disabled={cargando || !listo}>
+                {cargando ? 'Procesando…' : 'Pagar con Stripe'}
+              </button>
+              <button type="button" className="cart-clear w-full" onClick={clearCart}>Vaciar carrito</button>
             </div>
-
-            {estado && <p className="cart-status" role="status">{estado}</p>}
-
-            <button type="button" className="cart-checkout" onClick={irAlPago} disabled={cargando || !listo}>
-              {cargando ? 'Procesando…' : 'Pagar con Stripe'}
-            </button>
-            <button type="button" className="cart-clear" onClick={clearCart}>Vaciar carrito</button>
           </>
         )}
       </aside>

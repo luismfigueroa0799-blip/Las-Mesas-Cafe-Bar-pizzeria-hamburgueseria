@@ -499,3 +499,178 @@ h2 { font-family: var(--app-font-serif); font-size: clamp(2.6rem, 5vw, 4.35rem);
   .footer-details { grid-template-columns: 1fr; gap: 25px; padding: 25px 0; }
   .footer-bottom { padding: 17px 0; align-items: flex-start; flex-direction: column; gap: 8px; }
 }
+
+/* =====================================================================
+   AJUSTES RESPONSIVE
+   Revisados para que la web se vea bien en movil (360-430px).
+   ===================================================================== */
+
+/* --- Global: nada debe desbordar horizontalmente --- */
+html, body {
+  max-width: 100%;
+  overflow-x: clip; /* clip no crea contexto de scroll: no rompe el header sticky */
+}
+img, svg, video, canvas {
+  max-width: 100%;
+}
+/* Los titulos largos no se salen de la pantalla */
+h1, h2, h3, .hero h1, .play-section h2, .gallery-heading h2, .essence h2 {
+  overflow-wrap: break-word;
+}
+
+/* --- Carrito lateral: cabecera y pie fijos, contenido con scroll --- */
+.cart-drawer {
+  width: min(410px, 100%);
+  max-width: 100%;
+  height: 100%;
+  max-height: 100dvh; /* dvh: la barra de direcciones del movil no lo corta */
+  overflow: hidden; /* el scroll lo lleva el cuerpo */
+}
+.cart-drawer-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain; /* no hace scroll la pagina de detras */
+}
+.cart-drawer-foot {
+  flex: 0 0 auto;
+  padding: 12px 24px calc(16px + env(safe-area-inset-bottom));
+  background: #0a0a0a;
+  border-top: 1px solid rgba(212,175,55,.30);
+}
+.cart-drawer-foot .cart-checkout { margin: 0; }
+.cart-drawer-foot .cart-clear { margin: 4px 0 0; }
+
+/* --- Targets tactiles: minimo 44px --- */
+.cart-close {
+  width: 44px;
+  height: 44px;
+}
+.cart-item-remove {
+  width: 40px;
+  height: 40px;
+  margin: -6px -6px -6px 0;
+}
+.cart-clear {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
+}
+.cart-checkout {
+  min-height: 56px;
+  font-size: .82rem;
+}
+
+/* --- Inputs: 16px para que iOS NO haga zoom al enfocar --- */
+.cart-field input[type=text],
+.cart-field input[type=tel],
+.cart-field input[type=email],
+.cart-email input {
+  width: 100%;
+  min-height: 48px;
+  font-size: 16px; /* por debajo de 16px, iOS hace zoom automatico */
+  letter-spacing: 0;
+}
+.cart-radio label { min-height: 48px; }
+.cart-radio label span { font-size: .68rem; }
+
+/* --- Movil: margenes y rellenos del carrito --- */
+@media (max-width: 600px) {
+  .cart-drawer { width: 100%; }
+  .cart-drawer-head { padding: 16px 18px; }
+  .cart-drawer-title { font-size: 1.2rem; }
+  .cart-items { padding: 16px 18px; gap: 12px; }
+  .cart-total { margin: 0 18px; }
+  .cart-form { margin: 4px 18px 16px; padding: 16px; }
+  .cart-status { margin: 0 18px 12px; max-height: 22vh; }
+  .cart-drawer-foot { padding: 12px 18px calc(14px + env(safe-area-inset-bottom)); }
+  .cart-empty { padding: 32px 20px; }
+}
+
+/* --- Movil: titulos con tamaños que caben de verdad --- */
+@media (max-width: 700px) {
+  .hero h1 { font-size: clamp(2.35rem, 10.5vw, 3.6rem); letter-spacing: -.04em; }
+  .essence h2, h2 { font-size: clamp(2rem, 9vw, 3rem); }
+  .play-section h2 { font-size: clamp(2.1rem, 9.5vw, 3.2rem); }
+  .gallery-heading h2 { font-size: clamp(2rem, 9vw, 3rem); }
+  .reservation-intro h2 { font-size: 2.4rem; }
+  .panel-title h3 { font-size: 1.5rem; }
+  .menu-heading h2 { font-size: clamp(2.2rem, 10vw, 3.2rem); }
+  .contact-heading h2 { font-size: clamp(2.2rem, 10vw, 3.2rem); }
+  .celebration-copy h2 { font-size: clamp(2rem, 9vw, 3rem); }
+  .hero-actions .button { width: 100%; }
+  .hero-actions .text-link { width: 100%; justify-content: center; }
+}
+
+/* --- Pestanas de categorias: scroll horizontal comodo --- */
+.category-list {
+  -webkit-overflow-scrolling: touch;
+}
+@media (max-width: 700px) {
+  .category-list {
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    white-space: nowrap;
+    scroll-snap-type: x proximity;
+    scroll-padding-inline: 4px;
+    padding: 4px 4px 14px; /* hueco para la barra de scroll */
+    -webkit-overflow-scrolling: touch;
+  }
+  .category-tab {
+    flex: 0 0 auto;
+    scroll-snap-align: start;
+    min-height: 44px;
+  }
+}
+
+/* --- Cabecera: el menu desplegado no puede pasar de la pantalla --- */
+@media (max-width: 700px) {
+  .main-nav {
+    max-height: calc(100dvh - 70px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .main-nav > a:not(.nav-cta) { min-height: 48px; display: flex; align-items: center; }
+  .main-nav .nav-cta { min-height: 50px; justify-content: center; }
+  .site-header { gap: 10px; }
+  .brand { flex: 0 0 auto; }
+  .cart-toggle { margin-left: auto; }
+}
+
+/* --- Carta: una columna en movil, imagenes adaptadas --- */
+@media (max-width: 700px) {
+  .dish-list, .dish-grid { grid-template-columns: 1fr; }
+  .product-card-media { aspect-ratio: 16 / 10; }
+  .product-card-body { padding: 16px; }
+  .product-card-foot { padding: 12px 16px; }
+  .product-card-foot button { min-height: 50px; font-size: .74rem; }
+  .product-card-sizes-options label { padding: 11px 0; min-height: 44px; display: grid; place-items: center; }
+}
+
+/* --- "Asi se disfruta": apilado en vertical --- */
+@media (max-width: 700px) {
+  .gallery-grid { grid-template-columns: 1fr; gap: 13px; }
+  .gallery-card, .gallery-card-tall { min-height: 240px; }
+  .gallery-card figcaption { left: 16px; right: 16px; bottom: 16px; }
+  .gallery-card figcaption span { font-size: 1.15rem; }
+  .house-note { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .house-note .note-rule { display: none; }
+}
+
+/* --- Moviles muy estrechos (360px) --- */
+@media (max-width: 380px) {
+  .shell { width: min(100% - 28px, 540px); }
+  .site-header { padding: 0 14px; }
+  .topline { padding-inline: 14px; }
+  .hero { padding-inline: 18px; }
+  .hero h1 { font-size: clamp(2.1rem, 10vw, 3rem); }
+  .cart-form { margin-inline: 12px; padding: 14px; }
+  .cart-items { padding-inline: 14px; }
+  .cart-total { margin-inline: 14px; }
+  .cart-drawer-foot { padding-inline: 14px; }
+  .cart-checkout { font-size: .74rem; letter-spacing: .08em; }
+}
