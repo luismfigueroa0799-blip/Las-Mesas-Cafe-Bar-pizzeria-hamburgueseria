@@ -50,6 +50,7 @@ export const CATEGORIES: Category[] = [
   { name: 'Cervezas', slug: 'cervezas' },
   { name: 'Licores y destilados', slug: 'licores-y-destilados' },
   { name: 'Vinos', slug: 'vinos' },
+  { name: CATEGORIA_RESERVA, slug: 'la-carta' },
 ];
 
 import IDS_SUPABASE from './productos-supabase.json';
@@ -216,8 +217,10 @@ export async function getProductos(): Promise<Product[]> {
       if (Array.isArray(remotos) && remotos.length) {
         return remotos.map((p) => {
           const presentacion = PRESENTACION[String(p.nombre)];
-          // La categoría siempre es la de nuestra carta si el producto la tiene.
-          const categoriaNombre = presentacion?.categoria ?? p.categoria ?? 'La carta';
+          // La categoría: la de nuestra carta si el producto está en ella, si
+          // no la que trae la base de datos, y si tampoco, la de reserva.
+          const categoriaNombre =
+            presentacion?.categoria ?? p.categoria ?? CATEGORIA_RESERVA;
           const precio = presentacion?.precio ?? Number(p.precio);
           return {
             id: String(p.id),

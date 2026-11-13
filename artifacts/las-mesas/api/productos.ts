@@ -162,6 +162,38 @@ async function rellenarSiEstaVacia(): Promise<void> {
   }
 }
 
+/**
+ * Devuelve el nombre de la categoria de cada producto, buscandolo por su
+ * nombre en la carta de Supabase (la tabla products de Neon solo tiene el
+ * category_id y no hay tabla de categorias).
+ */
+async function categoriasPorNombre(nombres: string[]): Promise<Map<string, string>> {
+  const mapa = new Map<string, string>();
+  const key = claveSupabase();
+  if (!key || !nombres.length) return mapa;
+
+  const unicos = [...new Set(nombres.filter(Boolean))];
+  try {
+    const r = await g.fetch(
+      urlSupabase() + '/rest/v1/productos?select=nombre,categoria&order=id',
+      { headers: { apikey: key, Authorization: 'Bearer ' + key, Accept: 'application/json' } },
+    );
+    if (!r.ok) return mapa;
+    const filas: any[] = await r.json();
+    const porNombre = new Map<string, string>();
+    for (const fila of filas) {
+      if (fila?.nombre && fila?.categoria) porNombre.set(String(fila.nombre), String(fila.categoria));
+    }
+    for (const nombre of unicos) {
+      const categoria = porNombre.get(nombre);
+      if (categoria) mapa.set(nombre, categoria);
+    }
+  } catch (error) {
+    g.console?.error?.('[productos] no se pudieron resolver las categorias:', error);
+  }
+  return mapa;
+}
+
 export default async function handler(req: Req, res: Res): Promise<void> {
   if (req?.method && req.method !== 'GET') {
     responder(res, { error: 'Método no permitido' }, 405);
@@ -177,6 +209,14 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   );
 
   if (filas.length) {
+    // La tabla products de Neon guarda category_id, pero no hay tabla de
+    // categorias: la categoria se resuelve por el nombre del producto en la
+    // carta de Supabase. Sin esto, los productos que no estan en la carta se
+    // quedan sin categoria y desaparecen de las pestanas.
+    const categorias = await categoriasPorNombre(
+      filas.map((f) => String(f.name ?? '')),
+    );
+
     responder(
       res,
       filas.map((f) => ({
@@ -186,6 +226,8 @@ export default async function handler(req: Req, res: Res): Promise<void> {
         descripcion: f.description ?? null,
         imagen: fotoUtil(f.image_url),
         categoria_id: f.category_id ?? null,
+        // El nombre de la categoria (la web lo usa para las pestanas).
+        categoria: categorias.get(String(f.name ?? '')) ?? null,
         // false = agotado (el panel lo cambia)
         disponible: f.is_available !== false,
       })),
