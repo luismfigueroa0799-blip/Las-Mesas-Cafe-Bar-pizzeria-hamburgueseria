@@ -120,6 +120,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
       N8N_WEBHOOK_URL_TEST: env.N8N_WEBHOOK_URL_TEST ? 'configurada' : 'no',
       STRIPE_SECRET_KEY: env.STRIPE_SECRET_KEY ? 'configurada' : 'FALTA',
       DATABASE_URL: env.DATABASE_URL ? 'configurada' : 'FALTA (los pedidos van a Supabase)',
+      NTFY_TOPIC: env.NTFY_TOPIC ? env.NTFY_TOPIC : 'FALTA (topic de ntfy para avisar a la tablet)',
       // Host de Neon (sin contraseña): sirve para comprobar que la credencial
       // de Postgres de n8n apunta a esta misma base de datos.
       NEON_HOST: env.DATABASE_URL ? hostDeNeon() : '',
@@ -347,6 +348,36 @@ export default async function handler(req: Req, res: Res): Promise<void> {
         causa: error instanceof Error ? String(error.cause ?? '') : '',
       };
     }
+  }
+
+  // ── Prueba de ntfy: se manda un mensaje real al topic de la tablet ──
+  const topicNtfy = String(entorno().NTFY_TOPIC ?? '').trim();
+  if (topicNtfy) {
+    try {
+      const mensaje =
+        'Prueba de Las Mesas: ' + new Date().toLocaleString('es-ES') + '\n' +
+        'Si ves esto en la tablet, ntfy funciona y el problema es el topic del flujo.';
+      const r = await g.fetch('https://ntfy.sh/' + encodeURIComponent(topicNtfy), {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+        body: mensaje,
+      });
+      const texto = await r.text();
+      resultado.ntfy = {
+        topic: topicNtfy,
+        estado: r.status,
+        ok: r.ok,
+        respuesta: texto.slice(0, 400),
+      };
+    } catch (error) {
+      resultado.ntfy = {
+        topic: topicNtfy,
+        ok: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  } else {
+    resultado.ntfy = { error: 'Falta NTFY_TOPIC en el entorno' };
   }
 
   res.status(200);
