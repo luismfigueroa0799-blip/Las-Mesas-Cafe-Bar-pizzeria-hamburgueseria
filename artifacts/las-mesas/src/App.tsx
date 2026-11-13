@@ -97,9 +97,17 @@ function App() {
     // Si desde el panel de inventario se marca un producto como agotado, la
     // carta se refresca sola en esta pestaña.
     const pararEscucha = alCambiarMenu(() => void cargar());
+
+    // La carta se refresca sola cada minuto: asi un cliente que tiene la
+    // carta abierta ve al instante que un producto se ha agotado, este en el
+    // movil que sea. (Tambien se refresca al instante si el panel de
+    // inventario esta abierto en este mismo navegador.)
+    const refresco = window.setInterval(() => void cargar(), 60000);
+
     return () => {
       vigente = false;
       pararEscucha();
+      window.clearInterval(refresco);
     };
   }, []);
 
