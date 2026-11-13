@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { LogOut, RefreshCw, UtensilsCrossed } from 'lucide-react';
 import { notificarMenuActualizado } from '@/products';
 import Login, { borrarToken, leerToken } from '@/admin/Login';
+import { supabaseNavegador } from '@/lib/supabase';
 
 /**
  * Panel de inventario (/admin/inventario).
@@ -68,7 +69,26 @@ const Inventario: React.FC = () => {
   };
 
   useEffect(() => {
-    if (token) void cargar(token);
+    if (token) {
+      void cargar(token);
+      return;
+    }
+    // Si la sesion se inicio con Supabase en el navegador, el token esta en
+    // la sesion de Supabase (no en nuestro sessionStorage).
+    const supabase = supabaseNavegador();
+    if (!supabase) return;
+    let vigente = true;
+    supabase.auth.getSession().then(({ data }) => {
+      if (!vigente) return;
+      const access = data.session?.access_token ?? '';
+      if (access) {
+        setToken(access);
+        void cargar(access);
+      }
+    });
+    return () => {
+      vigente = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -87,6 +107,8 @@ const Inventario: React.FC = () => {
     setProductos([]);
     setError('');
     borrarToken();
+    const supabase = supabaseNavegador();
+    if (supabase) void supabase.auth.signOut();
     window.location.assign('/login');
   }
 

@@ -268,3 +268,15 @@
   .admin-item-info { flex-basis: calc(100% - 70px); }
   .admin-switch { width: 100%; justify-content: space-between; padding-top: 4px; }
 }
+.admin-error-detalle {
+  display: block;
+  margin-top: 4px;
+  font-weight: 400;
+  opacity: .85;
+  word-break: break-word;
+}
+.admin-nota-pequena {
+  margin-top: -6px;
+  font-size: .68rem;
+  opacity: .7;
+}

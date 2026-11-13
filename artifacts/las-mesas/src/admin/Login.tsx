@@ -1,14 +1,21 @@
+'use client';
+
 import { useState } from 'react';
 import { LogIn, UtensilsCrossed } from 'lucide-react';
+import { hayClavePublica, supabaseNavegador } from '@/lib/supabase';
 
 /**
  * Pagina de acceso al panel de inventario (/login).
  *
- * El login se hace contra Supabase Auth, pero la clave NO sale del
- * navegador: se envia usuario y contrasena a /api/admin-login, que hace el
- * login en el servidor y devuelve el token del usuario.
+ * El login se hace con supabase.auth.signInWithPassword (necesita la clave
+ * publica de Supabase en el entorno: NEXT_PUBLIC_SUPABASE_ANON_KEY). Si esa
+ * clave no esta puesta, se usa nuestra propia API (/api/admin-login), que
+ * hace exactamente lo mismo pero en el servidor: asi la clave secreta de
+ * Supabase nunca sale del servidor.
  *
- * Solo pueden entrar los usuarios con el rol 'staff'.
+ * Al entrar correctamente se redirige a /admin/inventario.
+ *
+ * Si algo falla, se muestra el motivo: nunca se queda en silencio.
  */
 
 const CLAVE_TOKEN = 'lm_admin_token';
@@ -61,21 +68,53 @@ const Login: React.FC<{ destino?: string }> = ({ destino = '/admin/inventario' }
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [detalle, setDetalle] = useState('');
   const [entrando, setEntrando] = useState(false);
+
+  const sinApi = sitioSinApi();
 
   async function entrar(e: React.FormEvent) {
     e.preventDefault();
+    if (entrando) return;
     setEntrando(true);
     setError('');
+    setDetalle('');
+
     try {
+      // 1) Supabase Auth desde el navegador (si hay clave publica).
+      const supabase = supabaseNavegador();
+      if (supabase) {
+        const { data, error: errorSupabase } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
+
+        if (errorSupabase) {
+          setError('No se pudo iniciar sesión');
+          setDetalle(
+            `${errorSupabase.message} (${errorSupabase.status ?? 'sin codigo'})`,
+          );
+          return;
+        }
+        if (!data.session?.access_token) {
+          setError('Supabase no ha devuelto ninguna sesión');
+          setDetalle('El usuario existe pero no se ha podido iniciar la sesión.');
+          return;
+        }
+        guardarToken(data.session.access_token);
+        setDetalle(`Sesión iniciada con Supabase (${email.trim()}). Redirigiendo…`);
+        window.location.assign(destino);
+        return;
+      }
+
+      // 2) Sin clave publica: login contra nuestra API (mismo Supabase Auth,
+      //    pero en el servidor).
       const r = await fetch('/api/admin-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email: email.trim(), password }),
       });
 
-      // Si la respuesta no es JSON es que no estamos en el sitio con la API
-      // (por ejemplo, el dominio propio, que apunta al proyecto estatico).
       const texto = await r.text();
       let datos: any = null;
       try {
@@ -85,22 +124,27 @@ const Login: React.FC<{ destino?: string }> = ({ destino = '/admin/inventario' }
       }
 
       if (!datos) {
-        setError(
-          'La respuesta del servidor no es valida. Es probable que estes en ' +
-            'lasmesasbarcafet.com (el sitio estatico, sin la API). Abre el panel en: ' +
-            'https://' + URLS_CON_API[0] + '/admin/inventario',
+        setError('La respuesta del servidor no es válida');
+        setDetalle(
+          `HTTP ${r.status}. Si estas en lasmesasbarcafet.com (el sitio estatico, ` +
+            `sin API), abre el panel en https://${URLS_CON_API[0]}/admin/inventario`,
         );
         return;
       }
       if (!r.ok) {
         setError(datos?.error ?? 'No se pudo iniciar sesión');
+        setDetalle(`HTTP ${r.status}`);
         return;
       }
+
       guardarToken(String(datos.token ?? ''));
-      // Al entrar, se va al panel.
+      setDetalle(`Sesión iniciada (${email.trim()}). Redirigiendo…`);
       window.location.assign(destino);
-    } catch {
-      setError('No se pudo conectar con el servidor');
+    } catch (error) {
+      setError('No se pudo iniciar sesión');
+      setDetalle(
+        error instanceof Error ? `${error.name}: ${error.message}` : String(error),
+      );
     } finally {
       setEntrando(false);
     }
@@ -108,7 +152,22 @@ const Login: React.FC<{ destino?: string }> = ({ destino = '/admin/inventario' }
 
   return (
     <div className="admin-login">
-      <form className="admin-card" onSubmit={entrar}>
+      {sinApi && (
+        <p className="admin-error admin-error-fuerte">
+          Has abierto el panel en un sitio que no tiene la API (el dominio propio
+          apunta al proyecto estatico).{' '}
+          <a
+            href={'https://' + URLS_CON_API[0] + '/admin/inventario'}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Abrelo aqui
+          </a>
+          .
+        </p>
+      )}
+
+      <form className="admin-card" onSubmit={entrar} noValidate={false}>
         <span className="admin-eyebrow">
           <UtensilsCrossed size={16} /> Las Mesas
         </span>
@@ -121,6 +180,7 @@ const Login: React.FC<{ destino?: string }> = ({ destino = '/admin/inventario' }
           <span>Correo</span>
           <input
             type="email"
+            name="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="admin@lasmesas.com"
@@ -134,6 +194,7 @@ const Login: React.FC<{ destino?: string }> = ({ destino = '/admin/inventario' }
           <span>Contraseña</span>
           <input
             type="password"
+            name="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="••••••••"
@@ -143,9 +204,20 @@ const Login: React.FC<{ destino?: string }> = ({ destino = '/admin/inventario' }
           />
         </label>
 
-        {error && <p className="admin-error">{error}</p>}
+        {error && (
+          <p className="admin-error" data-testid="admin-login-error">
+            <strong>{error}</strong>
+            {detalle && <span className="admin-error-detalle"> · {detalle}</span>}
+          </p>
+        )}
+        {!error && detalle && <p className="admin-ok">{detalle}</p>}
 
-        <button type="submit" className="admin-boton" disabled={entrando} data-testid="button-admin-login">
+        <button
+          type="submit"
+          className="admin-boton"
+          disabled={entrando}
+          data-testid="button-admin-login"
+        >
           <LogIn size={16} /> {entrando ? 'Entrando…' : 'Entrar'}
         </button>
 
@@ -153,6 +225,9 @@ const Login: React.FC<{ destino?: string }> = ({ destino = '/admin/inventario' }
           <a href="/">← Volver a la web</a>
           {' · '}
           <a href={'https://' + URLS_CON_API[0] + '/admin/inventario'}>Ir al inventario</a>
+        </p>
+        <p className="admin-nota admin-nota-pequena">
+          Método de acceso: {hayClavePublica ? 'Supabase Auth (navegador)' : 'API del servidor'}
         </p>
       </form>
     </div>
