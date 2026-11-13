@@ -16,7 +16,9 @@ const g = globalThis as unknown as Global;
 
 interface Req {
   method?: string;
-  headers?: { get?: (nombre: string) => string | null };
+  headers?:
+    | { get?: (nombre: string) => string | null }
+    | Record<string, string | string[] | undefined>;
   body?: unknown;
 }
 
@@ -31,6 +33,22 @@ interface Res {
 function entorno(): Record<string, string | undefined> {
   return (g.process?.env ?? {}) as Record<string, string | undefined>;
 }
+
+/**
+ * Lee una cabecera de la peticion.
+ *
+ * En las serverless functions de Vercel (runtime Node) req.headers es un
+ * objeto plano, no un Headers: headers.get() no existe y el token de
+ * Authorization nunca llegaba (el panel devolvia 401 siempre).
+ */
+function valorCabecera(req: Req, nombre: string): string {
+  const cabeceras: any = req?.headers;
+  if (!cabeceras) return '';
+  if (typeof cabeceras.get === 'function') return String(cabeceras.get(nombre) ?? '');
+  const valor = cabeceras[nombre];
+  return Array.isArray(valor) ? String(valor[0] ?? '') : String(valor ?? '');
+}
+
 
 const SUPABASE_URL_POR_DEFECTO = 'https://fohxajfpnriusuybdteu.supabase.co';
 
@@ -112,9 +130,9 @@ export async function usuarioDelToken(token: string): Promise<any | null> {
 
 /** Token de la cabecera Authorization: "Bearer ...". */
 export function tokenDeCabecera(req: Req): string {
-  const cruda = req?.headers?.get?.('authorization') ?? '';
-  const partes = String(cruda).split(' ');
-  return partes.length > 1 && partes[0].toLowerCase() === 'bearer' ? partes[1] : '';
+  const cruda = valorCabecera(req, 'authorization');
+  const partes = cruda.split(' ').filter(Boolean);
+  return partes.length > 1 && partes[0].toLowerCase() === 'bearer' ? partes.slice(1).join(' ') : '';
 }
 
 export default async function handler(req: Req, res: Res): Promise<void> {
