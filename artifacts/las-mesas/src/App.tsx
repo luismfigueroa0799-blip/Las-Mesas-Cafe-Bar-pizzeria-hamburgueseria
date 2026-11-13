@@ -5,7 +5,15 @@ import { useCart } from '@/CartContext';
 import CartSidebar from '@/CartSidebar';
 import ProductCard from '@/ProductCard';
 import Inventario from '@/admin/Inventario';
-import { CATEGORIES, categoriasDe, getProductos, type Category, type Product } from '@/products';
+import Login from '@/admin/Login';
+import {
+  alCambiarMenu,
+  CATEGORIES,
+  categoriasDe,
+  getProductos,
+  type Category,
+  type Product,
+} from '@/products';
 
 const address = 'Pintor Antonio Padrón, 59, Las Mesas Bajas, Las Palmas de Gran Canaria';
 const mapsUrl = 'https://www.google.com/maps/place/C.+Pintor+Antonio+Padr%C3%B3n,+59,+35018+Las+Mesas,+Las+Palmas/@28.0991469,-15.4976894,17z/data=!3m1!4b1!4m6!3m5!1s0xc4094784d2465e5:0x2e61ab7822fd4801!8m2!3d28.0991469!4d-15.4976894!16s%2Fg%2F11bw44jbyw?entry=ttu&g_ep=EgoyMDI2MTEwNC4wIKXMDSoASAFQAw%3D%3D';
@@ -53,9 +61,12 @@ type AvisoPedido =
 // El panel de inventario vive en su propia ruta (/admin/inventario). El
 // rewrite de Vercel manda esa URL al index.html, asi que la SPA la muestra
 // sin necesidad de un router.
-const esRutaAdmin =
-  typeof window !== 'undefined' &&
-  window.location.pathname.replace(/\/+$/, '').toLowerCase().startsWith('/admin');
+const rutaActual =
+  typeof window !== 'undefined'
+    ? window.location.pathname.replace(/\/+$/, '').toLowerCase()
+    : '';
+const esRutaLogin = rutaActual === '/login';
+const esRutaAdmin = rutaActual.startsWith('/admin');
 
 function App() {
   const [activeSlug, setActiveSlug] = useState(CATEGORIES[0].slug);
@@ -74,16 +85,21 @@ function App() {
   const activeCategory = categorias.find((c) => c.slug === activeSlug) ?? categorias[0];
   const productosActivos = productos.filter((p) => p.category_slug === activeCategory.slug);
 
-  // Cargar la carta desde la API (lee Supabase: ids y precios reales).
+  // Cargar la carta desde la API (lee Neon: ids, precios y disponibilidad).
   useEffect(() => {
     let vigente = true;
-    (async () => {
+    const cargar = async () => {
       const todos = await getProductos();
       if (!vigente) return;
       setProductos(todos);
-    })();
+    };
+    void cargar();
+    // Si desde el panel de inventario se marca un producto como agotado, la
+    // carta se refresca sola en esta pestaña.
+    const pararEscucha = alCambiarMenu(() => void cargar());
     return () => {
       vigente = false;
+      pararEscucha();
     };
   }, []);
 
@@ -185,6 +201,7 @@ function App() {
     kind === 'reserva' ? setReservationStatus(message) : setEventStatus(message);
   }
 
+  if (esRutaLogin) return <Login />;
   if (esRutaAdmin) return <Inventario />;
 
   return (

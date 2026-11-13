@@ -243,6 +243,59 @@ export async function getProductos(): Promise<Product[]> {
   return PRODUCTS_LOCALES;
 }
 
+/**
+ * La carta se puede cambiar desde el panel de inventario en cualquier
+ * momento. Aqui se avisa a las pestanas abiertas para que recarguen el
+ * catalogo (en una SPA no hay revalidateTag, pero el efecto es el mismo).
+ */
+export const EVENTO_MENU_ACTUALIZADO = 'lm:menu-actualizado';
+const CLAVE_REFRESCO = 'lm_menu_refresh';
+
+/** Avisa de que la carta ha cambiado. */
+export function notificarMenuActualizado(): void {
+  try {
+    localStorage.setItem(CLAVE_REFRESCO, String(Date.now()));
+  } catch {
+    /* sin localStorage */
+  }
+  try {
+    const canal = new BroadcastChannel('lm-menu');
+    canal.postMessage({ tipo: EVENTO_MENU_ACTUALIZADO });
+    canal.close();
+  } catch {
+    /* sin BroadcastChannel */
+  }
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(EVENTO_MENU_ACTUALIZADO));
+  }
+}
+
+/** Se suscribe a los avisos de cambio de la carta y devuelve lacleanup. */
+export function alCambiarMenu(fn: () => void): () => void {
+  if (typeof window === 'undefined') return () => {};
+
+  const alEvento = () => fn();
+  const alGuardar = (e: StorageEvent) => {
+    if (e.key === CLAVE_REFRESCO) fn();
+  };
+  window.addEventListener(EVENTO_MENU_ACTUALIZADO, alEvento);
+  window.addEventListener('storage', alGuardar);
+
+  let canal: BroadcastChannel | null = null;
+  try {
+    canal = new BroadcastChannel('lm-menu');
+    canal.onmessage = () => fn();
+  } catch {
+    /* sin BroadcastChannel */
+  }
+
+  return () => {
+    window.removeEventListener(EVENTO_MENU_ACTUALIZADO, alEvento);
+    window.removeEventListener('storage', alGuardar);
+    canal?.close();
+  };
+}
+
 /** Categorías presentes en un conjunto de productos. */
 export function categoriasDe(productos: Product[]): Category[] {
   const vistas = new Map<string, Category>();

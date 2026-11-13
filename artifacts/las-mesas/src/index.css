@@ -1024,3 +1024,14 @@ h1, h2, h3, .hero h1, .play-section h2, .gallery-heading h2, .essence h2 {
   font-size: .82rem;
   line-height: 1.6;
 }
+.admin-nota {
+  margin: 2px 0 0;
+  text-align: center;
+  font-size: .76rem;
+}
+.admin-nota a {
+  color: #a5a5ae;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.admin-nota a:hover { color: var(--oro); }

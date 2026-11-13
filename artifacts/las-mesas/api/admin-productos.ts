@@ -56,9 +56,18 @@ function correosStaff(): string[] {
 function esStaff(usuario: any): boolean {
   const email = String(usuario?.email ?? '').trim().toLowerCase();
   if (!email) return false;
+
   const lista = correosStaff();
-  if (lista.length) return lista.includes(email);
-  return String(usuario?.user_metadata?.role ?? '').toLowerCase() === 'staff';
+  if (lista.length && lista.includes(email)) return true;
+
+  // El rol 'staff' puede estar en raw_app_meta_data (donde lo ha puesto el
+  // usuario), en app_metadata o en user_metadata.
+  const roles = [
+    usuario?.raw_app_meta_data?.role,
+    usuario?.app_metadata?.role,
+    usuario?.user_metadata?.role,
+  ];
+  return roles.some((r) => String(r ?? '').toLowerCase() === 'staff');
 }
 
 async function usuarioDelToken(token: string): Promise<any | null> {

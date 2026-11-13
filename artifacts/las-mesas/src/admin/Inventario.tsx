@@ -1,13 +1,21 @@
 import { useEffect, useMemo, useState } from 'react';
-import { LogIn, LogOut, RefreshCw, UtensilsCrossed } from 'lucide-react';
+import { LogOut, RefreshCw, UtensilsCrossed } from 'lucide-react';
+import { notificarMenuActualizado } from '@/products';
+import Login, { borrarToken, leerToken } from '@/admin/Login';
 
 /**
- * Panel de inventario: la carta de la web se lee de la tabla `products` de
- * Neon y aqui se marca que productos estan AGOTADOS.
+ * Panel de inventario (/admin/inventario).
  *
- * El acceso es con el usuario "staff" de Supabase Auth: el navegador manda
+ * Muestra los productos de la tabla `products` de Neon y permite marcar cada
+ * uno como "Disponible" o "Agotado" (columna is_available).
+ *
+ * El acceso es con el usuario staff de Supabase Auth: el navegador manda
  * usuario y contrasena a /api/admin-login, que hace el login en el servidor
  * (la clave de Supabase nunca sale del servidor) y devuelve el token.
+ *
+ * Al cambiar un producto se avisa a las pestanas abiertas para que la carta
+ * publica se refresque sola (en esta SPA no hay revalidateTag, pero el
+ * efecto es el mismo).
  */
 
 interface ProductoInventario {
@@ -20,32 +28,20 @@ interface ProductoInventario {
   disponible: boolean;
 }
 
-const CLAVE_TOKEN = 'lm_admin_token';
-
 function precioTexto(valor: number): string {
   return `${valor.toFixed(2).replace('.', ',')} €`;
 }
 
 const Inventario: React.FC = () => {
-  const [token, setToken] = useState<string>(() => {
-    try {
-      return sessionStorage.getItem(CLAVE_TOKEN) ?? '';
-    } catch {
-      return '';
-    }
-  });
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [token, setToken] = useState<string>(() => leerToken());
   const [error, setError] = useState('');
-  const [entrando, setEntrando] = useState(false);
+  const [aviso, setAviso] = useState('');
+  const [importando, setImportando] = useState(false);
   const [productos, setProductos] = useState<ProductoInventario[]>([]);
   const [cargando, setCargando] = useState(false);
   const [guardando, setGuardando] = useState<number | null>(null);
-  const [importando, setImportando] = useState(false);
-  const [aviso, setAviso] = useState('');
   const [filtro, setFiltro] = useState<'todos' | 'agotados' | 'disponibles'>('todos');
 
-  // Cargar el inventario
   const cargar = async (tokenActivo: string) => {
     if (!tokenActivo) return;
     setCargando(true);
@@ -56,13 +52,9 @@ const Inventario: React.FC = () => {
       const datos = await r.json();
       if (!r.ok) {
         setError(datos?.error ?? 'No se pudo cargar el inventario');
-        if (r.status === 401) {
+        if (r.status === 401 || r.status === 403) {
           setToken('');
-          try {
-            sessionStorage.removeItem(CLAVE_TOKEN);
-          } catch {
-            /* sin sessionStorage */
-          }
+          borrarToken();
         }
         return;
       }
@@ -80,44 +72,54 @@ const Inventario: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Entrar
-  async function entrar(e: React.FormEvent) {
-    e.preventDefault();
-    setEntrando(true);
-    setError('');
-    try {
-      const r = await fetch('/api/admin-login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-      const datos = await r.json();
-      if (!r.ok) {
-        setError(datos?.error ?? 'No se pudo iniciar sesión');
-        return;
+  // Si no hay sesion, al panel se llega desde /login.
+  useEffect(() => {
+    if (!token && typeof window !== 'undefined') {
+      const destino = '/admin/inventario';
+      if (!window.location.pathname.startsWith('/login')) {
+        window.location.replace('/login?next=' + encodeURIComponent(destino));
       }
-      setToken(String(datos.token ?? ''));
-      try {
-        sessionStorage.setItem(CLAVE_TOKEN, String(datos.token ?? ''));
-      } catch {
-        /* sin sessionStorage */
-      }
-      void cargar(String(datos.token ?? ''));
-    } catch {
-      setError('No se pudo conectar con el servidor');
-    } finally {
-      setEntrando(false);
     }
-  }
+  }, [token]);
 
   function salir() {
     setToken('');
     setProductos([]);
     setError('');
+    borrarToken();
+    window.location.assign('/login');
+  }
+
+  // Marcar / desmarcar como agotado.
+  async function alternar(producto: ProductoInventario) {
+    const nuevo = !producto.disponible;
+    setGuardando(producto.id);
+    setProductos((lista) =>
+      lista.map((p) => (p.id === producto.id ? { ...p, disponible: nuevo } : p)),
+    );
     try {
-      sessionStorage.removeItem(CLAVE_TOKEN);
+      const r = await fetch('/api/admin/toggle-availability', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ id: producto.id, is_available: nuevo }),
+      });
+      const datos = await r.json();
+      if (!r.ok) {
+        setError(datos?.error ?? 'No se pudo guardar el cambio');
+        void cargar(token);
+        return;
+      }
+      setError('');
+      setAviso(
+        `${datos.nombre ?? producto.nombre}: ${nuevo ? 'disponible' : 'agotado'}`,
+      );
+      // La carta publica se refresca sola.
+      notificarMenuActualizado();
     } catch {
-      /* sin sessionStorage */
+      setError('No se pudo guardar el cambio');
+      void cargar(token);
+    } finally {
+      setGuardando(null);
     }
   }
 
@@ -133,7 +135,7 @@ const Inventario: React.FC = () => {
       });
       const datos = await r.json();
       if (!r.ok) {
-        setAviso(datos?.error ?? 'No se pudo importar la carta');
+        setError(datos?.error ?? 'No se pudo importar la carta');
         return;
       }
       setAviso(
@@ -141,37 +143,9 @@ const Inventario: React.FC = () => {
       );
       void cargar(token);
     } catch {
-      setAviso('No se pudo importar la carta');
+      setError('No se pudo importar la carta');
     } finally {
       setImportando(false);
-    }
-  }
-
-  // Marcar / desmarcar como agotado
-  async function alternar(producto: ProductoInventario) {
-    const nuevo = !producto.disponible;
-    setGuardando(producto.id);
-    setProductos((lista) =>
-      lista.map((p) => (p.id === producto.id ? { ...p, disponible: nuevo } : p)),
-    );
-    try {
-      const r = await fetch('/api/admin-productos', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-        body: JSON.stringify({ id: producto.id, is_available: nuevo }),
-      });
-      const datos = await r.json();
-      if (!r.ok) {
-        setError(datos?.error ?? 'No se pudo guardar el cambio');
-        void cargar(token);
-        return;
-      }
-      setError('');
-    } catch {
-      setError('No se pudo guardar el cambio');
-      void cargar(token);
-    } finally {
-      setGuardando(null);
     }
   }
 
@@ -183,51 +157,10 @@ const Inventario: React.FC = () => {
 
   const agotados = productos.filter((p) => !p.disponible).length;
 
-  // ── Login ──
   if (!token) {
-    return (
-      <div className="admin-login">
-        <form className="admin-card" onSubmit={entrar}>
-          <span className="admin-eyebrow">
-            <UtensilsCrossed size={16} /> Las Mesas
-          </span>
-          <h1>Inventario</h1>
-          <p className="admin-sub">Entra con tu usuario de staff para marcar los productos agotados.</p>
-
-          <label className="admin-field">
-            <span>Correo</span>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="staff@lasmesas.com"
-              autoComplete="username"
-              required
-            />
-          </label>
-          <label className="admin-field">
-            <span>Contraseña</span>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              autoComplete="current-password"
-              required
-            />
-          </label>
-
-          {error && <p className="admin-error">{error}</p>}
-
-          <button type="submit" className="admin-boton" disabled={entrando}>
-            <LogIn size={16} /> {entrando ? 'Entrando…' : 'Entrar'}
-          </button>
-        </form>
-      </div>
-    );
+    return <Login destino="/admin/inventario" />;
   }
 
-  // ── Inventario ──
   return (
     <div className="admin">
       <header className="admin-head">
@@ -241,10 +174,20 @@ const Inventario: React.FC = () => {
           </p>
         </div>
         <div className="admin-acciones">
-          <button type="button" className="admin-boton admin-boton-claro" onClick={() => void importar()} disabled={importando}>
+          <button
+            type="button"
+            className="admin-boton admin-boton-claro"
+            onClick={() => void importar()}
+            disabled={importando}
+          >
             <UtensilsCrossed size={16} /> {importando ? 'Importando…' : 'Importar carta'}
           </button>
-          <button type="button" className="admin-boton admin-boton-claro" onClick={() => void cargar(token)} disabled={cargando}>
+          <button
+            type="button"
+            className="admin-boton admin-boton-claro"
+            onClick={() => void cargar(token)}
+            disabled={cargando}
+          >
             <RefreshCw size={16} /> {cargando ? 'Cargando…' : 'Actualizar'}
           </button>
           <button type="button" className="admin-boton admin-boton-claro" onClick={salir}>

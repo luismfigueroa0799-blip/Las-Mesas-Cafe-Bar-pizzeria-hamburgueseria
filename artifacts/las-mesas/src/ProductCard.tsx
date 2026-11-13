@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { iniciales } from '@/products';
+import { AvailabilityBadge } from '@/AvailabilityBadge';
 
 // Tipo de producto (compatible con la tabla de Neon).
 export interface Product {
@@ -61,11 +62,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
           </span>
         )}
         {/* Producto agotado: se avisa en la carta y no se puede pedir. */}
-        {!disponible && (
-          <span className="product-card-agotado" title="Producto agotado">
-            Agotado
-          </span>
-        )}
+        <AvailabilityBadge disponible={disponible} />
       </div>
 
       <div className="product-card-body min-w-0">
