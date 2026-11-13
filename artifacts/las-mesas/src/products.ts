@@ -35,6 +35,9 @@ export interface Category {
   slug: string;
 }
 
+/** Categoría de reserva: productos que no están en nuestra carta. */
+export const CATEGORIA_RESERVA = 'La carta';
+
 export const CATEGORIES: Category[] = [
   { name: 'Hamburguesas de carne', slug: 'hamburguesas-carne' },
   { name: 'Hamburguesas de pollo', slug: 'hamburguesas-pollo' },
