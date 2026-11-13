@@ -290,7 +290,12 @@ function App() {
         <div className="shell">
           <div className="menu-heading"><div><p className="eyebrow"><span className="gold-dot" /> Cocina para compartir</p><h2>La carta<span>.</span></h2><p className="section-lede">De un bocado rápido a una pizza para el centro. Aquí empieza el plan.</p></div><a className="button button-outline" href="/assets/carta-las-mesas.pdf" download="carta-las-mesas.pdf" data-testid="link-download-menu">Descargar carta completa <ArrowDown size={16} /></a></div>
           <div className="menu-experience">
-            <div className="category-list" role="tablist" aria-label="Categorías de la carta" aria-orientation="vertical">
+            <div
+              className="category-list overflow-x-auto whitespace-nowrap px-4 min-w-0"
+              role="tablist"
+              aria-label="Categorías de la carta"
+              aria-orientation="vertical"
+            >
               {categorias.map((category, index) => <button key={category.slug} className={activeCategory.slug === category.slug ? 'category-tab active' : 'category-tab'} role="tab" tabIndex={activeCategory.slug === category.slug ? 0 : -1} id={`tab-${index}`} aria-selected={activeCategory.slug === category.slug} aria-controls="menu-panel" onClick={() => setActiveSlug(category.slug)} onKeyDown={(e) => { const next = e.key === 'ArrowDown' || e.key === 'ArrowRight' ? (index + 1) % categorias.length : e.key === 'ArrowUp' || e.key === 'ArrowLeft' ? (index - 1 + categorias.length) % categorias.length : -1; if (next >= 0) { e.preventDefault(); document.getElementById(`tab-${next}`)?.focus(); setActiveSlug(categorias[next].slug); } }} data-testid={`tab-category-${index}`}><span>{String(index + 1).padStart(2, '0')}</span>{category.name}<ArrowRight size={14} /></button>)}
               <p className="menu-download-note">La carta completa, lista para consultar o guardar.</p>
             </div>
@@ -374,11 +379,42 @@ function App() {
         <div className="shell">
           <div className="contact-heading"><div><p className="eyebrow"><span className="gold-dot" /> Nos vemos en el barrio</p><h2>Ven a Las Mesas<span>.</span></h2></div><a className="button button-outline" href={mapsUrl} target="_blank" rel="noreferrer" data-testid="link-maps">Cómo llegar <ArrowUpRight size={16} /></a></div>
           <div className="contact-grid">
-            <div className="address-block"><MapPin size={21} /><span className="eyebrow">Dirección</span><address>{address}</address><a className="text-link dark-link" href={mapsUrl} target="_blank" rel="noreferrer">Abrir en Google Maps <ArrowUpRight size={14} /></a></div>
+            <div className="address-block"><MapPin size={21} /><span className="eyebrow">Dirección</span><address className="break-words">{address}</address><a className="text-link dark-link" href={mapsUrl} target="_blank" rel="noreferrer">Abrir en Google Maps <ArrowUpRight size={14} /></a></div>
             <div className="hours-block"><Clock3 size={21} /><span className="eyebrow">Horario</span>{hours.map(([day, time]) => <div className="hours-row" key={day}><span>{day}</span><strong>{time}</strong></div>)}</div>
             <div className="phone-block"><Phone size={21} /><span className="eyebrow">Llámanos</span><a href={phoneHref} data-testid="link-call-footer">{phone}</a><p>Para consultas y reservas, estamos al otro lado.</p></div>
           </div>
-          <div className="social-editable"><span className="eyebrow">Redes y reseñas</span><p>Instagram oficial disponible; los demás enlaces están pendientes.</p><span>Instagram: <a href={instagramUrl} target="_blank" rel="noreferrer">ver perfil</a></span><span>Facebook: {facebookUrl || 'pendiente de añadir'}</span><span>Reseñas Google: {reviewsUrl || 'pendiente de añadir'}</span></div>
+          {/* La URL de las reseñas NO se imprime: se muestra como enlace para
+              que no aparezca el texto gigante que rompía el móvil. */}
+          <div className="social-editable">
+            <span className="eyebrow">Redes y reseñas</span>
+            <p>Instagram oficial disponible; los demás enlaces están pendientes.</p>
+            <span className="min-w-0 break-words">
+              Instagram:{' '}
+              {instagramUrl ? (
+                <a href={instagramUrl} target="_blank" rel="noreferrer">ver perfil</a>
+              ) : (
+                'pendiente de añadir'
+              )}
+            </span>
+            <span className="min-w-0 break-words">
+              Facebook:{' '}
+              {facebookUrl ? (
+                <a href={facebookUrl} target="_blank" rel="noreferrer">ver perfil</a>
+              ) : (
+                'pendiente de añadir'
+              )}
+            </span>
+            <span className="min-w-0 break-words">
+              Reseñas Google:{' '}
+              {reviewsUrl ? (
+                <a href={reviewsUrl} target="_blank" rel="noreferrer">
+                  compartir opinión
+                </a>
+              ) : (
+                'pendiente de añadir'
+              )}
+            </span>
+          </div>
         </div>
       </section>
 
@@ -387,7 +423,7 @@ function App() {
         <div className="shell footer-details">
           <div className="footer-hours"><span className="footer-label">Horario</span>{hours.map(([day, time]) => <p key={day}><span>{day}</span><strong>{time}</strong></p>)}</div>
           <div className="footer-contact"><span className="footer-label">Contacto</span><a href={phoneHref}>{phone}</a><a href={mapsUrl} target="_blank" rel="noreferrer">Pintor Antonio Padrón, 59 · Cómo llegar</a></div>
-          <div className="footer-social"><span className="footer-label">Redes y reseñas</span><span>Instagram: {instagramUrl ? <a href={instagramUrl} target="_blank" rel="noreferrer">ver perfil</a> : 'enlace pendiente de añadir'}</span><span>Facebook: {facebookUrl ? <a href={facebookUrl} target="_blank" rel="noreferrer">ver perfil</a> : 'enlace pendiente de añadir'}</span><span>Reseñas Google: {reviewsUrl ? <a href={reviewsUrl} target="_blank" rel="noreferrer">compartir opinión</a> : 'enlace pendiente de añadir'}</span></div>
+          <div className="footer-social min-w-0"><span className="footer-label">Redes y reseñas</span><span>Instagram: {instagramUrl ? <a href={instagramUrl} target="_blank" rel="noreferrer">ver perfil</a> : 'enlace pendiente de añadir'}</span><span>Facebook: {facebookUrl ? <a href={facebookUrl} target="_blank" rel="noreferrer">ver perfil</a> : 'enlace pendiente de añadir'}</span><span>Reseñas Google: {reviewsUrl ? <a href={reviewsUrl} target="_blank" rel="noreferrer">compartir opinión</a> : 'enlace pendiente de añadir'}</span></div>
         </div>
         <div className="shell footer-bottom"><span>© Las Mesas · Café & Bar</span><span>Pintor Antonio Padrón, 59 · Las Mesas Bajas · Las Palmas de Gran Canaria</span></div>
       </footer>

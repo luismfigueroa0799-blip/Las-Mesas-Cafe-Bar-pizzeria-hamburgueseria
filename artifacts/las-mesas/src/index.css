@@ -674,3 +674,96 @@ h1, h2, h3, .hero h1, .play-section h2, .gallery-heading h2, .essence h2 {
   .cart-drawer-foot { padding-inline: 14px; }
   .cart-checkout { font-size: .74rem; letter-spacing: .08em; }
 }
+
+/* =====================================================================
+   AJUSTES RESPONSIVE (2a tanda)
+   Correcciones detectadas en el iPhone:
+     - Las pestañas de categorias se salian de la pantalla.
+     - La URL de las reseñas de Google se imprimia como texto gigante.
+     - Faltaba margen lateral en algunas secciones.
+   ===================================================================== */
+
+/* --- La URL larga de las reseñas: enlace normal, nunca texto gigante --- */
+.social-editable span,
+.footer-social > span:not(.footer-label),
+.footer-contact a {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* --- Rejilla de la carta: sin esto, las pestañas ensanchan la columna --- */
+.menu-experience > *,
+.menu-panel,
+.category-list {
+  min-width: 0;
+}
+
+/* --- Pestañas de categorias: scroll horizontal real --- */
+@media (max-width: 700px) {
+  .category-list {
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    white-space: nowrap;
+    scroll-snap-type: x proximity;
+    scroll-padding-inline: 16px;
+    padding: 4px 16px 14px; /* px-4: margen lateral y hueco para la barra */
+    -webkit-overflow-scrolling: touch;
+    /* La barra de scroll no hace falta: se ve que hay mas con el degradado */
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .category-list::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+  .category-tab {
+    flex: 0 0 auto;
+    scroll-snap-align: start;
+    min-height: 44px;
+    max-width: 78vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .category-tab span { display: none; }
+}
+
+/* --- Redes y reseñas: una columna en movil, sin URLs gigantic --- */
+@media (max-width: 700px) {
+  .social-editable {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .social-editable .eyebrow,
+  .social-editable p { grid-column: auto; }
+}
+
+/* --- Bloques de contacto: la direccion y el telefono no se salen --- */
+@media (max-width: 700px) {
+  .address-block address { font-size: 1rem; max-width: 100%; }
+  .phone-block > a { font-size: 1.15rem; overflow-wrap: anywhere; }
+  .contact-grid > div { padding: 22px 0; }
+}
+
+/* --- Margen lateral comodo en todas las secciones --- */
+@media (max-width: 700px) {
+  .shell { width: min(100% - 40px, 540px); }
+  .menu-panel { padding: 22px 0 24px; }
+  .dish-row { padding: 15px 0; }
+  .dish-name { font-size: 1.08rem; }
+  .dish-price { font-size: 1rem; }
+  .panel-title { gap: 12px; }
+  .dish-count { font-size: .62rem; }
+}
+
+/* --- Moviles muy estrechos: 360px --- */
+@media (max-width: 380px) {
+  .shell { width: min(100% - 30px, 540px); }
+  .category-list { padding: 4px 12px 14px; }
+  .category-tab { max-width: 72vw; font-size: .66rem; padding: 0 11px; }
+  .social-editable { gap: 9px; }
+  .dish-detail p { font-size: .72rem; }
+}
