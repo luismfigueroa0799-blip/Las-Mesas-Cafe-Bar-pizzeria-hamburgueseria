@@ -41,6 +41,8 @@ const Inventario: React.FC = () => {
   const [productos, setProductos] = useState<ProductoInventario[]>([]);
   const [cargando, setCargando] = useState(false);
   const [guardando, setGuardando] = useState<number | null>(null);
+  const [importando, setImportando] = useState(false);
+  const [aviso, setAviso] = useState('');
   const [filtro, setFiltro] = useState<'todos' | 'agotados' | 'disponibles'>('todos');
 
   // Cargar el inventario
@@ -116,6 +118,32 @@ const Inventario: React.FC = () => {
       sessionStorage.removeItem(CLAVE_TOKEN);
     } catch {
       /* sin sessionStorage */
+    }
+  }
+
+  // Importar la carta desde Supabase a la tabla products de Neon.
+  async function importar() {
+    setImportando(true);
+    setAviso('');
+    try {
+      const r = await fetch('/api/admin-productos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ accion: 'importar' }),
+      });
+      const datos = await r.json();
+      if (!r.ok) {
+        setAviso(datos?.error ?? 'No se pudo importar la carta');
+        return;
+      }
+      setAviso(
+        `Carta importada: ${datos.insertados} nuevos y ${datos.actualizados} actualizados (${datos.total} en total).`,
+      );
+      void cargar(token);
+    } catch {
+      setAviso('No se pudo importar la carta');
+    } finally {
+      setImportando(false);
     }
   }
 
@@ -213,6 +241,9 @@ const Inventario: React.FC = () => {
           </p>
         </div>
         <div className="admin-acciones">
+          <button type="button" className="admin-boton admin-boton-claro" onClick={() => void importar()} disabled={importando}>
+            <UtensilsCrossed size={16} /> {importando ? 'Importando…' : 'Importar carta'}
+          </button>
           <button type="button" className="admin-boton admin-boton-claro" onClick={() => void cargar(token)} disabled={cargando}>
             <RefreshCw size={16} /> {cargando ? 'Cargando…' : 'Actualizar'}
           </button>
@@ -223,6 +254,7 @@ const Inventario: React.FC = () => {
       </header>
 
       {error && <p className="admin-error">{error}</p>}
+      {aviso && <p className="admin-ok">{aviso}</p>}
 
       <div className="admin-filtros">
         {(

@@ -175,8 +175,100 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     return;
   }
 
-  // 3) Cambiar la disponibilidad
-  if (req.method === 'PATCH' || req.method === 'POST') {
+  // 3) Importar la carta desde Supabase a la tabla `products` de Neon.
+  //
+  // Los ids se copian tal cual para que coincidan con los que usa el flujo
+  // de n8n. Si el producto ya existe en Neon se actualiza (nombre, precio y
+  // disponibilidad), sin tocar la foto ni la descripcion que se hayan puesto
+  // a mano.
+  if (req.method === 'POST') {
+    const body = leerCuerpo(req);
+    if (String(body.accion ?? '').toLowerCase() !== 'importar') {
+      responder(res, { error: 'Acción no válida' }, 400);
+      return;
+    }
+
+    const key = claveSupabase();
+    if (!key) {
+      responder(res, { error: 'Supabase no está configurado' }, 503);
+      return;
+    }
+
+    let origen: any[] = [];
+    try {
+      const r = await g.fetch(
+        urlSupabase() +
+          '/rest/v1/productos?select=id,nombre,precio,categoria,disponible&order=id',
+        { headers: { apikey: key, Authorization: 'Bearer ' + key, Accept: 'application/json' } },
+      );
+      if (!r.ok) throw new Error('Supabase respondió ' + r.status);
+      origen = await r.json();
+    } catch (error) {
+      g.console?.error?.('[admin] no se pudo leer la carta de Supabase:', error);
+      responder(res, { error: 'No se pudo leer la carta de origen' }, 502);
+      return;
+    }
+
+    if (!Array.isArray(origen) || !origen.length) {
+      responder(res, { error: 'La carta de origen está vacía' }, 400);
+      return;
+    }
+
+    const pool = await poolDeNeon();
+    if (!pool) {
+      responder(res, { error: 'Neon no está configurado (falta DATABASE_URL)' }, 503);
+      return;
+    }
+
+    let insertados = 0;
+    let actualizados = 0;
+    try {
+      for (const p of origen) {
+        const id = Number(p.id);
+        if (!Number.isFinite(id)) continue;
+        const nombre = String(p.nombre ?? '');
+        const precio = Number(p.precio ?? 0);
+        const disponible = p.disponible !== false;
+        const r = await pool.query(
+          `insert into products (id, name, description, price, image_url, is_available, category_id)
+           values ($1, $2, $3, $4, $5, $6, $7)
+           on conflict (id) do update
+             set name = excluded.name,
+                 price = excluded.price,
+                 is_available = excluded.is_available
+           returning id, (xmax = 0) as insertado`,
+          [
+            id,
+            nombre,
+            p.descripcion ?? null,
+            precio,
+            p.image_url ?? null,
+            disponible,
+            p.categoria_id ?? null,
+          ],
+        );
+        const fueInsertado = r?.rows?.[0]?.insertado === true;
+        if (fueInsertado) insertados += 1;
+        else actualizados += 1;
+      }
+    } catch (error) {
+      g.console?.error?.('[admin] error importando la carta:', error);
+      responder(res, { error: 'No se pudo escribir la carta en Neon' }, 502);
+      return;
+    }
+
+    const total = await consultarNeon('select count(*)::int as total from products');
+    responder(res, {
+      ok: true,
+      insertados,
+      actualizados,
+      total: total?.[0]?.total ?? 0,
+    });
+    return;
+  }
+
+  // 4) Cambiar la disponibilidad
+  if (req.method === 'PATCH') {
     const body = leerCuerpo(req);
     const id = Number(body.id);
     const disponible = body.is_available === true || body.is_available === 'true';

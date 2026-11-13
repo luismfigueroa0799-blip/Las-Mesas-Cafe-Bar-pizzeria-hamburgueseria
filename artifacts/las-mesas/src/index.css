@@ -1015,3 +1015,12 @@ h1, h2, h3, .hero h1, .play-section h2, .gallery-heading h2, .essence h2 {
   box-shadow: none;
   transform: none;
 }
+.admin-ok {
+  margin: 0;
+  padding: 11px 13px;
+  background: rgba(212,175,55,.12);
+  border-left: 3px solid var(--oro);
+  color: #e8e0c4;
+  font-size: .82rem;
+  line-height: 1.6;
+}
