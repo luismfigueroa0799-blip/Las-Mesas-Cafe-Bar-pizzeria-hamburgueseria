@@ -231,10 +231,81 @@ export default async function handler(req: Req, res: Res): Promise<void> {
           }
         }
 
+        // ── Prueba final de "Agotado" ──
+        // Se marca un producto como no disponible, se comprueba que la API
+        // publica lo dice y que el checkout lo rechaza, y se deja como
+        // estaba. Asi se verifica toda la cadena sin tocar nada.
+        let pruebaAgotado: any = 'no se pudo comprobar';
+        if (existeProductos) {
+          try {
+            const idPrueba = 4;
+            const original = await pool.query(
+              'select is_available from products where id = $1',
+              [idPrueba],
+            );
+            const disponibilidadOriginal = original?.rows?.[0]?.is_available !== false;
+
+            await pool.query('update products set is_available = false where id = $1', [idPrueba]);
+
+            const host =
+              String(req?.headers?.get?.('x-forwarded-host') ?? '') ||
+              String(req?.headers?.get?.('host') ?? '');
+            const proto = String(req?.headers?.get?.('x-forwarded-proto') ?? 'https');
+            const base = host ? proto + '://' + host : '';
+
+            let laApiLoDice = false;
+            let elCheckoutLoRechaza = false;
+            let detalle = '';
+
+            if (base) {
+              const catalogo = await g.fetch(base + '/api/productos');
+              const lista = await catalogo.json();
+              const producto = (Array.isArray(lista) ? lista : []).find(
+                (x: any) => Number(x.id) === idPrueba,
+              );
+              laApiLoDice = producto?.disponible === false;
+
+              const pedido = await g.fetch(base + '/api/checkout', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  items: [{ id: String(idPrueba), name: 'prueba', price: '6,50 EUR', quantity: 1 }],
+                  customerEmail: 'prueba@lasmesas.com',
+                  customerName: 'Prueba de inventario',
+                  telefono: '600000000',
+                  tipoEntrega: 'recogida',
+                  total: '6.50',
+                  direccion: { calle: '', numero: '', piso: '', codigoPostal: '', ciudad: '' },
+                }),
+              });
+              const texto = await pedido.text();
+              elCheckoutLoRechaza = pedido.status === 409;
+              detalle = texto.slice(0, 200);
+            }
+
+            await pool.query('update products set is_available = $2 where id = $1', [
+              idPrueba,
+              disponibilidadOriginal,
+            ]);
+
+            pruebaAgotado = {
+              producto: idPrueba,
+              laApiPublicaLoMarcaComoAgotado: laApiLoDice,
+              elCheckoutLoRechaza: elCheckoutLoRechaza,
+              respuestaCheckout: detalle,
+              restaurado: true,
+            };
+          } catch (error) {
+            pruebaAgotado =
+              'FALLO: ' + (error instanceof Error ? error.message : String(error)).slice(0, 300);
+          }
+        }
+
         resultado.neon = {
           ok: true,
           ms: Date.now() - inicio,
           pruebaProductos,
+          pruebaAgotado,
           tablas: (tablas?.rows ?? []).map((t: any) => t.table_name),
           clavesPrimarias: (pk?.rows ?? []).map(
             (x: any) => x.table_name + '.' + x.column_name,
