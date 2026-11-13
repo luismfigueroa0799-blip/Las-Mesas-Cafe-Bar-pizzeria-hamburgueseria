@@ -58,3 +58,6 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Salida de la compilacion de las funciones de api/ (no se sube)
+.api-dist/

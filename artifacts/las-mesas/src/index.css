@@ -500,7 +500,7 @@ h2 { font-family: var(--app-font-serif); font-size: clamp(2.6rem, 5vw, 4.35rem);
   .footer-bottom { padding: 17px 0; align-items: flex-start; flex-direction: column; gap: 8px; }
 }
 
-/* Marcador de build: 2026-11-13-ntfy-v1 */
+/* Marcador de build: 2026-11-13-ntfy-v2 */
 /* =====================================================================
    AJUSTES RESPONSIVE
    Revisados para que la web se vea bien en movil (360-430px).
