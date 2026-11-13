@@ -301,7 +301,7 @@ function App() {
             </div>
             <div className="menu-panel" role="tabpanel" id="menu-panel" aria-labelledby={`tab-${categorias.findIndex((c) => c.slug === activeCategory.slug)}`} key={activeCategory.slug}>
               <div className="panel-title"><div><span className="eyebrow">En la mesa</span><h3>{activeCategory.name}</h3></div><span className="dish-count">{String(productos.length).padStart(2, '0')} opciones</span></div>
-              <div className="dish-list dish-grid">
+              <div className="dish-list dish-grid grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
                 {productosActivos.map((producto) => (
                   <ProductCard
                     key={producto.id}

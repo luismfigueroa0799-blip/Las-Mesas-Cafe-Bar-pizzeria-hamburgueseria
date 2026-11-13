@@ -59,13 +59,15 @@ const ProductCard: React.FC<ProductCardProps> = ({
       </div>
 
       <div className="product-card-body min-w-0">
-        <h3 className="product-card-name break-words">{product.name}</h3>
+        <h3 className="product-card-name break-words text-lg">{product.name}</h3>
 
-        {product.description && <p className="product-card-desc">{product.description}</p>}
+        {product.description && (
+          <p className="product-card-desc text-xs">{product.description}</p>
+        )}
 
         {showSizeSelector && (
           <div className="product-card-sizes">
-            <span className="product-card-sizes-label">Tamaño</span>
+            <span className="product-card-sizes-label">Tamaño:</span>
             <div className="product-card-sizes-options">
               {(['mini', 'normal'] as const).map((valor) => (
                 <label key={valor} className={size === valor ? 'is-active' : ''}>
@@ -83,24 +85,24 @@ const ProductCard: React.FC<ProductCardProps> = ({
           </div>
         )}
 
-        <p className="product-card-price">{product.price}</p>
-      </div>
-
-      <div className="product-card-foot">
-        <button
-          type="button"
-          className="w-full"
-          onClick={() =>
-            onAddToCart({
-              name: product.name,
-              price: product.price,
-              image: foto ?? '',
-            })
-          }
-          data-testid={`button-add-${product.id}`}
-        >
-          Añadir al carrito
-        </button>
+        {/* Precio y boton en la misma fila, como en la carta de referencia. */}
+        <div className="product-card-buy">
+          <p className="product-card-price text-lg">{product.price}</p>
+          <button
+            type="button"
+            className="product-card-add"
+            onClick={() =>
+              onAddToCart({
+                name: product.name,
+                price: product.price,
+                image: foto ?? '',
+              })
+            }
+            data-testid={`button-add-${product.id}`}
+          >
+            <span aria-hidden="true">+</span> Añadir
+          </button>
+        </div>
       </div>
     </article>
   );
