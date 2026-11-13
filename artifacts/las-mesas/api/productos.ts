@@ -106,11 +106,70 @@ function fotoUtil(foto: unknown): string | null {
   return null;
 }
 
+/**
+ * Rellena la tabla products de Neon con la carta de Supabase, si esta vacia.
+ *
+ * Se hace una sola vez por instancia (asi la web nunca se queda sin carta
+ * aunque alguien vacie la tabla). Los ids se copian tal cual para que
+ * coincidan con los que usa el flujo de n8n.
+ */
+let importacionIntentada = false;
+
+async function rellenarSiEstaVacia(): Promise<void> {
+  if (importacionIntentada) return;
+  importacionIntentada = true;
+  try {
+    const pool = await poolDeNeon();
+    if (!pool) return;
+    const total = await pool.query('select count(*)::int as total from products');
+    if (Number(total?.rows?.[0]?.total ?? 0) > 0) return;
+
+    const key = claveSupabase();
+    if (!key) return;
+    const r = await g.fetch(
+      urlSupabase() + '/rest/v1/productos?select=id,nombre,precio,categoria,disponible&order=id',
+      { headers: { apikey: key, Authorization: 'Bearer ' + key, Accept: 'application/json' } },
+    );
+    if (!r.ok) return;
+    const origen: any[] = await r.json();
+    for (const p of origen) {
+      const id = Number(p.id);
+      if (!Number.isFinite(id)) continue;
+      const existe = await pool.query('select id from products where id = $1', [id]);
+      if (existe?.rowCount) {
+        await pool.query(
+          'update products set name = $2, price = $3, is_available = $4 where id = $1',
+          [id, String(p.nombre ?? ''), Number(p.precio ?? 0), p.disponible !== false],
+        );
+      } else {
+        await pool.query(
+          'insert into products (id, name, description, price, image_url, is_available, category_id) values ($1, $2, $3, $4, $5, $6, $7)',
+          [
+            id,
+            String(p.nombre ?? ''),
+            p.descripcion ?? null,
+            Number(p.precio ?? 0),
+            p.image_url ?? null,
+            p.disponible !== false,
+            p.categoria_id ?? null,
+          ],
+        );
+      }
+    }
+    g.console?.log?.('[productos] Carta importada en Neon:', origen.length);
+  } catch (error) {
+    g.console?.error?.('[productos] no se pudo rellenar la carta:', error);
+  }
+}
+
 export default async function handler(req: Req, res: Res): Promise<void> {
   if (req?.method && req.method !== 'GET') {
     responder(res, { error: 'Método no permitido' }, 405);
     return;
   }
+
+  // Si la tabla de Neon esta vacia, se rellena sola desde Supabase.
+  await rellenarSiEstaVacia();
 
   // 1) Neon (la fuente de verdad de los productos)
   const filas = await consultarNeon(
