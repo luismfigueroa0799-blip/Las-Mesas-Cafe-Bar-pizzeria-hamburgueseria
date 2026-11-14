@@ -290,3 +290,242 @@
 .admin-card-corta .admin-sub {
   margin-top: -4px;
 }
+
+/* =====================================================================
+   PANEL DE INVENTARIO: pestanas, edicion de la carta y modal
+   ===================================================================== */
+
+/* --- Pestanas --- */
+.admin-pestanas {
+  display: flex;
+  gap: 4px;
+  margin: 18px 0 4px;
+  border-bottom: 1px solid rgba(255,255,255,.1);
+}
+.admin-pestana {
+  min-height: 44px;
+  padding: 0 18px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: #a5a5ae;
+  font-size: .76rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color .2s ease, border-color .2s ease;
+}
+.admin-pestana:hover { color: #fff; }
+.admin-pestana-activa {
+  color: var(--oro);
+  border-bottom-color: var(--oro);
+}
+
+/* --- Barra de la carta (buscador + boton de nuevo) --- */
+.admin-barra-carta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 16px 0 4px;
+}
+.admin-buscar {
+  flex: 1 1 220px;
+  min-height: 46px;
+  padding: 0 14px;
+  border: 1px solid rgba(255,255,255,.16);
+  background: #151515;
+  color: #fff;
+  font-size: .88rem;
+  border-radius: 0;
+}
+.admin-buscar:focus {
+  outline: none;
+  border-color: var(--oro);
+  box-shadow: 0 0 0 3px rgba(212,175,55,.18);
+}
+
+/* --- Etiquetas del producto --- */
+.admin-item-etiquetas {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+.admin-item-etiquetas em {
+  font-style: normal;
+  font-size: .6rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+.etiqueta-ok {
+  background: rgba(212,175,55,.14);
+  border: 1px solid rgba(212,175,55,.45);
+  color: var(--oro);
+}
+.etiqueta-agotado {
+  background: rgba(224,87,78,.14);
+  border: 1px solid rgba(224,87,78,.5);
+  color: #f0a49e;
+}
+.etiqueta-categoria {
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.16);
+  color: #a5a5ae;
+}
+.admin-editar { min-height: 42px; padding: 0 14px; }
+
+/* --- Modal --- */
+.admin-modal-fondo {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(0,0,0,.76);
+  backdrop-filter: blur(3px);
+  overflow-y: auto;
+}
+.admin-modal {
+  width: min(100%, 560px);
+  max-height: calc(100dvh - 36px);
+  display: flex;
+  flex-direction: column;
+  background: #141414;
+  border: 1px solid rgba(212,175,55,.32);
+  border-radius: 12px;
+  box-shadow: 0 24px 70px rgba(0,0,0,.7);
+}
+.admin-modal-cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 16px 18px;
+  border-bottom: 1px solid rgba(212,175,55,.22);
+}
+.admin-modal-cabecera h2 {
+  margin: 0;
+  font-family: var(--app-font-serif);
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #fff;
+}
+.admin-modal-cuerpo {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  overflow-y: auto;
+}
+.admin-dos-campos {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.admin-modal-cuerpo textarea {
+  min-height: 76px;
+  padding: 11px 13px;
+  border: 1px solid rgba(255,255,255,.16);
+  background: #1b1b1b;
+  color: #fff;
+  font-size: .88rem;
+  font-family: inherit;
+  resize: vertical;
+}
+.admin-modal-cuerpo select {
+  min-height: 48px;
+  padding: 0 12px;
+  border: 1px solid rgba(255,255,255,.16);
+  background: #1b1b1b;
+  color: #fff;
+  font-size: .88rem;
+}
+.admin-modal-cuerpo select:focus {
+  outline: none;
+  border-color: var(--oro);
+  box-shadow: 0 0 0 3px rgba(212,175,55,.18);
+}
+.admin-con-imagen {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+.admin-con-imagen input { flex: 1; min-width: 0; }
+.admin-ver-imagen {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 13px;
+  min-height: 48px;
+  border: 1px solid rgba(212,175,55,.45);
+  color: var(--oro);
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.admin-ver-imagen:hover { background: rgba(212,175,55,.12); }
+.admin-pista {
+  display: block;
+  margin-top: 2px;
+  color: #7b7b85;
+  font-size: .68rem;
+  line-height: 1.5;
+}
+.admin-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  color: #d5d5db;
+  font-size: .82rem;
+}
+.admin-check input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--oro);
+}
+.admin-modal-pie {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255,255,255,.1);
+  margin-top: 4px;
+}
+.admin-modal-acciones {
+  display: flex;
+  gap: 10px;
+  margin-left: auto;
+}
+.admin-boton-peligro {
+  background: transparent;
+  border: 1px solid rgba(224,87,78,.55);
+  color: #f0a49e;
+}
+.admin-boton-peligro:hover {
+  background: rgba(224,87,78,.14);
+  color: #ffc9c4;
+}
+.admin-confirmar {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #f0b5b0;
+  font-size: .78rem;
+}
+
+@media (max-width: 560px) {
+  .admin-dos-campos { grid-template-columns: 1fr; }
+  .admin-modal-acciones { width: 100%; margin-left: 0; }
+  .admin-modal-acciones .admin-boton { flex: 1 1 auto; }
+  .admin-pestana { padding: 0 12px; font-size: .68rem; }
+}

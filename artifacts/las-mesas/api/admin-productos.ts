@@ -202,7 +202,99 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     return;
   }
 
-  // 3) Importar la carta desde Supabase a la tabla `products` de Neon.
+  // 3) Guardar un producto (crear o actualizar) o borrarlo.
+  //
+  //   { accion: 'guardar', id?, name, description, price, image_url,
+  //     category_id, is_available? }
+  //   { accion: 'borrar', id }
+  if (req.method === 'POST' || req.method === 'DELETE') {
+    const body = leerCuerpo(req);
+    const accion = String(body.accion ?? '').toLowerCase();
+
+    // ---- Borrar ----
+    if (accion === 'borrar') {
+      const id = Number(body.id);
+      if (!Number.isFinite(id)) {
+        responder(res, { error: 'Falta el id del producto' }, 400);
+        return;
+      }
+      const pool = await poolDeNeon();
+      if (!pool) {
+        responder(res, { error: 'Neon no está configurado (falta DATABASE_URL)' }, 503);
+        return;
+      }
+      try {
+        const r = await pool.query('delete from products where id = $1 returning id', [id]);
+        if (!r?.rows?.length) {
+          responder(res, { error: 'No se encontró ese producto' }, 404);
+          return;
+        }
+        responder(res, { ok: true, borrado: id });
+      } catch (error) {
+        g.console?.error?.('[admin] no se pudo borrar el producto:', error);
+        responder(res, { error: 'No se pudo borrar el producto de Neon' }, 502);
+      }
+      return;
+    }
+
+    // ---- Guardar ----
+    if (accion === 'guardar') {
+      const pool = await poolDeNeon();
+      if (!pool) {
+        responder(res, { error: 'Neon no está configurado (falta DATABASE_URL)' }, 503);
+        return;
+      }
+
+      const nombre = String(body.name ?? '').trim();
+      const precio = Number(body.price ?? 0);
+      if (!nombre) {
+        responder(res, { error: 'El nombre del producto no puede estar vacío' }, 400);
+        return;
+      }
+      if (!Number.isFinite(precio) || precio < 0) {
+        responder(res, { error: 'El precio no es válido' }, 400);
+        return;
+      }
+
+      const descripcion = body.description ? String(body.description) : null;
+      const imagen = body.image_url ? String(body.image_url) : null;
+      const categoriaId =
+        body.category_id === null || body.category_id === undefined || body.category_id === ''
+          ? null
+          : Number(body.category_id);
+      const disponible = body.is_available === undefined ? true : body.is_available !== false;
+      const id =
+        body.id === undefined || body.id === null || body.id === '' ? null : Number(body.id);
+
+      try {
+        if (id !== null && Number.isFinite(id)) {
+          const r = await pool.query(
+            'update products set name = $2, description = $3, price = $4, image_url = $5, category_id = $6, is_available = $7 where id = $1 returning id, name, description, price, image_url, category_id, is_available',
+            [id, nombre, descripcion, precio, imagen, categoriaId, disponible],
+          );
+          if (!r?.rows?.length) {
+            responder(res, { error: 'No se encontró ese producto' }, 404);
+            return;
+          }
+          responder(res, { ok: true, creado: false, producto: r.rows[0] });
+          return;
+        }
+
+        // Producto nuevo: el id lo pone la base de datos.
+        const r = await pool.query(
+          'insert into products (name, description, price, image_url, category_id, is_available) values ($1, $2, $3, $4, $5, $6) returning id, name, description, price, image_url, category_id, is_available',
+          [nombre, descripcion, precio, imagen, categoriaId, disponible],
+        );
+        responder(res, { ok: true, creado: true, producto: r?.rows?.[0] ?? null });
+      } catch (error) {
+        g.console?.error?.('[admin] no se pudo guardar el producto:', error);
+        responder(res, { error: 'No se pudo guardar el producto en Neon' }, 502);
+      }
+      return;
+    }
+  }
+
+  // 4) Importar la carta desde Supabase a la tabla `products` de Neon.
   //
   // Los ids se copian tal cual para que coincidan con los que usa el flujo
   // de n8n. Si el producto ya existe en Neon se actualiza (nombre, precio y

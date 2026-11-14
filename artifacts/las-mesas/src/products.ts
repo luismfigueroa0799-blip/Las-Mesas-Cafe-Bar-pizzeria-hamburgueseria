@@ -28,32 +28,36 @@ export interface Product {
   precio_eur?: number;
   /** false = producto agotado (lo marca el panel de inventario). */
   disponible?: boolean;
+  /** Id numerico de la categoria (columna category_id de Neon). */
+  categoria_id?: number | null;
 }
 
 export interface Category {
   name: string;
   slug: string;
+  /** Id numerico: es lo que se guarda en products.category_id de Neon. */
+  id?: number;
 }
 
 /** Categoría de reserva: productos que no están en nuestra carta. */
 export const CATEGORIA_RESERVA = 'La carta';
 
 export const CATEGORIES: Category[] = [
-  { name: 'Hamburguesas de carne', slug: 'hamburguesas-carne' },
-  { name: 'Hamburguesas de pollo', slug: 'hamburguesas-pollo' },
-  { name: 'Perritos', slug: 'perritos' },
-  { name: 'Pan de ajo', slug: 'pan-de-ajo' },
-  { name: 'Papas', slug: 'papas' },
-  { name: 'Platos combinados', slug: 'platos-combinados' },
-  { name: 'Bocadillos calientes', slug: 'bocadillos-calientes' },
-  { name: 'Sándwiches calientes', slug: 'sandwiches-calientes' },
-  { name: 'Pizzas', slug: 'pizzas' },
-  { name: 'Cafés e infusiones', slug: 'cafes-e-infusiones' },
-  { name: 'Refrescos, aguas y zumos', slug: 'refrescos-aguas-zumos' },
-  { name: 'Cervezas', slug: 'cervezas' },
-  { name: 'Licores y destilados', slug: 'licores-y-destilados' },
-  { name: 'Vinos', slug: 'vinos' },
-  { name: CATEGORIA_RESERVA, slug: 'la-carta' },
+  { id: 1, name: 'Hamburguesas de carne', slug: 'hamburguesas-carne' },
+  { id: 2, name: 'Hamburguesas de pollo', slug: 'hamburguesas-pollo' },
+  { id: 3, name: 'Perritos', slug: 'perritos' },
+  { id: 4, name: 'Pan de ajo', slug: 'pan-de-ajo' },
+  { id: 5, name: 'Papas', slug: 'papas' },
+  { id: 6, name: 'Platos combinados', slug: 'platos-combinados' },
+  { id: 7, name: 'Bocadillos calientes', slug: 'bocadillos-calientes' },
+  { id: 8, name: 'Sándwiches calientes', slug: 'sandwiches-calientes' },
+  { id: 9, name: 'Pizzas', slug: 'pizzas' },
+  { id: 10, name: 'Cafés e infusiones', slug: 'cafes-e-infusiones' },
+  { id: 11, name: 'Refrescos, aguas y zumos', slug: 'refrescos-aguas-zumos' },
+  { id: 12, name: 'Cervezas', slug: 'cervezas' },
+  { id: 13, name: 'Licores y destilados', slug: 'licores-y-destilados' },
+  { id: 14, name: 'Vinos', slug: 'vinos' },
+  { id: 15, name: CATEGORIA_RESERVA, slug: 'la-carta' },
 ];
 
 import IDS_SUPABASE from './productos-supabase.json';
@@ -222,8 +226,13 @@ export async function getProductos(): Promise<Product[]> {
           const presentacion = PRESENTACION[String(p.nombre)];
           // La categoría: la de nuestra carta si el producto está en ella, si
           // no la que trae la base de datos, y si tampoco, la de reserva.
+          // Si el panel de inventario ha asignado una categoria, manda la suya
+          // (viene en category_id); si no, la de nuestra carta.
+          const porId = p.categoria_id
+            ? CATEGORIES.find((c) => c.id === Number(p.categoria_id))
+            : undefined;
           const categoriaNombre =
-            presentacion?.categoria ?? p.categoria ?? CATEGORIA_RESERVA;
+            porId?.name ?? presentacion?.categoria ?? p.categoria ?? CATEGORIA_RESERVA;
           const precio = presentacion?.precio ?? Number(p.precio);
           return {
             id: String(p.id),
@@ -238,6 +247,7 @@ export async function getProductos(): Promise<Product[]> {
             precio_eur: precio,
             // Agotado: el panel de inventario lo cambia en la base de datos.
             disponible: p.disponible !== false,
+            categoria_id: p.categoria_id ?? null,
           };
         });
       }
@@ -310,6 +320,7 @@ export function categoriasDe(productos: Product[]): Category[] {
       vistas.set(producto.category_slug, {
         name: producto.category,
         slug: producto.category_slug,
+        id: producto.categoria_id ?? undefined,
       });
     }
   }
