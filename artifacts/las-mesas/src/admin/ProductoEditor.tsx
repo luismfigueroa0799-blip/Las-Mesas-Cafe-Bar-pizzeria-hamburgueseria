@@ -288,6 +288,7 @@ const ProductoEditorForm: React.FC<Props> = ({ producto, token, onGuardar, onBor
 
               <div className="admin-imagen-acciones">
                 <input
+                  id="input-producto-imagen"
                   ref={inputFichero}
                   type="file"
                   accept="image/*"
@@ -295,7 +296,16 @@ const ProductoEditorForm: React.FC<Props> = ({ producto, token, onGuardar, onBor
                   onChange={(e) => void elegirImagen(e)}
                   data-testid="input-producto-imagen"
                 />
-                <label className="admin-boton admin-boton-claro admin-boton-fichero">
+                <label
+                  htmlFor="input-producto-imagen"
+                  className="admin-boton admin-boton-claro admin-boton-fichero"
+                  onClick={(e) => {
+                    // El label ya abre el input, pero lo assuremos: si el
+                    // navegador no lo hace, lo abrimos nosotros.
+                    e.preventDefault();
+                    inputFichero.current?.click();
+                  }}
+                >
                   {subiendo ? (
                     <>
                       <Loader2 size={16} className="admin-girando" /> Subiendo…
