@@ -529,3 +529,106 @@
   .admin-modal-acciones .admin-boton { flex: 1 1 auto; }
   .admin-pestana { padding: 0 12px; font-size: .68rem; }
 }
+
+/* =====================================================================
+   SUBIDA DE IMAGEN DESDE EL DISPOSITIVO
+   ===================================================================== */
+.admin-imagen-zona {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.admin-imagen-previa {
+  position: relative;
+  width: 118px;
+  height: 118px;
+  flex: none;
+  border: 1px solid rgba(212,175,55,.4);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #1b1b1b;
+}
+.admin-imagen-previa img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.admin-imagen-quitar {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(0,0,0,.72);
+  color: #f0a49e;
+  cursor: pointer;
+}
+.admin-imagen-quitar:hover {
+  background: rgba(224,87,78,.85);
+  color: #fff;
+}
+.admin-imagen-vacia {
+  width: 118px;
+  height: 118px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  gap: 4px;
+  align-content: center;
+  border: 1px dashed rgba(255,255,255,.22);
+  border-radius: 8px;
+  color: #7b7b85;
+  font-size: .64rem;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.admin-imagen-acciones {
+  flex: 1 1 200px;
+  min-width: 0;
+  display: grid;
+  gap: 7px;
+  justify-items: start;
+}
+/* El input de fichero real se oculta: el label es el boton. */
+.admin-input-fichero {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.admin-boton-fichero {
+  cursor: pointer;
+  min-height: 48px;
+  padding: 0 18px;
+}
+.admin-girando {
+  animation: admin-giro 1s linear infinite;
+}
+@keyframes admin-giro {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 480px) {
+  .admin-imagen-zona {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .admin-imagen-previa,
+  .admin-imagen-vacia {
+    width: 100%;
+    height: 170px;
+  }
+  .admin-boton-fichero {
+    width: 100%;
+    justify-content: center;
+  }
+}
