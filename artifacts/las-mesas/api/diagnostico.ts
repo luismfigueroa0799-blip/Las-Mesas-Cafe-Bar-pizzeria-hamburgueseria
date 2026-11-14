@@ -232,6 +232,21 @@ export default async function handler(req: Req, res: Res): Promise<void> {
           const np = await pool.query('select count(*)::int as total from public.products');
           productos = np?.rows?.[0]?.total ?? 0;
         }
+        // Detalle de la tabla products: tipo, si admite null y el default.
+        let detalleProductos = '';
+        if (existeProductos) {
+          try {
+            const dc = await pool.query(
+              "select column_name, data_type, is_nullable, column_default from information_schema.columns where table_schema = 'public' and table_name = 'products' order by ordinal_position",
+            );
+            detalleProductos = (dc?.rows ?? [])
+              .map((x: any) => `${x.column_name}:${x.data_type}${x.is_nullable === 'YES' ? '?' : ''}${x.column_default ? '=' + String(x.column_default).slice(0, 22) : ''}`)
+              .join(' | ');
+          } catch (error) {
+            detalleProductos = 'error: ' + (error instanceof Error ? error.message : String(error));
+          }
+        }
+
         // Prueba real de escritura: se inserta un producto de prueba y se
         // borra. Si esto funciona, la importacion del panel tambien.
         let pruebaProductos = 'no se pudo comprobar';
@@ -354,6 +369,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
           pedidos: pedidos?.rows?.[0]?.total ?? null,
           tablaProductos: existeProductos,
           columnasProductos,
+          detalleProductos,
           productos,
         };
       } finally {

@@ -280,10 +280,15 @@ export default async function handler(req: Req, res: Res): Promise<void> {
           return;
         }
 
-        // Producto nuevo: el id lo pone la base de datos.
+        // Producto nuevo: el id se calcula aqui (max + 1) para no depender
+        // de que la columna tenga un default.
+        const siguiente = await pool.query(
+          'select coalesce(max(id), 0) + 1 as id from public.products',
+        );
+        const idNuevo = Number(siguiente?.rows?.[0]?.id ?? 1);
         const r = await pool.query(
-          'insert into products (name, description, price, image_url, category_id, is_available) values ($1, $2, $3, $4, $5, $6) returning id, name, description, price, image_url, category_id, is_available',
-          [nombre, descripcion, precio, imagen, categoriaId, disponible],
+          'insert into products (id, name, description, price, image_url, category_id, is_available) values ($1, $2, $3, $4, $5, $6, $7) returning id, name, description, price, image_url, category_id, is_available',
+          [idNuevo, nombre, descripcion, precio, imagen, categoriaId, disponible],
         );
         responder(res, { ok: true, creado: true, producto: r?.rows?.[0] ?? null });
       } catch (error) {
