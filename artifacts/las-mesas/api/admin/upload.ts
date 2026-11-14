@@ -143,21 +143,6 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     return;
   }
 
-  // ── 2) El almacen ──
-  const blobToken = String(entorno().BLOB_READ_WRITE_TOKEN ?? '').trim();
-  if (!blobToken) {
-    responder(
-      res,
-      {
-        error:
-          'El almacen de imagenes no esta configurado. Crea un Blob store en ' +
-          'Vercel (Storage) y añade la variable BLOB_READ_WRITE_TOKEN.',
-      },
-      503,
-    );
-    return;
-  }
-
   // ── 3) El fichero ──
   const body = leerCuerpo(req);
   const nombre = String(body.nombre ?? 'imagen.jpg');
@@ -198,7 +183,22 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     return;
   }
 
-  // ── 4) Subir a Vercel Blob ──
+  // ── 4) El almacen ──
+  const blobToken = String(entorno().BLOB_READ_WRITE_TOKEN ?? '').trim();
+  if (!blobToken) {
+    responder(
+      res,
+      {
+        error:
+          'El almacen de imagenes no esta configurado. Crea un Blob store en ' +
+          'Vercel (Storage) y añade la variable BLOB_READ_WRITE_TOKEN.',
+      },
+      503,
+    );
+    return;
+  }
+
+  // ── 5) Subir a Vercel Blob ──
   try {
     const { putImage } = await import('@vercel/blob');
     const resultado = await putImage(
