@@ -9,6 +9,12 @@ indique cada paso** (n8n → ⋯ → Import from File → sobrescribe el que exi
 | `n8n-confirmacion-pago-stripe.json` | Aviso de pago a cocina: inserta el pedido en Neon, manda Telegram, email y aviso por voz. **Incluye el INSERT en Neon.** |
 | `n8n-confirmacion-pago-stripe-sin-insert.json` | Igual que el anterior pero **sin** el INSERT en Neon (para cuando la web ya guarda el pedido en Neon y no quieres la fila duplicada). |
 
+## Otros flujos
+
+| Documento | Para qué |
+|---|---|
+| `solicitud-celebracion.md` | El formulario de **solicitud de celebración** de la web: qué JSON recibe el webhook `solicitud-celebracion`, cómo mapearlo a la tabla `solicitudes_celebracion` de Neon y por qué hay que **activar** el flujo. |
+
 ## Recomendación
 
 1. Importa `n8n-confirmacion-pago-stripe-sin-insert.json` (el de 9 KB, sin insert).
