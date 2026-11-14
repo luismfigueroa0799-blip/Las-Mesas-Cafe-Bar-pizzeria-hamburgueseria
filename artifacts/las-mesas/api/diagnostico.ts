@@ -355,11 +355,43 @@ export default async function handler(req: Req, res: Res): Promise<void> {
           }
         }
 
+        // ── Tabla de solicitudes de celebracion ──
+        // Se muestran las columnas y las ultimas filas insertadas. Sirve
+        // para saber que expresiones tienen que usar los nodos de n8n: el
+        // nodo de Postgres devuelve las COLUMNAS de la tabla, no el JSON
+        // que envio la web.
+        let detalleCelebracion: any = null;
+        const existeCelebracion = (tablas?.rows ?? []).some(
+          (t: any) => t.table_name === 'solicitudes_celebracion',
+        );
+        if (existeCelebracion) {
+          try {
+            const dc = await pool.query(
+              "select column_name, data_type, is_nullable from information_schema.columns where table_schema = 'public' and table_name = 'solicitudes_celebracion' order by ordinal_position",
+            );
+            const filas = await pool.query(
+              'select * from public.solicitudes_celebracion order by id desc limit 5',
+            );
+            detalleCelebracion = {
+              columnas: (dc?.rows ?? []).map(
+                (x: any) =>
+                  `${x.column_name}:${x.data_type}${x.is_nullable === 'YES' ? '?' : ''}`,
+              ),
+              totalFilas: filas?.rows?.length ?? 0,
+              filas: filas?.rows ?? [],
+            };
+          } catch (error) {
+            detalleCelebracion =
+              'error: ' + (error instanceof Error ? error.message : String(error));
+          }
+        }
+
         resultado.neon = {
           ok: true,
           ms: Date.now() - inicio,
           pruebaProductos,
           pruebaAgotado,
+          detalleCelebracion,
           tablas: (tablas?.rows ?? []).map((t: any) => t.table_name),
           clavesPrimarias: (pk?.rows ?? []).map(
             (x: any) => x.table_name + '.' + x.column_name,
