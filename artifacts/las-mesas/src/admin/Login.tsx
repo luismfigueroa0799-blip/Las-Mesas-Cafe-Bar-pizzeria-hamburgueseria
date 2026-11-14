@@ -5,20 +5,24 @@ import { LogIn, UtensilsCrossed } from 'lucide-react';
 import { hayClavePublica, supabaseNavegador } from '@/lib/supabase';
 
 /**
- * Pagina de acceso al panel de inventario (/login).
+ * Pantalla de acceso rapido al panel de inventario (/admin/inventario).
  *
- * El login se hace con supabase.auth.signInWithPassword (necesita la clave
- * publica de Supabase en el entorno: NEXT_PUBLIC_SUPABASE_ANON_KEY). Si esa
- * clave no esta puesta, se usa nuestra propia API (/api/admin-login), que
- * hace exactamente lo mismo pero en el servidor: asi la clave secreta de
+ * Solo se pide la contrasena: el correo del staff es fijo, asi que no hay
+ * ningun boton de registrarse ni de recuperar contrasena (el acceso es
+ * exclusivo del personal).
+ *
+ * El login se hace con supabase.auth.signInWithPassword si hay clave publica
+ * de Supabase en el entorno; si no, contra nuestra propia API (/api/admin-login),
+ * que hace exactamente lo mismo pero en el servidor: asi la clave secreta de
  * Supabase nunca sale del servidor.
  *
  * Al entrar correctamente se redirige a /admin/inventario.
- *
- * Si algo falla, se muestra el motivo: nunca se queda en silencio.
  */
 
-const CLAVE_TOKEN = 'lm_admin_token';
+/** Correo del usuario staff. Se puede cambiar con VITE_STAFF_EMAIL. */
+export const EMAIL_STAFF =
+  (import.meta.env?.VITE_STAFF_EMAIL as string | undefined)?.trim() ||
+  'admin@lasmesas.com';
 
 /**
  * URLs donde vive esta web con la API (el proyecto de Vercel).
@@ -42,7 +46,7 @@ export function sitioSinApi(): boolean {
 
 export function guardarToken(token: string) {
   try {
-    sessionStorage.setItem(CLAVE_TOKEN, token);
+    sessionStorage.setItem('lm_admin_token', token);
   } catch {
     /* sin sessionStorage */
   }
@@ -50,7 +54,7 @@ export function guardarToken(token: string) {
 
 export function leerToken(): string {
   try {
-    return sessionStorage.getItem(CLAVE_TOKEN) ?? '';
+    return sessionStorage.getItem('lm_admin_token') ?? '';
   } catch {
     return '';
   }
@@ -58,14 +62,13 @@ export function leerToken(): string {
 
 export function borrarToken() {
   try {
-    sessionStorage.removeItem(CLAVE_TOKEN);
+    sessionStorage.removeItem('lm_admin_token');
   } catch {
     /* sin sessionStorage */
   }
 }
 
 const Login: React.FC<{ destino?: string }> = ({ destino = '/admin/inventario' }) => {
-  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [detalle, setDetalle] = useState('');
@@ -85,24 +88,20 @@ const Login: React.FC<{ destino?: string }> = ({ destino = '/admin/inventario' }
       const supabase = supabaseNavegador();
       if (supabase) {
         const { data, error: errorSupabase } = await supabase.auth.signInWithPassword({
-          email: email.trim(),
+          email: EMAIL_STAFF,
           password,
         });
 
         if (errorSupabase) {
-          setError('No se pudo iniciar sesión');
-          setDetalle(
-            `${errorSupabase.message} (${errorSupabase.status ?? 'sin codigo'})`,
-          );
+          setError('Contraseña incorrecta');
+          setDetalle(errorSupabase.message);
           return;
         }
         if (!data.session?.access_token) {
-          setError('Supabase no ha devuelto ninguna sesión');
-          setDetalle('El usuario existe pero no se ha podido iniciar la sesión.');
+          setError('No se ha podido iniciar la sesión');
           return;
         }
         guardarToken(data.session.access_token);
-        setDetalle(`Sesión iniciada con Supabase (${email.trim()}). Redirigiendo…`);
         window.location.assign(destino);
         return;
       }
@@ -112,7 +111,7 @@ const Login: React.FC<{ destino?: string }> = ({ destino = '/admin/inventario' }
       const r = await fetch('/api/admin-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), password }),
+        body: JSON.stringify({ email: EMAIL_STAFF, password }),
       });
 
       const texto = await r.text();
@@ -133,12 +132,10 @@ const Login: React.FC<{ destino?: string }> = ({ destino = '/admin/inventario' }
       }
       if (!r.ok) {
         setError(datos?.error ?? 'No se pudo iniciar sesión');
-        setDetalle(`HTTP ${r.status}`);
         return;
       }
 
       guardarToken(String(datos.token ?? ''));
-      setDetalle(`Sesión iniciada (${email.trim()}). Redirigiendo…`);
       window.location.assign(destino);
     } catch (error) {
       setError('No se pudo iniciar sesión');
@@ -167,28 +164,12 @@ const Login: React.FC<{ destino?: string }> = ({ destino = '/admin/inventario' }
         </p>
       )}
 
-      <form className="admin-card" onSubmit={entrar} noValidate={false}>
+      <form className="admin-card admin-card-corta" onSubmit={entrar}>
         <span className="admin-eyebrow">
           <UtensilsCrossed size={16} /> Las Mesas
         </span>
         <h1>Acceso staff</h1>
-        <p className="admin-sub">
-          Entra con tu usuario de staff para gestionar el inventario de la carta.
-        </p>
-
-        <label className="admin-field">
-          <span>Correo</span>
-          <input
-            type="email"
-            name="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="admin@lasmesas.com"
-            autoComplete="username"
-            required
-            data-testid="input-admin-email"
-          />
-        </label>
+        <p className="admin-sub">Introduce tu contraseña para entrar.</p>
 
         <label className="admin-field">
           <span>Contraseña</span>
@@ -199,6 +180,7 @@ const Login: React.FC<{ destino?: string }> = ({ destino = '/admin/inventario' }
             onChange={(e) => setPassword(e.target.value)}
             placeholder="••••••••"
             autoComplete="current-password"
+            autoFocus
             required
             data-testid="input-admin-password"
           />
@@ -210,7 +192,6 @@ const Login: React.FC<{ destino?: string }> = ({ destino = '/admin/inventario' }
             {detalle && <span className="admin-error-detalle"> · {detalle}</span>}
           </p>
         )}
-        {!error && detalle && <p className="admin-ok">{detalle}</p>}
 
         <button
           type="submit"
@@ -223,11 +204,6 @@ const Login: React.FC<{ destino?: string }> = ({ destino = '/admin/inventario' }
 
         <p className="admin-nota">
           <a href="/">← Volver a la web</a>
-          {' · '}
-          <a href={'https://' + URLS_CON_API[0] + '/admin/inventario'}>Ir al inventario</a>
-        </p>
-        <p className="admin-nota admin-nota-pequena">
-          Método de acceso: {hayClavePublica ? 'Supabase Auth (navegador)' : 'API del servidor'}
         </p>
       </form>
     </div>

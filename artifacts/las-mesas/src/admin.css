@@ -280,3 +280,13 @@
   font-size: .68rem;
   opacity: .7;
 }
+.admin-card-corta {
+  gap: 12px;
+  padding: 24px 20px;
+}
+.admin-card-corta h1 {
+  font-size: 1.55rem;
+}
+.admin-card-corta .admin-sub {
+  margin-top: -4px;
+}
