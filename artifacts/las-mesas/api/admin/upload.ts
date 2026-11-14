@@ -199,20 +199,36 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   }
 
   // ── 5) Subir a Vercel Blob ──
+  const ruta = `productos/${nombreSeguro(nombre)}.img`;
   try {
-    const { putImage } = await import('@vercel/blob');
-    const resultado = await putImage(
-      `productos/${nombreSeguro(nombre)}.img`,
-      buffer,
-      {
+    const blob = await import('@vercel/blob');
+
+    // Primero se intenta con la optimizacion de Vercel (webp y ancho
+    // maximo de 1400 px). Si el plan no la tiene, se sube sin optimizar para
+    // que la subida funcione igualmente.
+    let url = '';
+    let optimizada = true;
+    try {
+      const resultado = await blob.putImage(ruta, buffer, {
         access: 'public',
         token: blobToken,
         addRandomSuffix: true,
-        // Vercel optimiza la imagen (webp) y la deja como maximo de 1400 px.
         optimizeImage: { width: 1400, quality: 85 },
-      },
-    );
-    responder(res, { ok: true, url: resultado.url, nombre: nombreSeguro(nombre) });
+      });
+      url = resultado.url;
+    } catch (errorImagen) {
+      optimizada = false;
+      g.console?.warn?.('[upload] sin optimizacion de imagen, se sube tal cual:', errorImagen);
+      const resultado = await blob.put(ruta, buffer, {
+        access: 'public',
+        token: blobToken,
+        addRandomSuffix: true,
+        contentType: 'image/jpeg',
+      });
+      url = resultado.url;
+    }
+
+    responder(res, { ok: true, url, nombre: nombreSeguro(nombre), optimizada });
   } catch (error) {
     g.console?.error?.('[upload] no se pudo subir la imagen:', error);
     responder(res, { error: 'No se pudo subir la imagen al almacen' }, 502);
