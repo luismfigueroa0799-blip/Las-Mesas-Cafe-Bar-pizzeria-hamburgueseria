@@ -151,7 +151,14 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     }
 
     log('[celebracion] Solicitud enviada a n8n', { nombre, tipoEvento });
-    responder(res, { ok: true, enviado: true });
+
+    // ── Aviso opcional a Telegram, enviado desde la web ──
+    // Si hay TELEGRAM_BOT_TOKEN y TELEGRAM_CHAT_ID en el entorno, el aviso
+    // se manda desde aqui (sin depender de n8n). Si no, el aviso lo manda el
+    // nodo de Telegram del flujo de n8n.
+    const aviso = await avisarTelegram({ nombre, contacto, tipoEvento, fechaAproximada, numeroPersonas, detalles });
+
+    responder(res, { ok: true, enviado: true, telegram: aviso });
   } catch (error) {
     g.console?.error?.('[celebracion] no se pudo enviar la solicitud:', error);
     responder(
@@ -169,4 +176,64 @@ export default async function handler(req: Req, res: Res): Promise<void> {
 function log(...args: unknown[]): void {
   const c = g.console;
   if (c && typeof c.log === 'function') c.log(...args);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Aviso a Telegram
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface Solicitud {
+  nombre: string;
+  contacto: string;
+  tipoEvento: string;
+  fechaAproximada: string;
+  numeroPersonas: number;
+  detalles: string;
+}
+
+/**
+ * Manda el aviso de la solicitud a Telegram, si estan el token y el chat.
+ *
+ *   TELEGRAM_BOT_TOKEN   token del bot (lo da @BotFather)
+ *   TELEGRAM_CHAT_ID     id del chat o grupo donde avisar
+ *
+ * Devuelve 'enviado', 'no configurado' o el motivo del fallo. Nunca lanza:
+ * si el aviso falla, la solicitud ya esta guardada y no hay que dar error al
+ * cliente.
+ */
+async function avisarTelegram(s: Solicitud): Promise<string> {
+  const env = entorno();
+  const token = String(env.TELEGRAM_BOT_TOKEN ?? '').trim();
+  const chatId = String(env.TELEGRAM_CHAT_ID ?? '').trim();
+  if (!token || !chatId) return 'no configurado';
+
+  const texto = [
+    '🎉 ¡NUEVA SOLICITUD DE CELEBRACIÓN! 🎉',
+    '',
+    `👤 Nombre: ${s.nombre}`,
+    `📞 Contacto: ${s.contacto}`,
+    `🎊 Tipo: ${s.tipoEvento}`,
+    `📅 Fecha: ${s.fechaAproximada}`,
+    `👥 Personas: ${s.numeroPersonas}`,
+    '',
+    `📝 Detalles: ${s.detalles}`,
+  ].join('\n');
+
+  try {
+    const r = await g.fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, text: texto }),
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!r.ok) {
+      const detalle = (await r.text()).slice(0, 200);
+      log('[celebracion] Telegram respondio', r.status, detalle);
+      return 'fallo: HTTP ' + r.status;
+    }
+    return 'enviado';
+  } catch (error) {
+    log('[celebracion] no se pudo avisar a Telegram:', error);
+    return 'fallo: ' + (error instanceof Error ? error.message : String(error));
+  }
 }

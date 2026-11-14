@@ -69,57 +69,113 @@ La tabla `solicitudes_celebracion` de Neon queda así (es la que hay creada):
 ## ⚠️ Qué expresiones poner en cada nodo (esto es lo importante)
 
 El JSON que manda la web va **plano en la raíz**, pero **cada nodo de n8n ve
-una cosa distinta**. Por eso el mismo dato se llama de una forma o de otra
-dependiendo del nodo:
+una cosa distinta**:
 
-| Nodo | Qué hay en `$json` | Cómo pedir el nombre |
-|---|---|---|
-| **Webhook** (el primero) | `{headers, params, query, body, webhookUrl, executionMode}` → el JSON de la web está dentro de `body` | `{{ $json.body.nombre }}` |
-| **Postgres** (si va justo detrás del webhook) | lo mismo que el webhook | `{{ $json.body.nombre }}` |
-| **Telegram / HTTP Request / email** (si van **después** del Postgres) | **la fila insertada en Neon**, con los nombres de las columnas | `{{ $json.nombre }}` |
+| Nodo | Qué hay en `$json` |
+|---|---|
+| **Webhook** (el primero) | `{headers, params, query, body, webhookUrl, executionMode}` → el JSON de la web está dentro de `body` |
+| **Webhook con "Raw Body"** | `body` es un **texto** con el JSON, no un objeto |
+| **Postgres / Telegram** (si van **después** del Postgres) | **la fila insertada en Neon**, con los nombres de las columnas |
 
-### Ejemplo: nodo de Postgres (columna → valor)
+Por eso a veces `$json.body.nombre` da `undefined` y otras veces
+`$json.nombre` da vacío: **depende de en qué nodo se pone**.
+
+## ✅ La solución blindada: un nodo Code que lo normaliza todo
+
+Añade un nodo **Code** (o *Execute Code*) justo después del **Webhook** y
+conecta **desde él** tanto el nodo de Postgres como el de Telegram:
+
+```
+Webhook  ->  Code "Normalizar solicitud"  ┬──> Postgres (insertar fila)
+                                            └──> Telegram (aviso)
+```
+
+**Código del nodo Code** (pegar en *Code → JavaScript*, modo *Run Once for All Items*):
+
+```js
+// Normaliza la solicitud de celebracion: deja los datos con el nombre de
+// las columnas de la tabla solicitudes_celebracion, este donde estuvieran.
+const salida = [];
+for (const item of items) {
+  const j = item.json ?? {};
+  let b = j.body ?? j;
+  if (typeof b === 'string') {
+    try { b = JSON.parse(b); } catch { b = {}; }
+  }
+  const f = { ...j, ...b };
+  salida.push({
+    json: {
+      nombre: f.nombre ?? '',
+      contacto: f.contacto ?? '',
+      tipo_evento: f.tipoEvento ?? f.tipo_evento ?? '',
+      fecha_aproximada: f.fechaAproximada ?? f.fecha_aproximada ?? '',
+      numero_personas: Number(f.numeroPersonas ?? f.numero_personas ?? 0),
+      detalles: f.detalles ?? '',
+    },
+  });
+}
+return salida;
+```
+
+Este código busca los datos **en la raíz, en `body`, y aunque `body` venga
+como texto** (por si el webhook tiene *Raw Body* activado), y acepta tanto
+`tipoEvento` como `tipo_evento`.
+
+### Con el nodo Code, las expresiones son IGUALES en todos los nodos
+
+**Nodo de Postgres** (columna → valor):
 
 | Columna | Valor |
 |---|---|
-| `nombre` | `{{ $json.body.nombre }}` |
-| `contacto` | `{{ $json.body.contacto }}` |
-| `tipo_evento` | `{{ $json.body.tipoEvento }}` |
-| `fecha_aproximada` | `{{ $json.body.fechaAproximada }}` |
-| `numero_personas` | `{{ $json.body.numeroPersonas }}` |
-| `detalles` | `{{ $json.body.detalles }}` |
+| `nombre` | `{{ $json.nombre }}` |
+| `contacto` | `{{ $json.contacto }}` |
+| `tipo_evento` | `{{ $json.tipo_evento }}` |
+| `fecha_aproximada` | `{{ $json.fecha_aproximada }}` |
+| `numero_personas` | `{{ $json.numero_personas }}` |
+| `detalles` | `{{ $json.detalles }}` |
 
-### Ejemplo: nodo de Telegram (después del Postgres)
+**Nodo de Telegram** (el aviso):
 
 ```
-🎉 Nueva solicitud de celebración
+🎉 ¡NUEVA SOLICITUD DE CELEBRACIÓN! 🎉
 
 👤 Nombre: {{ $json.nombre }}
 📞 Contacto: {{ $json.contacto }}
 🎊 Tipo: {{ $json.tipo_evento }}
-📅 Fecha aproximada: {{ $json.fecha_aproximada }}
+📅 Fecha: {{ $json.fecha_aproximada }}
 👥 Personas: {{ $json.numero_personas }}
 
-📝 Detalles:
-{{ $json.detalles }}
-
-Nº de solicitud: {{ $json.id }}
+📝 Detalles: {{ $json.detalles }}
 ```
+
+Como ambos nodos cuelgan del Code, **da igual en qué orden estén**: los dos
+leen lo mismo ✅.
+
+### Sin nodo Code (alternativa rápida)
+
+Si no quieres añadir nodos, el Postgres va justo detrás del Webhook y ahí sí
+vale `$json.body.…`; el Telegram, si va **después** del Postgres, usa los
+**nombres de las columnas**:
+
+| Dato | En el Postgres (tras el webhook) | En el Telegram (tras el Postgres) |
+|---|---|---|
+| nombre | `{{ $json.body.nombre }}` | `{{ $json.nombre }}` |
+| contacto | `{{ $json.body.contacto }}` | `{{ $json.contacto }}` |
+| tipo de evento | `{{ $json.body.tipoEvento }}` | `{{ $json.tipo_evento }}` |
+| fecha | `{{ $json.body.fechaAproximada }}` | `{{ $json.fecha_aproximada }}` |
+| personas | `{{ $json.body.numeroPersonas }}` | `{{ $json.numero_personas }}` |
+| detalles | `{{ $json.body.detalles }}` | `{{ $json.detalles }}` |
 
 **El error típico**: poner `{{ $json.body.nombre }}` en el nodo de Telegram.
 Ahí `$json` es la fila de Neon, no el webhook, y `$json.body` no existe →
-sale **undefined**.
+sale **undefined** o **vacío**.
 
-Dos formas de arreglarlo:
+## Alternativa sin n8n: que avise la web
 
-1. **Cambiar las expresiones** del nodo de Telegram a los nombres de columna
-   (`{{ $json.nombre }}`, `{{ $json.tipo_evento }}`, …) ← recomendado.
-2. **Mover el nodo de Telegram antes del Postgres**: entonces vuelve a
-   aplicar `{{ $json.body.nombre }}`.
-
-> La web manda además alias en `snake_case` (`tipo_evento`, `fecha_aproximada`,
-> `numero_personas`) junto a los del contrato, así que en el nodo de Postgres
-> sirve `{{ $json.body.tipoEvento }}` o `{{ $json.body.tipo_evento }}`.
+Si se rellenan `TELEGRAM_BOT_TOKEN` y `TELEGRAM_CHAT_ID` en Vercel, la
+**propia web** manda el aviso a Telegram (además de guardar la solicitud en
+Neon por medio de n8n). En ese caso hay que **quitar o desactivar el nodo de
+Telegram** del flujo para no recibir el aviso dos veces.
 
 ## ⚠️ Hay que ACTIVAR el flujo
 
