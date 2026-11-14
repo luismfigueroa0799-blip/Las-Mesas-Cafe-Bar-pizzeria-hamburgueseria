@@ -53,28 +53,73 @@ Navegador ──POST /api/solicitud-celebracion──▶ Vercel (servidor) ─�
 
 ## La tabla en Neon
 
-El nodo de Postgres del flujo debe insertar en `solicitudes_celebracion`.
-Una tabla que sirve:
+La tabla `solicitudes_celebracion` de Neon queda así (es la que hay creada):
 
-```sql
-CREATE TABLE solicitudes_celebracion (
-  id                SERIAL PRIMARY KEY,
-  nombre            TEXT NOT NULL,
-  contacto          TEXT NOT NULL,
-  tipo_evento       TEXT,
-  fecha_aproximada  TEXT,
-  numero_personas   INTEGER,
-  detalles          TEXT,
-  estado            TEXT DEFAULT 'nueva',
-  fecha             TIMESTAMPTZ DEFAULT NOW()
-);
+| Columna | Tipo | Valor |
+|---|---|---|
+| `id` | integer | autoincrement |
+| `nombre` | varchar | `nombre` |
+| `contacto` | varchar | `contacto` |
+| `tipo_evento` | varchar | `tipoEvento` |
+| `fecha_aproximada` | varchar | `fechaAproximada` |
+| `numero_personas` | integer | `numeroPersonas` |
+| `detalles` | text | `detalles` |
+| `fecha_creacion` | timestamp | lo pone n8n al insertar |
+
+## ⚠️ Qué expresiones poner en cada nodo (esto es lo importante)
+
+El JSON que manda la web va **plano en la raíz**, pero **cada nodo de n8n ve
+una cosa distinta**. Por eso el mismo dato se llama de una forma o de otra
+dependiendo del nodo:
+
+| Nodo | Qué hay en `$json` | Cómo pedir el nombre |
+|---|---|---|
+| **Webhook** (el primero) | `{headers, params, query, body, webhookUrl, executionMode}` → el JSON de la web está dentro de `body` | `{{ $json.body.nombre }}` |
+| **Postgres** (si va justo detrás del webhook) | lo mismo que el webhook | `{{ $json.body.nombre }}` |
+| **Telegram / HTTP Request / email** (si van **después** del Postgres) | **la fila insertada en Neon**, con los nombres de las columnas | `{{ $json.nombre }}` |
+
+### Ejemplo: nodo de Postgres (columna → valor)
+
+| Columna | Valor |
+|---|---|
+| `nombre` | `{{ $json.body.nombre }}` |
+| `contacto` | `{{ $json.body.contacto }}` |
+| `tipo_evento` | `{{ $json.body.tipoEvento }}` |
+| `fecha_aproximada` | `{{ $json.body.fechaAproximada }}` |
+| `numero_personas` | `{{ $json.body.numeroPersonas }}` |
+| `detalles` | `{{ $json.body.detalles }}` |
+
+### Ejemplo: nodo de Telegram (después del Postgres)
+
+```
+🎉 Nueva solicitud de celebración
+
+👤 Nombre: {{ $json.nombre }}
+📞 Contacto: {{ $json.contacto }}
+🎊 Tipo: {{ $json.tipo_evento }}
+📅 Fecha aproximada: {{ $json.fecha_aproximada }}
+👥 Personas: {{ $json.numero_personas }}
+
+📝 Detalles:
+{{ $json.detalles }}
+
+Nº de solicitud: {{ $json.id }}
 ```
 
-> **Ojo con el mapeo del nodo de Postgres**: en n8n las expresiones del
-> nodo usan `{{ $json.body.nombre }}` (o `{{ $json.nombre }}` si el nodo
-> anterior ya se quedó con el cuerpo). Los campos de la tabla se llaman en
-> `snake_case` (`tipo_evento`, `numero_personas`…), pero el JSON que llega
-> desde la web usa `camelCase` (`tipoEvento`, `numeroPersonas`).
+**El error típico**: poner `{{ $json.body.nombre }}` en el nodo de Telegram.
+Ahí `$json` es la fila de Neon, no el webhook, y `$json.body` no existe →
+sale **undefined**.
+
+Dos formas de arreglarlo:
+
+1. **Cambiar las expresiones** del nodo de Telegram a los nombres de columna
+   (`{{ $json.nombre }}`, `{{ $json.tipo_evento }}`, …) ← recomendado.
+2. **Mover el nodo de Telegram antes del Postgres**: entonces vuelve a
+   aplicar `{{ $json.body.nombre }}`.
+
+> La web manda además alias en `snake_case` (`tipo_evento`, `fecha_aproximada`,
+> `numero_personas`) junto a los del contrato, así que en el nodo de Postgres
+> sirve `{{ $json.body.tipoEvento }}` o `{{ $json.body.tipo_evento }}`.
 
 ## ⚠️ Hay que ACTIVAR el flujo
 

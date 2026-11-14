@@ -103,13 +103,27 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   }
 
   // ── Enviar a n8n ──
+  //
+  // El JSON va PLANO en la raiz (sin envoltorio "body"). El nodo Webhook de
+  // n8n envuelve lo recibido en "body", asi que en el nodo que va justo
+  // detras del webhook se usa {{ $json.body.nombre }}.
+  //
+  // Ademas se envian alias en snake_case (los mismos nombres que tienen las
+  // columnas de la tabla solicitudes_celebracion) para que el nodo de
+  // Postgres acepte {{ $json.body.tipoEvento }} o {{ $json.body.tipo_evento }}
+  // indistintamente.
   const payload = {
+    // Claves del contrato (camelCase).
     nombre,
     contacto,
     tipoEvento,
     fechaAproximada,
     numeroPersonas,
     detalles,
+    // Alias con el nombre de las columnas de la tabla.
+    tipo_evento: tipoEvento,
+    fecha_aproximada: fechaAproximada,
+    numero_personas: numeroPersonas,
   };
 
   const destino = urlWebhook();
