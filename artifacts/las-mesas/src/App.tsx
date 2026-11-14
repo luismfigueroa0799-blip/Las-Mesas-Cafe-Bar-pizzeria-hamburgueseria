@@ -75,6 +75,7 @@ function App() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [reservationStatus, setReservationStatus] = useState('');
   const [eventStatus, setEventStatus] = useState('');
+  const [enviandoCelebracion, setEnviandoCelebracion] = useState(false);
   const [compactHeader, setCompactHeader] = useState(false);
   const [reservationDate, setReservationDate] = useState('');
   const [reservationTime, setReservationTime] = useState('');
@@ -195,6 +196,59 @@ function App() {
       vigente = false;
     };
   }, []);
+
+  /**
+   * Envia la solicitud de celebracion al flujo de n8n, que la guarda en la
+   * tabla solicitudes_celebracion de Neon.
+   */
+  async function enviarCelebracion(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formulario = event.currentTarget;
+    const data = new FormData(formulario);
+
+    setEnviandoCelebracion(true);
+    setEventStatus('');
+
+    try {
+      const respuesta = await fetch('/api/solicitud-celebracion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nombre: String(data.get('eventName') ?? ''),
+          contacto: String(data.get('eventContact') ?? ''),
+          tipoEvento: String(data.get('type') ?? ''),
+          fechaAproximada: String(data.get('eventDate') ?? ''),
+          numeroPersonas: Number(data.get('eventPeople') ?? 0),
+          detalles: String(data.get('details') ?? ''),
+        }),
+      });
+
+      const texto = await respuesta.text();
+      let datos: any = null;
+      try {
+        datos = JSON.parse(texto);
+      } catch {
+        /* respuesta no json */
+      }
+
+      if (!respuesta.ok) {
+        setEventStatus(
+          datos?.error ?? 'No hemos podido enviar la solicitud. Inténtalo de nuevo.',
+        );
+        return;
+      }
+
+      setEventStatus('Solicitud enviada correctamente');
+      formulario.reset();
+    } catch {
+      setEventStatus(
+        'No hemos podido enviar la solicitud. Inténtalo de nuevo o llámanos al ' +
+          '+34 928 896 097.',
+      );
+    } finally {
+      setEnviandoCelebracion(false);
+    }
+  }
 
   function sendWhatsApp(event: FormEvent<HTMLFormElement>, kind: 'reserva' | 'evento') {
     event.preventDefault();
@@ -369,7 +423,7 @@ function App() {
       <section className="celebration section-pad" id="celebraciones">
         <div className="shell celebration-grid">
           <div className="celebration-copy"><p className="eyebrow"><span className="gold-dot" /> Un motivo para juntarse</p><h2>¿Qué celebramos<br /><em>esta vez?</em></h2><p>Cumpleaños, cenas de empresa o esa reunión que lleva tiempo pendiente. Cuéntanos tu idea y el equipo podrá preparar una propuesta a medida.</p><div className="celebration-tags"><span>Cumpleaños</span><span>Cenas de empresa</span><span>Otros encuentros</span></div></div>
-          <form className="form-card event-form" onSubmit={(e) => sendWhatsApp(e, 'evento')}>
+          <form className="form-card event-form" onSubmit={(e) => void enviarCelebracion(e)}>
             <span className="eyebrow">Cuéntanos tu idea</span><h3>Solicitud de celebración</h3>
             <div className="field-grid">
               <label>Nombre<input name="eventName" required autoComplete="name" placeholder="Tu nombre" data-testid="input-event-name" /></label>
@@ -379,8 +433,11 @@ function App() {
               <label>Número de personas<input type="number" min="1" max="100" name="eventPeople" required placeholder="Ej. 12" data-testid="input-event-people" /></label>
               <label className="full-field">Detalles<textarea name="details" required rows={3} placeholder="Cuéntanos un poco más sobre lo que tienes en mente" data-testid="input-event-details" /></label>
             </div>
-            <button className="button button-gold form-submit" type="submit" data-testid="button-event-submit">Enviar consulta por WhatsApp <ArrowRight size={16} /></button>
-            <p className="form-disclaimer">Se abrirá WhatsApp con tu mensaje preparado. Tendrás que enviarlo para que recibamos la consulta; no implica una reserva confirmada.</p>
+            <button className="button button-gold form-submit" type="submit" disabled={enviandoCelebracion} data-testid="button-event-submit">
+              {enviandoCelebracion ? 'Enviando…' : 'Enviar solicitud'}
+              <ArrowRight size={16} />
+            </button>
+            <p className="form-disclaimer">Recibimos tu solicitud y te contactamos para preparar la propuesta. No implica una reserva confirmada.</p>
             {eventStatus && <p className="form-status" role="status" data-testid="status-event">{eventStatus}</p>}
           </form>
         </div>
