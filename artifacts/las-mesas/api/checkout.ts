@@ -341,7 +341,10 @@ async function catalogoProductos(
   // 1) Neon: la tabla 'products' (id, name, description, price, image_url,
   //    is_available, category_id) es la fuente de verdad de la carta y la
   //    que usa el panel de inventario.
-  if (await poolDeNeon()) {
+  const hayUrlNeon = Boolean(
+    String(entorno().DATABASE_URL ?? entorno().NEON_DATABASE_URL ?? '').trim(),
+  );
+  if (hayUrlNeon) {
     const filas = await consultarNeon(
       'select id, name, price, is_available from products where id = any($1::bigint[])',
       [ids],
@@ -353,10 +356,16 @@ async function catalogoProductos(
         disponible: fila.is_available !== false,
       });
     }
+    // Si Neon esta configurado pero no contesta, NO se cae al respaldo de
+    // Supabase: alli la disponibilidad no la actualiza el panel y se podria
+    // vender un producto que ya se ha agotado. Es mejor rechazar.
     if (mapa.size) return mapa;
+    log('[checkout] Neon no ha devuelto los productos: se rechaza por seguridad.');
+    return mapa;
   }
 
-  // 2) Supabase (respaldo)
+  // 2) Supabase (solo si no hay DATABASE_URL configurado): tabla de
+  //    respaldo, cuya disponibilidad no actualiza el panel.
   const cfg = configSupabase();
   if (!cfg) return mapa;
   try {
