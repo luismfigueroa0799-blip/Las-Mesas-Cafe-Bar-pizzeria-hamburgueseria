@@ -8,6 +8,7 @@ indique cada paso** (n8n → ⋯ → Import from File → sobrescribe el que exi
 | `n8n-crear-pedido-domicilio.json` | Crea el pedido a domicilio y la sesión de pago de Stripe (webhook `crear-pedido-domicilio`). |
 | `n8n-confirmacion-pago-stripe.json` | Aviso de pago a cocina: inserta el pedido en Neon, manda Telegram, email y aviso por voz. **Incluye el INSERT en Neon.** |
 | `n8n-confirmacion-pago-stripe-sin-insert.json` | Igual que el anterior pero **sin** el INSERT en Neon (para cuando la web ya guarda el pedido en Neon y no quieres la fila duplicada). |
+| `n8n-solicitud-celebracion.json` | Recibe el formulario de **solicitud de celebración** (webhook `solicitud-celebracion`) y guarda la solicitud en la tabla `solicitudes_celebracion` de Neon, avisando por Telegram. |
 
 ## Otros flujos
 
