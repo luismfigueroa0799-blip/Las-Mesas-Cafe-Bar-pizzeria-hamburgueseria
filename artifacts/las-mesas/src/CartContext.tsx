@@ -77,11 +77,11 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
               : item,
           );
         }
-        const id = `${product.name.replace(/\s+/g, '-')}-${Date.now()}-${previo.length}`;
-        if (!idValido(product.id)) {
-          // El id del producto es el de la tabla `productos` de Supabase.
-          console.warn('[carrito] producto sin id de base de datos:', product.name);
-        }
+        // El id del carrito es el id de la tabla `productos` (numero como string),
+        // el mismo que manda el checkout al validar contra Neon. Con el slug ni
+        // timestamp no se puede resolver el producto y el pedido se rechaza con
+        // "El carrito tiene articulos no validos".
+        const id = String(product.id ?? product.name);
         return [...previo, { ...product, id, quantity: 1 }];
       });
     },

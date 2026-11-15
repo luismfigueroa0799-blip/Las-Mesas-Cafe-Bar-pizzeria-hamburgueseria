@@ -19,7 +19,7 @@ export interface Product {
 
 interface ProductCardProps {
   product: Product;
-  onAddToCart: (product: { name: string; price: string; image: string }) => void;
+  onAddToCart: (product: { id?: string; name: string; price: string; image: string }) => void;
   selectedSize?: 'mini' | 'normal';
   showSizeSelector?: boolean;
 }
@@ -101,6 +101,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
             disabled={!disponible}
             onClick={() =>
               onAddToCart({
+                id: product.id,
                 name: product.name,
                 price: product.price,
                 image: foto ?? '',
