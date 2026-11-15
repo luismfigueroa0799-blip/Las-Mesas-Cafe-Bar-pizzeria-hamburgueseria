@@ -1,0 +1,241 @@
+{
+  "name": "Solicitud de celebración (v4)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "solicitud-celebracion",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        80
+      ],
+      "id": "8c04667b-54b4-492d-afb2-0b73c347772a",
+      "name": "Webhook",
+      "webhookId": "9080123f-3cfd-422a-b806-1c75aa8a8b1b"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Prepara la solicitud de celebracion: saca los datos de donde esten (raiz,\n// body, o body como texto) y deja el aviso escrito en una sola propiedad.\nconst salida = [];\n\nfor (const item of items) {\n  const j = item.json ?? {};\n  let b = j.body ?? j;\n  if (typeof b === 'string') {\n    try { b = JSON.parse(b); } catch { b = {}; }\n  }\n  const f = { ...j, ...b };\n\n  const nombre = String(f.nombre ?? '');\n  const contacto = String(f.contacto ?? '');\n  const tipo = String(f.tipoEvento ?? f.tipo_evento ?? '');\n  const fecha = String(f.fechaAproximada ?? f.fecha_aproximada ?? '');\n  const personas = Number(f.numeroPersonas ?? f.numero_personas ?? 0);\n  const detalles = String(f.detalles ?? '');\n\n  salida.push({\n    json: {\n      // Lo que veia el webhook, para poder diagnosticarlo.\n      _origen: j,\n      nombre,\n      contacto,\n      tipo_evento: tipo,\n      fecha_aproximada: fecha,\n      numero_personas: personas,\n      detalles,\n      mensaje:\n        '🎉 ¡NUEVA SOLICITUD DE CELEBRACIÓN! 🎉\\n\\n' +\n        '👤 Nombre: ' + nombre + '\\n' +\n        '📞 Contacto: ' + contacto + '\\n' +\n        '🎊 Tipo: ' + tipo + '\\n' +\n        '📅 Fecha: ' + fecha + '\\n' +\n        '👥 Personas: ' + personas + '\\n\\n' +\n        '📝 Detalles: ' + detalles,\n    },\n  });\n}\n\nreturn salida;"
+      },
+      "id": "d4e0f9a2-3b5c-4d7e-9f1a-2b3c4d5e6f7a",
+      "name": "Preparar aviso",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "solicitudes_celebracion",
+          "mode": "list",
+          "cachedResultName": "solicitudes_celebracion"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "nombre": "={{ $json.nombre }}",
+            "contacto": "={{ $json.contacto }}",
+            "tipo_evento": "={{ $json.tipo_evento }}",
+            "fecha_aproximada": "={{ $json.fecha_aproximada }}",
+            "numero_personas": "={{ $json.numero_personas }}",
+            "detalles": "={{ $json.detalles }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "nombre",
+              "displayName": "nombre",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "contacto",
+              "displayName": "contacto",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "tipo_evento",
+              "displayName": "tipo_evento",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "fecha_aproximada",
+              "displayName": "fecha_aproximada",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "numero_personas",
+              "displayName": "numero_personas",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "detalles",
+              "displayName": "detalles",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "fecha_creacion",
+              "displayName": "fecha_creacion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        448,
+        0
+      ],
+      "id": "d3b593d7-6896-4377-828c-bc46143cf804",
+      "name": "Insert rows in a table",
+      "credentials": {
+        "postgres": {
+          "id": "1X9SZfp6WIb993oR",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "8279256563",
+        "text": "={{ $json.mensaje }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        448,
+        160
+      ],
+      "id": "06d45116-2ba5-4622-8630-14dd8966824f",
+      "name": "Send a text message",
+      "webhookId": "e2031137-5abf-4f3b-8a74-10d2d7efd965",
+      "credentials": {
+        "telegramApi": {
+          "id": "sIFKDmcGc2Y9u7TU",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "e5f1a0b3-4c6d-4e8f-0a1b-3c4d5e6f7a8b",
+      "name": "Ver datos",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        448,
+        320
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Preparar aviso",
+            "type": "n8n-nodes-base.code",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar aviso": {
+      "main": [
+        [
+          {
+            "node": "Insert rows in a table",
+            "type": "n8n-nodes-base.postgres",
+            "index": 0
+          },
+          {
+            "node": "Send a text message",
+            "type": "n8n-nodes-base.telegram",
+            "index": 0
+          },
+          {
+            "node": "Ver datos",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "cf5180d7-f51c-4fa3-b6d8-56fd466725c7",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "91f9c812266692c02151b84cfda10ce4a643b978c44e62a952c0574d0a918cfa"
+  },
+  "nodeGroups": [],
+  "id": "yb1pPRvNRFGo7RTr",
+  "tags": []
+}
