@@ -1,5 +1,5 @@
 {
-  "name": "Pedidos: confirmación de pago Stripe",
+  "name": "Pedidos: confirmación de pago Stripe → Bark",
   "nodes": [
     {
       "parameters": {
@@ -233,14 +233,19 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://ntfy.sh/nombre-del-tema",
+        "url": "https://api.day.app/gZpwvjWgU8Qedd",
         "sendBody": true,
-        "contentType": "raw",
+        "contentType": "json",
         "rawBody": "=---------------------------------\nPedido: {{ $('Generar Codigo de Pedido').first().json.order_code }}\n---------------------------------\nDetalles:\n{{ $('Generar Codigo de Pedido').first().json.detalle_texto }}\n---------------------------------\nTotal: {{ $('Generar Codigo de Pedido').first().json.total_texto }} €",
         "sendQueryParameters": false,
         "sendHeaders": false,
         "options": {
           "timeout": 15000
+        },
+        "jsonBody": {
+          "title": "🚨 NUEVO PEDIDO EN COCINA 🚨",
+          "body": "Código: {{ $('Generar Codigo de Pedido').first().json.order_code }}\nCliente: {{ $('Generar Codigo de Pedido').first().json.cliente_nombre }}\nTeléfono: {{ $('Generar Codigo de Pedido').first().json.telefono }}\nDirección: {{ $('Generar Codigo de Pedido').first().json.direccion }}\n-------------------------\nDETALLE:\n{{ $('Generar Codigo de Pedido').first().json.detalle_texto }}\n-------------------------\nTOTAL: {{ $('Generar Codigo de Pedido').first().json.total_texto }} €",
+          "level": "critical"
         }
       },
       "type": "n8n-nodes-base.httpRequest",
