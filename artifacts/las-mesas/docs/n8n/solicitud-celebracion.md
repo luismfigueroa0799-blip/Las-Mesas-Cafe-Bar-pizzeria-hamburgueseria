@@ -177,6 +177,52 @@ Si se rellenan `TELEGRAM_BOT_TOKEN` y `TELEGRAM_CHAT_ID` en Vercel, la
 Neon por medio de n8n). En ese caso hay que **quitar o desactivar el nodo de
 Telegram** del flujo para no recibir el aviso dos veces.
 
+## Pasos exactos en el editor de n8n
+
+1. **Añade un nodo "Code"** (en el canvas: *+* → *Code*). Ponle de nombre
+   `Normalizar solicitud`.
+2. En el nodo Code, en *Mode* deja **"Run Once for All Items"** y en *Code →
+   JavaScript* pega el código de arriba.
+3. **Conecta el Webhook con el Code**: arrastra el punto de salida del
+   nodo *Webhook* (o *Recibir solicitud*) hasta el nodo Code.
+4. **Conecta el Code con el Postgres**: arrastra del Code al nodo de
+   Postgres. **Y también del Code al nodo de Telegram.**
+5. **Borra la conexión antigua** que iba del Postgres al Telegram (haz clic
+   en la flecha y pulsa Suprimir). Ahora los dos cuelgan del Code.
+6. En el **nodo de Postgres**, pon estos valores (columna → valor):
+
+   | Columna | Valor |
+   |---|---|
+   | `nombre` | `{{ $json.nombre }}` |
+   | `contacto` | `{{ $json.contacto }}` |
+   | `tipo_evento` | `{{ $json.tipo_evento }}` |
+   | `fecha_aproximada` | `{{ $json.fecha_aproximada }}` |
+   | `numero_personas` | `{{ $json.numero_personas }}` |
+   | `detalles` | `{{ $json.detalles }}` |
+
+7. En el **nodo de Telegram**, en el campo *Message*, pon el texto con las
+   expresiones (mismo esquema que el de arriba).
+8. **Guarda** (Ctrl+S) y **activa** el flujo (interruptor *Active*).
+9. Prueba el formulario y comprueba en la web, en Telegram y en Neon.
+
+### Comprobación rápida de la forma de los datos
+
+En la última ejecución, haz clic en el nodo **Webhook** y mira la pestaña
+*Output*:
+
+- Si pone `{ "body": { "nombre": "Luis", ... } }` → el JSON está en `body`
+  como objeto.
+- Si pone `{ "body": "{\"nombre\":\"Luis\",...}" }` → el webhook tiene
+  *Raw Body* activado y `body` es un texto.
+
+El nodo Code los dos casos ✅.
+
+### Si aun así salieran vacíos
+
+Abre la última ejecución, haz clic en el nodo **Normalizar solicitud** y
+mira su *Output*: ahí tiene que verse `nombre`, `contacto`, `tipo_evento`,
+`fecha_aproximada`, `numero_personas` y `detalles` con valores.
+
 ## ⚠️ Hay que ACTIVAR el flujo
 
 Un workflow **no activo no registra su webhook de producción**: si el flujo
