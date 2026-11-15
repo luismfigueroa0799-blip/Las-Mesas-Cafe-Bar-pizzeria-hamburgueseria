@@ -99,6 +99,9 @@ for (const [columna, campo] of Object.entries(MAPA)) {
 
 telegram.parameters.text = '={{ $json.mensaje }}';
 
+// El Webhook tiene que dejar la respuesta al nodo "Ver datos"
+// (Respond to Webhook). Sin esto, ese nodo falla y el flujo entero da 500.
+webhook.parameters.responseMode = 'responseNode';
 webhook.position = [0, 80];
 postgres.position = [448, 0];
 telegram.position = [448, 160];

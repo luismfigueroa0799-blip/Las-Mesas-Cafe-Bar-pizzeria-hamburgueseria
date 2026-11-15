@@ -5,7 +5,8 @@
       "parameters": {
         "httpMethod": "POST",
         "path": "solicitud-celebracion",
-        "options": {}
+        "options": {},
+        "responseMode": "responseNode"
       },
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.2,
