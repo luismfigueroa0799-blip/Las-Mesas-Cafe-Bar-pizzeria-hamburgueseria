@@ -145,25 +145,28 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
     // Esta web es autonoma: la sesion de pago la crea nuestra propia API.
     // (La app de hamburgueseria/pizzeria usa su propio webhook de n8n,
     //  que es un proyecto aparte y no se comparte.)
+    const esMesaPorQR = !!mesaUrl;
     const rutas: Array<{ etiqueta: string; url: string; body: unknown }> = [];
     rutas.push({
-      etiqueta: '/api/checkout',
-      url: '/api/checkout',
+      etiqueta: esMesaPorQR ? '/api/checkout-mesa' : '/api/checkout',
+      url: esMesaPorQR ? '/api/checkout-mesa' : '/api/checkout',
       body: {
         items: articulos,
         customerEmail: datos.email.trim(),
         customerName: datos.nombre.trim(),
         telefono: normalizarTelefono(datos.telefono.trim()),
-        tipoEntrega: tipoEntregaActiva,
+        tipoEntrega: esMesaPorQR ? 'mesa' : tipoEntregaActiva,
         total: total.toFixed(2),
-        direccion: {
-          calle: datos.calle.trim(),
-          numero: datos.numero.trim(),
-          piso: datos.piso.trim(),
-          codigoPostal: datos.codigoPostal.trim(),
-          ciudad: datos.ciudad.trim(),
-        },
-        mesa,
+        direccion: esMesaPorQR
+          ? ''
+          : {
+              calle: datos.calle.trim(),
+              numero: datos.numero.trim(),
+              piso: datos.piso.trim(),
+              codigoPostal: datos.codigoPostal.trim(),
+              ciudad: datos.ciudad.trim(),
+            },
+        mesa: esMesaPorQR ? mesaUrl : mesa,
         urlOrigen: window.location.href,
       },
     });
