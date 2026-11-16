@@ -1064,7 +1064,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   const telefono = normalizarTelefono(String(body.telefono ?? '').trim());
   const email = String(body.customerEmail ?? '').trim();
   const mesa = String(body.mesa ?? '').trim();
-  const tipoEntrega = body.tipoEntrega === 'domicilio' ? 'domicilio' : 'recogida';
+  const tipoEntrega = String(body.tipoEntrega ?? '').trim() || (mesa ? 'mesa' : 'recogida');
 
   if (!nombre) {
     responder(res, { error: 'Falta el nombre del cliente' }, 400);
@@ -1411,15 +1411,11 @@ export default async function handler(req: Req, res: Res): Promise<void> {
       numArticulos: String(lineas.length),
       tipo: mesa ? 'mesa' : 'domicilio',
       tipoEntrega: tipoEntrega,
+      tipo_entrega: String(tipoEntrega ?? ''),
       modoRecogida: mesa ? 'mesa' : 'recogida',
       modo_entrega: tipoEntrega,
       recogida: String(tipoEntrega !== 'domicilio'),
       domicilio: String(tipoEntrega === 'domicilio'),
-      calle: direccion.calle ?? '',
-      numero: direccion.numero ?? '',
-      piso: direccion.piso ?? '',
-      codigoPostal: direccion.codigoPostal ?? '',
-      ciudad: direccion.ciudad ?? '',
       mesa: mesa || '',
       mesa_id: mesa ? String(mesa) : '',
       urlOrigen: String(body.urlOrigen ?? ''),

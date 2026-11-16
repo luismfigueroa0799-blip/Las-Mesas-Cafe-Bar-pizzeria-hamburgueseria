@@ -5,13 +5,14 @@ import { formatearPrecio, precioANumero } from '@/precio';
 import { normalizarTelefono, telefonoValido } from '@/telefono';
 import { extraerUrlStripe } from '@/stripe-url';
 
-type TipoEntrega = 'recogida' | 'domicilio';
+type TipoEntrega = 'recogida' | 'domicilio' | 'mesa';
 
 interface DatosCliente {
   nombre: string;
   telefono: string;
   email: string;
   tipoEntrega: TipoEntrega;
+  mesa: string;
   calle: string;
   numero: string;
   piso: string;
@@ -27,6 +28,7 @@ const vacio: DatosCliente = {
   telefono: '',
   email: '',
   tipoEntrega: 'recogida',
+  mesa: '',
   calle: '',
   numero: '',
   piso: '',
@@ -40,11 +42,18 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
   const [estado, setEstado] = useState('');
   const [cargando, setCargando] = useState(false);
 
-  // ?mesa=N indica que el pedido es para esa mesa del local.
-  const mesa = useMemo(
-    () => new URLSearchParams(window.location.search).get('mesa') ?? '',
-    [],
-  );
+  // ?mesa=N indica que el pedido es para esa mesa del local (QR de mesa).
+  // Solo se admite entre 1 y 8 (las 8 mesas del local).
+  const mesaUrl = useMemo(() => {
+    const valor = new URLSearchParams(window.location.search).get('mesa');
+    const numero = Number(valor ?? '');
+    if (valor !== null && Number.isInteger(numero) && numero >= 1 && numero <= 8) {
+      return String(numero);
+    }
+    return '';
+  }, []);
+  const mesa = mesaUrl || datos.mesa || '';
+  const tipoEntregaActiva: TipoEntrega = mesaUrl ? 'mesa' : datos.tipoEntrega;
 
   const errores = useMemo(() => {
     const lista: string[] = [];
@@ -53,7 +62,7 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
     // servidor de pedidos lo necesita para preparar el reparto.
     if (datos.telefono.trim() && !telefonoValido(datos.telefono.trim())) {
       lista.push('Revisa el teléfono: debe tener entre 9 y 20 dígitos.');
-    } else if (!datos.telefono.trim() && datos.tipoEntrega === 'domicilio') {
+    } else if (!datos.telefono.trim() && tipoEntregaActiva === 'domicilio') {
       lista.push('Para entrega a domicilio hace falta el teléfono.');
     }
     // El correo es obligatorio y tiene que incluir el dominio.
@@ -62,7 +71,7 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
     } else if (!EMAIL_VALIDO.test(datos.email.trim())) {
       lista.push('El correo no es válido: usa el formato nombre@dominio.com.');
     }
-    if (datos.tipoEntrega === 'domicilio') {
+    if (tipoEntregaActiva === 'domicilio') {
       if (!datos.calle.trim()) lista.push('La calle es obligatoria.');
       if (!datos.numero.trim()) lista.push('El número es obligatorio.');
       if (!datos.codigoPostal.trim()) lista.push('El código postal es obligatorio.');
@@ -145,7 +154,7 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
         customerEmail: datos.email.trim(),
         customerName: datos.nombre.trim(),
         telefono: normalizarTelefono(datos.telefono.trim()),
-        tipoEntrega: datos.tipoEntrega,
+        tipoEntrega: tipoEntregaActiva,
         total: total.toFixed(2),
         direccion: {
           calle: datos.calle.trim(),
@@ -319,31 +328,35 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
                   />
                 </label>
 
-                <fieldset className="cart-field cart-radio">
-                  <legend>Tipo de entrega *</legend>
-                  <label className={datos.tipoEntrega === 'recogida' ? 'is-active' : ''}>
-                    <input
-                      type="radio"
-                      name="tipoEntrega"
-                      value="recogida"
-                      checked={datos.tipoEntrega === 'recogida'}
-                      onChange={() => actualizar('tipoEntrega', 'recogida')}
-                    />
-                    <span>Recogida en local</span>
+                {mesaUrl ? (
+                  <p className="cart-mesa">Pedido para la mesa {mesa}. Te lo llevamos a esa mesa.</p>
+                ) : (
+                  <label className="cart-field">
+                    <span>Tipo de entrega *</span>
+                    <select
+                      value={datos.tipoEntrega === 'mesa' && datos.mesa ? 'mesa:' + datos.mesa : datos.tipoEntrega}
+                      onChange={(e) => {
+                        const valor = e.target.value;
+                        if (valor.startsWith('mesa:')) {
+                          const numero = valor.slice(4);
+                          setDatos((previo) => ({ ...previo, tipoEntrega: 'mesa', mesa: numero }));
+                        } else {
+                          setDatos((previo) => ({ ...previo, tipoEntrega: valor as TipoEntrega, mesa: '' }));
+                        }
+                        setEstado('');
+                      }}
+                      data-testid="select-tipo-entrega"
+                    >
+                      {Array.from({ length: 8 }, (_, indice) => indice + 1).map((numero) => (
+                        <option key={numero} value={'mesa:' + numero}>Mesa {numero}</option>
+                      ))}
+                      <option value="domicilio">Envío a domicilio</option>
+                      <option value="recogida">Recogida en local</option>
+                    </select>
                   </label>
-                  <label className={datos.tipoEntrega === 'domicilio' ? 'is-active' : ''}>
-                    <input
-                      type="radio"
-                      name="tipoEntrega"
-                      value="domicilio"
-                      checked={datos.tipoEntrega === 'domicilio'}
-                      onChange={() => actualizar('tipoEntrega', 'domicilio')}
-                    />
-                    <span>Envío a domicilio</span>
-                  </label>
-                </fieldset>
+                )}
 
-                {datos.tipoEntrega === 'domicilio' && (
+                {tipoEntregaActiva === 'domicilio' && (
                   <div className="cart-address">
                     <label className="cart-field cart-field-wide">
                       <span>Calle *</span>
@@ -400,7 +413,7 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
                   </div>
                 )}
 
-                {mesa && (
+                {mesa && !mesaUrl && (
                   <p className="cart-mesa">Pedido para la mesa {mesa}.</p>
                 )}
 
