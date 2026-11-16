@@ -1066,11 +1066,15 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   const mesa = String(body.mesa ?? '').trim();
   const tipoEntrega = String(body.tipoEntrega ?? '').trim() || (mesa ? 'mesa' : 'recogida');
 
-  if (!nombre) {
+  if (!nombre && tipoEntrega !== 'mesa') {
     responder(res, { error: 'Falta el nombre del cliente' }, 400);
     return;
   }
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
+  if (!email && tipoEntrega !== 'mesa') {
+    responder(res, { error: 'Falta el correo electrónico' }, 400);
+    return;
+  }
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
     responder(res, { error: 'El correo electrónico no es válido' }, 400);
     return;
   }

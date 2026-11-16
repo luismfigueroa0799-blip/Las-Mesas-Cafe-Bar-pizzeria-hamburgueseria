@@ -57,7 +57,7 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
 
   const errores = useMemo(() => {
     const lista: string[] = [];
-    if (!datos.nombre.trim()) lista.push('El nombre es obligatorio.');
+    if (!datos.nombre.trim() && tipoEntregaActiva !== 'mesa') lista.push('El nombre es obligatorio.');
     // El telefono es opcional, salvo para entrega a domicilio, donde el
     // servidor de pedidos lo necesita para preparar el reparto.
     if (datos.telefono.trim() && !telefonoValido(datos.telefono.trim())) {
@@ -66,9 +66,9 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
       lista.push('Para entrega a domicilio hace falta el teléfono.');
     }
     // El correo es obligatorio y tiene que incluir el dominio.
-    if (!datos.email.trim()) {
+    if (!datos.email.trim() && tipoEntregaActiva !== 'mesa') {
       lista.push('El correo electrónico es obligatorio.');
-    } else if (!EMAIL_VALIDO.test(datos.email.trim())) {
+    } else if (!EMAIL_VALIDO.test(datos.email.trim()) && tipoEntregaActiva !== 'mesa') {
       lista.push('El correo no es válido: usa el formato nombre@dominio.com.');
     }
     if (tipoEntregaActiva === 'domicilio') {
