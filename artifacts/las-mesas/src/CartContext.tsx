@@ -25,7 +25,7 @@ const CartContext = createContext<{
 /** Un id de producto debe existir (es el id de la tabla `productos`). */
 function idValido(id: unknown): boolean {
   const texto = String(id ?? '').trim();
-  return /^d+$/.test(texto);
+  return /^\d+$/.test(texto);
 }
 
 /**
@@ -81,7 +81,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         // el mismo que manda el checkout al validar contra Neon. Con el slug ni
         // timestamp no se puede resolver el producto y el pedido se rechaza con
         // "El carrito tiene articulos no validos".
-        const id = String(product.id ?? product.name);
+        const id = String(product.id || product.name);
         return [...previo, { ...product, id, quantity: 1 }];
       });
     },

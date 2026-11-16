@@ -396,7 +396,7 @@ function App() {
                     key={producto.id}
                     product={producto}
                     onAddToCart={(product) => addToCart({
-                      id: String(product.id ?? product.name),
+                      id: String(product.id || product.name),
                       name: product.name,
                       price: product.price,
                       image: product.image,
