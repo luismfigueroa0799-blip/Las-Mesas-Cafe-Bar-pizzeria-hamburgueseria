@@ -286,8 +286,10 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
                 <strong>{formatearPrecio(total)}</strong>
               </div>
 
-              {/* ---- Datos de entrega ---- */}
-              <div className="cart-form">
+              {!mesaUrl && (
+                <>
+                  {/* ---- Datos de entrega ---- */}
+                  <div className="cart-form">
                 <span className="cart-form-title">Datos de entrega</span>
 
                 <label className="cart-field">
@@ -425,7 +427,8 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
                   </ul>
                 )}
               </div>
-
+                </>
+              )}
               {estado && <p className="cart-status" role="status">{estado}</p>}
             </div>
 
