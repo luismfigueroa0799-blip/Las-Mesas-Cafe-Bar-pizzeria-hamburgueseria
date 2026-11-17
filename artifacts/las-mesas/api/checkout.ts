@@ -1054,6 +1054,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     mesa?: string;
     urlOrigen?: string;
     costoEnvio?: string | number;
+    distanciaKm?: string | number;
   } | null;
 
   if (!body) {
@@ -1065,8 +1066,17 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   const telefono = normalizarTelefono(String(body.telefono ?? '').trim());
   const email = String(body.customerEmail ?? '').trim();
   const mesa = String(body.mesa ?? '').trim();
-  const costoEnvio = Math.max(0, Number(body.costoEnvio ?? 0) || 0);
   const tipoEntrega = String(body.tipoEntrega ?? '').trim() || (mesa ? 'mesa' : 'recogida');
+  const distanciaKm = Math.max(0, Number(body.distanciaKm ?? 0) || 0);
+  const PRECIO_POR_KM = 1.5;
+  const MAX_KM = 8;
+  if (tipoEntrega === 'domicilio' && distanciaKm > MAX_KM) {
+    responder(res, { error: 'El envío a domicilio solo está disponible hasta 8 km. Elige recogida en local.' }, 400);
+    return;
+  }
+  // El coste lo fija el servidor: 1,50 € × km. Se ignora el que envíe el navegador.
+  const costoEnvio =
+    tipoEntrega === 'domicilio' ? Math.round(distanciaKm * PRECIO_POR_KM * 100) / 100 : 0;
 
   if (!nombre && tipoEntrega !== 'mesa') {
     responder(res, { error: 'Falta el nombre del cliente' }, 400);

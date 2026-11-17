@@ -7,13 +7,9 @@ import { extraerUrlStripe } from '@/stripe-url';
 
 type TipoEntrega = 'recogida' | 'domicilio' | 'mesa';
 
-// Zonas de reparto a domicilio (tarifa plana por zona)
-const ZONAS_ENVIO: ReadonlyArray<{ id: string; nombre: string; precio: number }> = [
-  { id: '1', nombre: 'Zona 1 (Cerca)', precio: 4 },
-  { id: '2', nombre: 'Zona 2 (Media)', precio: 7 },
-  { id: '3', nombre: 'Zona 3 (Lejos)', precio: 10 },
-  { id: '4', nombre: 'Zona 4 (Muy lejos)', precio: 15 },
-];
+// Envío a domicilio: 1,50 € por km, máximo 8 km
+const PRECIO_POR_KM = 1.5;
+const MAX_KM = 8;
 
 interface SugerenciaDireccion {
   calle: string;
@@ -28,7 +24,7 @@ interface DatosCliente {
   email: string;
   tipoEntrega: TipoEntrega;
   mesa: string;
-  zonaEnvio: string;
+  distanciaKm: string;
   calle: string;
   numero: string;
   piso: string;
@@ -45,7 +41,7 @@ const vacio: DatosCliente = {
   email: '',
   tipoEntrega: 'recogida',
   mesa: '',
-  zonaEnvio: '',
+  distanciaKm: '',
   calle: '',
   numero: '',
   piso: '',
@@ -164,11 +160,16 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
     setEstado('');
   };
 
-  const zonaSeleccionada = ZONAS_ENVIO.find((z) => z.id === datos.zonaEnvio);
+  const distanciaNum = Number(datos.distanciaKm);
+  const distanciaValida =
+    datos.distanciaKm.trim() !== '' && Number.isFinite(distanciaNum) && distanciaNum > 0;
+  const demasiadoLejos = tipoEntregaActiva === 'domicilio' && distanciaValida && distanciaNum > MAX_KM;
   const costoEnvio =
-    tipoEntregaActiva === 'domicilio' && zonaSeleccionada ? zonaSeleccionada.precio : 0;
+    tipoEntregaActiva === 'domicilio' && distanciaValida && !demasiadoLejos
+      ? Math.round(distanciaNum * PRECIO_POR_KM * 100) / 100
+      : 0;
 
-  const listo = cart.length > 0 && errores.length === 0;
+  const listo = cart.length > 0 && errores.length === 0 && !demasiadoLejos;
 
   if (!open) return null;
 
@@ -248,7 +249,7 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
         total: (total + costoEnvio).toFixed(2),
         costoEnvio: costoEnvio.toFixed(2),
         envio: costoEnvio.toFixed(2),
-        zonaEnvio: datos.zonaEnvio,
+        distanciaKm: datos.distanciaKm.trim(),
         direccion: esMesaPorQR
           ? ''
           : {
@@ -378,9 +379,14 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
 
               {tipoEntregaActiva === 'domicilio' && (
                 <div className="cart-total" style={{ fontWeight: 'normal', fontSize: '0.9em' }}>
-                  <span>Gastos de envío{zonaSeleccionada ? ' (' + zonaSeleccionada.nombre + ')' : ''}</span>
-                  <strong>{costoEnvio > 0 ? formatearPrecio(costoEnvio) : 'Gratis'}</strong>
+                  <span>Gastos de envío{distanciaValida ? ' (' + distanciaNum + ' km × ' + formatearPrecio(PRECIO_POR_KM) + ')' : ''}</span>
+                  <strong>{demasiadoLejos ? 'No disponible' : costoEnvio > 0 ? formatearPrecio(costoEnvio) : '—'}</strong>
                 </div>
+              )}
+              {demasiadoLejos && (
+                <p className="cart-mesa" style={{ borderLeftColor: '#c0392b' }}>
+                  El envío solo llega hasta {MAX_KM} km. Estás a {distanciaNum} km. Te sugerimos elegir <b>Recogida en local</b>.
+                </p>
               )}
               <div className="cart-total">
                 <span>Total</span>
@@ -462,18 +468,22 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
                 {tipoEntregaActiva === 'domicilio' && (
                   <div className="cart-address">
                     <label className="cart-field cart-field-wide">
-                      <span>Zona de reparto *</span>
-                      <select
-                        value={datos.zonaEnvio}
-                        onChange={(e) => actualizar('zonaEnvio', e.target.value)}
+                      <span>Distancia al local (km) *</span>
+                      <input
+                        type="number"
+                        min="0"
+                        max={MAX_KM}
+                        step="0.1"
+                        inputMode="decimal"
+                        value={datos.distanciaKm}
+                        onChange={(e) => actualizar('distanciaKm', e.target.value)}
+                        placeholder="Ej: 3.5"
                         required
                         style={{ minHeight: '48px', fontSize: '16px', padding: '0 12px', border: '1px solid rgba(90,70,30,.25)', borderRadius: '0', background: '#fff', color: '#2a2620' }}
-                      >
-                        <option value="">Elige tu zona de reparto</option>
-                        {ZONAS_ENVIO.map((z) => (
-                          <option key={z.id} value={z.id}>{z.nombre} — {formatearPrecio(z.precio)}</option>
-                        ))}
-                      </select>
+                      />
+                      <span style={{ fontSize: '.62rem', color: '#6b6152', letterSpacing: 0, textTransform: 'none', fontWeight: 400 }}>
+                        El envío cuesta {formatearPrecio(PRECIO_POR_KM)} por km · máximo {MAX_KM} km
+                      </span>
                     </label>
                     <label className="cart-field cart-field-wide">
                       <span>Calle *</span>
