@@ -7,13 +7,23 @@ import { extraerUrlStripe } from '@/stripe-url';
 
 type TipoEntrega = 'recogida' | 'domicilio' | 'mesa';
 
-// Zonas de reparto por código postal (tarifa plana por zona)
-const ZONAS_ENVIO: ReadonlyArray<{ id: string; nombre: string; cps: string[]; precio: number }> = [
-  { id: '1', nombre: 'Zona 1 (Las Mesas / Tenoya)', cps: ['35018'], precio: 4 },
-  { id: '2', nombre: 'Zona 2 (San Lorenzo / Tamaraceite)', cps: ['35019', '35017'], precio: 7 },
-  { id: '3', nombre: 'Zona 3 (Las Palmas cercano)', cps: ['35015', '35016'], precio: 10 },
-  { id: '4', nombre: 'Zona 4 (Las Palmas capital)', cps: ['35001','35002','35003','35004','35005','35006','35007','35008','35009','35010','35011','35012','35013','35014'], precio: 15 },
-];
+// Local: Pintor Antonio Padrón, 59, 35018 Las Mesas Bajas, Las Palmas
+const LOCAL_LAT = 28.0991469;
+const LOCAL_LON = -15.4976894;
+const PRECIO_POR_KM = 1.5;
+const MAX_KM = 8;
+
+// Distancia en km entre dos puntos (fórmula de Haversine)
+function calcularDistanciaKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
 // Recargo por servicio a domicilio (25% sobre el subtotal de productos)
 const RECARGO_DOMICILIO = 0.25;
 
@@ -30,7 +40,6 @@ interface DatosCliente {
   email: string;
   tipoEntrega: TipoEntrega;
   mesa: string;
-  zonaEnvio: string;
   calle: string;
   numero: string;
   piso: string;
@@ -47,7 +56,6 @@ const vacio: DatosCliente = {
   email: '',
   tipoEntrega: 'recogida',
   mesa: '',
-  zonaEnvio: '',
   calle: '',
   numero: '',
   piso: '',
@@ -63,6 +71,9 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
   const [sugerencias, setSugerencias] = useState<SugerenciaDireccion[]>([]);
   const [buscandoDir, setBuscandoDir] = useState(false);
   const ultimaCalleElegida = useRef('');
+  const [distanciaCalculada, setDistanciaCalculada] = useState<number | null>(null);
+  const [pidiendoUbicacion, setPidiendoUbicacion] = useState(false);
+  const [ubicacionError, setUbicacionError] = useState('');
 
   // ?mesa=N indica que el pedido es para esa mesa del local (QR de mesa).
   // Solo se admite entre 1 y 8 (las 8 mesas del local).
@@ -168,16 +179,39 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
 
 
 
+  // Pedir la ubicación automáticamente al abrir el carrito si es a domicilio.
+  useEffect(() => {
+    if (!open || tipoEntregaActiva !== 'domicilio' || distanciaCalculada !== null) return;
+    if (!navigator.geolocation) {
+      setUbicacionError('Tu navegador no permite obtener la ubicación.');
+      return;
+    }
+    setPidiendoUbicacion(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const d = calcularDistanciaKm(LOCAL_LAT, LOCAL_LON, pos.coords.latitude, pos.coords.longitude);
+        setDistanciaCalculada(Math.round(d * 10) / 10);
+        setUbicacionError('');
+        setPidiendoUbicacion(false);
+      },
+      () => {
+        setUbicacionError('No se pudo obtener tu ubicación. Activa el permiso del navegador.');
+        setPidiendoUbicacion(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  }, [open, tipoEntregaActiva, distanciaCalculada]);
+
+  const distanciaNum = distanciaCalculada ?? 0;
+  const distanciaValida = distanciaCalculada !== null && distanciaNum > 0;
+  const demasiadoLejos = tipoEntregaActiva === 'domicilio' && distanciaValida && distanciaNum > MAX_KM;
+  const costoEnvio =
+    tipoEntregaActiva === 'domicilio' && distanciaValida && !demasiadoLejos
+      ? Math.round(distanciaNum * PRECIO_POR_KM * 100) / 100
+      : 0;
+
   const cpCliente = datos.codigoPostal.trim();
-  // La zona se detecta automáticamente por el código postal; el cliente no la elige.
-  const zonaSeleccionada = /^\d{5}$/.test(cpCliente)
-    ? ZONAS_ENVIO.find((z) => z.cps.includes(cpCliente))
-    : undefined;
-  const zonaValida = tipoEntregaActiva === 'domicilio' && !!zonaSeleccionada;
-  const cpIncompleto = tipoEntregaActiva === 'domicilio' && !/^\d{5}$/.test(cpCliente);
-  const cpNoReparte =
-    tipoEntregaActiva === 'domicilio' && /^\d{5}$/.test(cpCliente) && !zonaSeleccionada;
-  const costoEnvio = zonaValida && zonaSeleccionada ? zonaSeleccionada.precio : 0;
+
   const subtotal = cart.reduce((suma, item) => suma + precioANumero(item.price) * item.quantity, 0);
   const recargo =
     tipoEntregaActiva === 'domicilio' ? Math.round(subtotal * RECARGO_DOMICILIO * 100) / 100 : 0;
@@ -185,8 +219,9 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
   const listo =
     cart.length > 0 &&
     errores.length === 0 &&
-    !cpNoReparte &&
-    (tipoEntregaActiva !== 'domicilio' || zonaValida);
+    !demasiadoLejos &&
+    !pidiendoUbicacion &&
+    (tipoEntregaActiva !== 'domicilio' || distanciaValida);
 
   if (!open) return null;
 
@@ -268,7 +303,7 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
         recargo: recargo.toFixed(2),
         costoEnvio: costoEnvio.toFixed(2),
         envio: costoEnvio.toFixed(2),
-        zonaEnvio: zonaValida && zonaSeleccionada ? zonaSeleccionada.id : '',
+        distanciaKm: distanciaValida ? String(distanciaNum) : '',
         direccion: esMesaPorQR
           ? ''
           : {
@@ -410,7 +445,7 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
                     El recargo del 25% se aplica para cubrir los gastos de gestión del servicio a domicilio.
                   </p>
                   <div className="cart-total" style={{ fontWeight: 'normal', fontSize: '0.9em' }}>
-                    <span>Gastos de envío{zonaValida && zonaSeleccionada ? ' (' + zonaSeleccionada.nombre + ')' : ''}</span>
+                    <span>Gastos de envío{distanciaValida ? ' (' + distanciaNum + ' km × ' + formatearPrecio(PRECIO_POR_KM) + ')' : ''}</span>
                     <strong>{costoEnvio > 0 ? formatearPrecio(costoEnvio) : '—'}</strong>
                   </div>
                 </>
@@ -495,15 +530,15 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
                 {tipoEntregaActiva === 'domicilio' && (
                   <div className="cart-address">
                     <div className="cart-field cart-field-wide">
-                      <span>Zona de reparto (se detecta por tu código postal)</span>
-                      {zonaValida && zonaSeleccionada ? (
-                        <p className="cart-mesa">📍 {zonaSeleccionada.nombre} — envío {formatearPrecio(zonaSeleccionada.precio)}</p>
-                      ) : cpNoReparte ? (
-                        <p className="cart-mesa" style={{ borderLeftColor: '#c0392b' }}>
-                          No repartimos en el CP {cpCliente}. Te sugerimos la recogida en local.
-                        </p>
+                      <span>Distancia al local (se calcula por GPS)</span>
+                      {pidiendoUbicacion ? (
+                        <p className="cart-mesa">📍 Obteniendo tu ubicación…</p>
+                      ) : distanciaValida ? (
+                        <p className="cart-mesa">📍 Distancia calculada: {distanciaNum} km — envío {formatearPrecio(costoEnvio)} ({distanciaNum} km × {formatearPrecio(PRECIO_POR_KM)})</p>
+                      ) : ubicacionError ? (
+                        <p className="cart-mesa" style={{ borderLeftColor: '#c0392b' }}>{ubicacionError}</p>
                       ) : (
-                        <p className="cart-mesa">Escribe tu código postal más abajo y la zona se detectará sola.</p>
+                        <p className="cart-mesa">Activa la ubicación para calcular el envío (1,50 €/km, máx. {MAX_KM} km).</p>
                       )}
                     </div>
                     <label className="cart-field cart-field-wide">

@@ -54,7 +54,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const pedido = $json;\nconst productos = $('Consultar productos (Neon)').all().map(i => i.json).filter(p => p && p.id != null);\n\n// El checkout envía el coste de envío calculado según la distancia al local.\nconst webhook = $('Recibir pedido domicilio').first().json;\nconst raw = webhook.body ?? webhook;\nconst costoEnvio = Math.max(0, Number(raw.costo_envio ?? 0) || 0);\nconst recargo = Math.max(0, Number(raw.recargo ?? 0) || 0);\nconst zona_envio = String(raw.zona_envio ?? raw.zonaEnvio ?? '');\n\nlet totalCents = 0;\nconst lineas = [];\nfor (const it of pedido.items) {\n  const prod = productos.find(p => String(p.id) === String(it.id));\n  if (!prod) return [{ json: { ok: false, error: 'Producto no encontrado: ' + it.id } }];\n  if (prod.is_available !== true) return [{ json: { ok: false, error: 'Producto agotado: ' + (prod.name || prod.id) } }];\n  const precio = Number(prod.price);\n  if (!Number.isFinite(precio) || precio < 0) return [{ json: { ok: false, error: 'Precio inválido' } }];\n  const unit = Math.round(precio * 100);\n  const sub = unit * it.qty;\n  totalCents += sub;\n  lineas.push({ id: prod.id, nombre: prod.name, qty: it.qty, precio, subtotal: sub / 100 });\n}\nif (totalCents <= 0) return [{ json: { ok: false, error: 'Total inválido' } }];\n\nconst envioCents = Math.round(costoEnvio * 100);\nconst recargoCents = Math.round(recargo * 100);\nconst totalConEnvio = totalCents + recargoCents + envioCents;\nconst detalleTexto = lineas.map(l => (l.qty > 1 ? l.qty + ' x ' : '') + l.nombre + ' - ' + l.precio.toFixed(2).replace('.', ',') + ' €').join('\\n');\nconst detalleConEnvio = detalleTexto + (recargoCents > 0 ? '\\nRecargo servicio a domicilio (25%) - ' + recargo.toFixed(2).replace('.', ',') + ' €' : '') + (envioCents > 0 ? '\\nEnvío a domicilio - ' + costoEnvio.toFixed(2).replace('.', ',') + ' €' : '');\n\nreturn [{\n  json: {\n    ...pedido,\n    valido: true,\n    lineas,\n    subtotal: totalCents / 100,\n    recargo: recargo,\n    zona_envio: zona_envio,\n    recargo_centimos: recargoCents,\n    costo_envio: costoEnvio,\n    total: totalConEnvio / 100,\n    total_centimos: totalConEnvio,\n    subtotal_centimos: totalCents,\n    envio_centimos: envioCents,\n    total_texto: (totalConEnvio / 100).toFixed(2),\n    detalle_texto: detalleConEnvio,\n    estado: 'pendiente_pago'\n  }\n}];"
+        "jsCode": "const pedido = $json;\nconst productos = $('Consultar productos (Neon)').all().map(i => i.json).filter(p => p && p.id != null);\n\n// El checkout envía el coste de envío calculado según la distancia al local.\nconst webhook = $('Recibir pedido domicilio').first().json;\nconst raw = webhook.body ?? webhook;\nconst costoEnvio = Math.max(0, Number(raw.costo_envio ?? 0) || 0);\nconst recargo = Math.max(0, Number(raw.recargo ?? 0) || 0);\nconst distancia_km = Number(raw.distancia_km ?? 0) || 0;\n\nlet totalCents = 0;\nconst lineas = [];\nfor (const it of pedido.items) {\n  const prod = productos.find(p => String(p.id) === String(it.id));\n  if (!prod) return [{ json: { ok: false, error: 'Producto no encontrado: ' + it.id } }];\n  if (prod.is_available !== true) return [{ json: { ok: false, error: 'Producto agotado: ' + (prod.name || prod.id) } }];\n  const precio = Number(prod.price);\n  if (!Number.isFinite(precio) || precio < 0) return [{ json: { ok: false, error: 'Precio inválido' } }];\n  const unit = Math.round(precio * 100);\n  const sub = unit * it.qty;\n  totalCents += sub;\n  lineas.push({ id: prod.id, nombre: prod.name, qty: it.qty, precio, subtotal: sub / 100 });\n}\nif (totalCents <= 0) return [{ json: { ok: false, error: 'Total inválido' } }];\n\nconst envioCents = Math.round(costoEnvio * 100);\nconst recargoCents = Math.round(recargo * 100);\nconst totalConEnvio = totalCents + recargoCents + envioCents;\nconst detalleTexto = lineas.map(l => (l.qty > 1 ? l.qty + ' x ' : '') + l.nombre + ' - ' + l.precio.toFixed(2).replace('.', ',') + ' €').join('\\n');\nconst detalleConEnvio = detalleTexto + (recargoCents > 0 ? '\\nRecargo servicio a domicilio (25%) - ' + recargo.toFixed(2).replace('.', ',') + ' €' : '') + (envioCents > 0 ? '\\nEnvío a domicilio - ' + costoEnvio.toFixed(2).replace('.', ',') + ' €' : '');\n\nreturn [{\n  json: {\n    ...pedido,\n    valido: true,\n    lineas,\n    subtotal: totalCents / 100,\n    recargo: recargo,\n    distancia_km: distancia_km,\n    recargo_centimos: recargoCents,\n    costo_envio: costoEnvio,\n    total: totalConEnvio / 100,\n    total_centimos: totalConEnvio,\n    subtotal_centimos: totalCents,\n    envio_centimos: envioCents,\n    total_texto: (totalConEnvio / 100).toFixed(2),\n    detalle_texto: detalleConEnvio,\n    estado: 'pendiente_pago'\n  }\n}];"
       },
       "id": "dc6eda8a-a0a5-4927-bab0-e150c3f490ed",
       "name": "Calcular total (domicilio)",
@@ -125,7 +125,7 @@
             "fecha": "={{ $now.toISO() }}",
             "envio": "={{ $json.costo_envio }}",
             "recargo": "={{ $json.recargo }}",
-            "zona_envio": "={{ $json.zona_envio }}"
+            "distancia_km": "={{ $json.distancia_km }}"
           },
           "matchingColumns": [
             "id"
@@ -152,12 +152,12 @@
               "removed": false
             },
             {
-              "id": "zona_envio",
-              "displayName": "zona_envio",
+              "id": "distancia_km",
+              "displayName": "distancia_km",
               "required": false,
               "defaultMatch": false,
               "display": true,
-              "type": "string",
+              "type": "number",
               "canBeUsedToMatch": true,
               "removed": false
             }
