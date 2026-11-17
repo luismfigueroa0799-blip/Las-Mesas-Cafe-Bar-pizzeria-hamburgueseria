@@ -339,10 +339,10 @@ function App() {
           </div>
           <div className="home-fav-grid">
             {[
-              { nombre: 'Burger Pizza', imagen: '/assets/burger-pizza.jpg', precio: '6,50 €' },
-              { nombre: 'La Encerrona', imagen: '/assets/hamburguesa-pollo-crispy-super.jpg', precio: '12,00 €' },
-              { nombre: 'Costilla a la BBQ', imagen: '/assets/alitas-pollo-chipotle.jpg', precio: '15,95 €' },
-              { nombre: 'La Suprema', imagen: '/assets/hamburguesa-pollo-crispy-super.jpg', precio: '6,50 €' },
+              { nombre: 'Burger Pizza', imagen: '/assets/burger-pizza-real.webp', precio: '14,80 €' },
+              { nombre: 'La Encerrona', imagen: '/assets/el-ternera-crack.webp', precio: '12,00 €' },
+              { nombre: 'Costilla a la BBQ', imagen: '/assets/costillas-bbq.webp', precio: '15,95 €' },
+              { nombre: 'La Suprema', imagen: '/assets/la-super.webp', precio: '6,50 €' },
             ].map((p) => (
               <article className="home-fav-card" key={p.nombre}>
                 <img src={p.imagen} alt={p.nombre} loading="lazy" decoding="async" />
