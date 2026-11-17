@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { ArrowDown, ArrowRight, ArrowUpRight, CalendarDays, Clock3, MapPin, Menu as MenuIcon, Phone, ShoppingBag, X } from 'lucide-react';
+import { ArrowDown, ArrowRight, ArrowUpRight, CalendarDays, Clock3, MapPin, Menu as MenuIcon, Moon, Phone, ShoppingBag, Sun, X } from 'lucide-react';
 import './index.css';
 import { useCart } from '@/CartContext';
+import { useTheme } from '@/ThemeContext';
 import CartSidebar from '@/CartSidebar';
 import ProductCard from '@/ProductCard';
 import Inventario from '@/admin/Inventario';
@@ -82,6 +83,7 @@ function App() {
   const [cartOpen, setCartOpen] = useState(false);
   const [avisoPedido, setAvisoPedido] = useState<AvisoPedido>(null);
   const { cart, addToCart, clearCart } = useCart();
+  const { tema, alternarTema } = useTheme();
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
   const activeCategory = categorias.find((c) => c.slug === activeSlug) ?? categorias[0];
   const productosActivos = productos.filter((p) => p.category_slug === activeCategory.slug);
@@ -329,6 +331,15 @@ function App() {
           {[['La casa', '#esencia'], ['El local', '#local'], ['La carta', '#carta'], ['Celebraciones', '#celebraciones'], ['Visítanos', '#contacto']].map(([label, href]) => <a key={href} href={href} onClick={() => setMobileOpen(false)}>{label}</a>)}
           <a className="nav-cta" href="#reserva" onClick={() => setMobileOpen(false)}>Reserva tu mesa <ArrowUpRight size={15} /></a>
         </nav>
+        <button
+          className="theme-toggle"
+          onClick={alternarTema}
+          aria-label={tema === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+          title={tema === 'dark' ? 'Modo claro' : 'Modo oscuro'}
+          data-testid="button-theme"
+        >
+          {tema === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+        </button>
         <button
           className="cart-toggle"
           onClick={() => setCartOpen(true)}

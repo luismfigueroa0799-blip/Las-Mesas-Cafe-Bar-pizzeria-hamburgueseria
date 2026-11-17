@@ -1300,3 +1300,110 @@ h1, h2, h3, h4,
   color: #FFFFFF !important;
   border-color: var(--oro) !important;
 }
+
+/* ===== Botón de cambio de tema en la cabecera ===== */
+.theme-toggle {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border: 1px solid #E5E7EB;
+  border-radius: 50%;
+  background: #F0EEE8;
+  color: #2C2C2C;
+  cursor: pointer;
+  transition: all .2s ease;
+}
+.theme-toggle:hover { border-color: #D4AF37; color: #C5A059; transform: translateY(-2px); }
+
+/* ===== MODO OSCURO: se activa con la clase .dark en <html> ===== */
+html.dark body,
+html.dark .menu-section,
+html.dark .hero,
+html.dark .dish-list,
+html.dark section[class*="section"],
+html.dark .contact-section,
+html.dark .play-section {
+  background: #1A1817 !important;
+  color: #F5F0E6 !important;
+}
+html.dark .site-header,
+html.dark .topline {
+  background: #1A1817 !important;
+  color: #F5F0E6 !important;
+  border-bottom: 1px solid rgba(212,175,55,.20) !important;
+}
+html.dark .main-nav > a,
+html.dark .site-header a,
+html.dark .topline a,
+html.dark h1,
+html.dark h2,
+html.dark h3,
+html.dark h4,
+html.dark .product-card-name,
+html.dark .cart-drawer-head h2,
+html.dark .cart-form-title,
+html.dark .cart-total strong,
+html.dark .section-lede {
+  color: #F5F0E6 !important;
+}
+html.dark .eyebrow,
+html.dark .hero .eyebrow,
+html.dark .menu-section .eyebrow { color: #D4AF37 !important; }
+html.dark .product-card-desc,
+html.dark .product-card-sizes-label,
+html.dark .product-card-cat,
+html.dark .cart-item-info span,
+html.dark .cart-field > span,
+html.dark .cart-field > legend,
+html.dark .cart-field > span em,
+html.dark .cart-empty,
+html.dark .cart-email {
+  color: #A69F99 !important;
+}
+html.dark .product-card {
+  background: #2A2725 !important;
+  border-color: rgba(212,175,55,.20) !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,.25) !important;
+}
+html.dark .product-card-media { background: #232120 !important; }
+html.dark .product-card-sizes-options label { border-color: rgba(255,255,255,.15) !important; }
+html.dark .product-card-foot { border-top-color: rgba(212,175,55,.18) !important; }
+html.dark .product-card-allergens {
+  background: rgba(26,24,23,.92) !important;
+  color: #D4AF37 !important;
+}
+html.dark .cart-drawer,
+html.dark .cart-drawer-head,
+html.dark .cart-drawer-foot,
+html.dark .cart-form {
+  background: #22201F !important;
+  color: #F5F0E6 !important;
+  border-color: rgba(212,175,55,.20) !important;
+}
+html.dark .cart-field input[type="text"],
+html.dark .cart-field input[type="tel"],
+html.dark .cart-field input[type="email"],
+html.dark .cart-field input[type="number"],
+html.dark .cart-field select,
+html.dark .cart-email input {
+  background: #2A2725 !important;
+  color: #F5F0E6 !important;
+  border: 1px solid rgba(212,175,55,.25) !important;
+}
+html.dark .cart-field input::placeholder,
+html.dark .cart-email input::placeholder { color: #857E77 !important; }
+html.dark .cart-total,
+html.dark .cart-item { border-top-color: rgba(212,175,55,.18) !important; border-bottom-color: rgba(212,175,55,.18) !important; }
+html.dark .cart-mesa,
+html.dark .cart-status {
+  background: rgba(212,175,55,.10) !important;
+  border-left-color: #D4AF37 !important;
+  color: #F5F0E6 !important;
+}
+html.dark .theme-toggle {
+  background: #2A2725 !important;
+  color: #D4AF37 !important;
+  border-color: rgba(212,175,55,.25) !important;
+}
