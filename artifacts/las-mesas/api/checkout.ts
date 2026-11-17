@@ -1055,6 +1055,8 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     urlOrigen?: string;
     costoEnvio?: string | number;
     distanciaKm?: string | number;
+    recargo?: string | number;
+    subtotal?: string | number;
   } | null;
 
   if (!body) {
@@ -1157,7 +1159,8 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   // precio de la tabla `productos`).
   if (body.total !== undefined && body.total !== '') {
     const totalDelNavegador = aCentavos(body.total);
-    const totalDeclaradoConEnvio = totalDeclarado + Math.round(costoEnvio * 100);
+    const totalDeclaradoConEnvio =
+      totalDeclarado + Math.round(costoEnvio * 100) + Math.round(totalDeclarado * 0.25) * (tipoEntrega === 'domicilio' ? 1 : 0);
     if (Math.abs(totalDelNavegador - totalDeclaradoConEnvio) > 1) {
       log('[checkout] El total del navegador no cuadra con los precios de la carta', {
         total_navegador: totalDelNavegador,
@@ -1221,7 +1224,10 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   // Total con los precios de la carta (es el que cobra n8n).
   const subtotalEuros =
     Math.round(lineas.reduce((suma, l) => suma + l.subtotal, 0) * 100) / 100;
-  const totalEuros = Math.round((subtotalEuros + costoEnvio) * 100) / 100;
+  // Recargo legal del 25% sobre productos, solo a domicilio. Lo fija el servidor.
+  const recargoEuros =
+    tipoEntrega === 'domicilio' ? Math.round(subtotalEuros * 0.25 * 100) / 100 : 0;
+  const totalEuros = Math.round((subtotalEuros + recargoEuros + costoEnvio) * 100) / 100;
   const codigoPedido = generarCodigoPedido();
   const direccionFinal = direccionCompleta || 'Recogida en el local';
   const telefonoFinal = telefono || 'Sin teléfono';
@@ -1256,6 +1262,8 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     direccion: direccionFinal,
     telefono: telefonoFinal,
     total: totalEuros,
+    subtotal: subtotalEuros.toFixed(2),
+    recargo: recargoEuros.toFixed(2),
     costo_envio: costoEnvio.toFixed(2),
     items: lineas,
 
@@ -1283,7 +1291,6 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     total_texto: totalEuros.toFixed(2),
     total_euros: totalEuros.toFixed(2),
     origen: 'las-mesas-web',
-    subtotal: subtotalEuros,
     impuestos: 0,
     metodoPago: 'card',
     urlOrigen: String(body.urlOrigen ?? ''),

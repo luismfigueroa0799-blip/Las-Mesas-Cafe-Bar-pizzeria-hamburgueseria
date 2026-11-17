@@ -113,7 +113,8 @@
             "mesa": "={{ $json.mesa }}",
             "cliente_nombre": "={{ $json.customerName }}",
             "total": "={{ $json.total }}",
-            "envio": "0"
+            "envio": "0",
+            "recargo": "0"
           },
           "matchingColumns": [
             "id"
@@ -232,6 +233,16 @@
             {
               "id": "envio",
               "displayName": "envio",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "recargo",
+              "displayName": "recargo",
               "required": false,
               "defaultMatch": false,
               "display": true,

@@ -10,6 +10,8 @@ type TipoEntrega = 'recogida' | 'domicilio' | 'mesa';
 // Envío a domicilio: 1,50 € por km, máximo 8 km
 const PRECIO_POR_KM = 1.5;
 const MAX_KM = 8;
+// Recargo por servicio a domicilio (25% sobre el subtotal de productos)
+const RECARGO_DOMICILIO = 0.25;
 
 interface SugerenciaDireccion {
   calle: string;
@@ -168,6 +170,9 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
     tipoEntregaActiva === 'domicilio' && distanciaValida && !demasiadoLejos
       ? Math.round(distanciaNum * PRECIO_POR_KM * 100) / 100
       : 0;
+  const subtotal = cart.reduce((suma, item) => suma + precioANumero(item.price) * item.quantity, 0);
+  const recargo =
+    tipoEntregaActiva === 'domicilio' ? Math.round(subtotal * RECARGO_DOMICILIO * 100) / 100 : 0;
 
   const listo = cart.length > 0 && errores.length === 0 && !demasiadoLejos;
 
@@ -246,7 +251,9 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
         customerName: datos.nombre.trim(),
         telefono: normalizarTelefono(datos.telefono.trim()),
         tipoEntrega: esMesaPorQR ? 'mesa' : tipoEntregaActiva,
-        total: (total + costoEnvio).toFixed(2),
+        total: (subtotal + recargo + costoEnvio).toFixed(2),
+        subtotal: subtotal.toFixed(2),
+        recargo: recargo.toFixed(2),
         costoEnvio: costoEnvio.toFixed(2),
         envio: costoEnvio.toFixed(2),
         distanciaKm: datos.distanciaKm.trim(),
@@ -377,11 +384,24 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
                 ))}
               </ul>
 
+              <div className="cart-total" style={{ fontWeight: 'normal', fontSize: '0.9em' }}>
+                <span>Subtotal (productos)</span>
+                <strong>{formatearPrecio(subtotal)}</strong>
+              </div>
               {tipoEntregaActiva === 'domicilio' && (
-                <div className="cart-total" style={{ fontWeight: 'normal', fontSize: '0.9em' }}>
-                  <span>Gastos de envío{distanciaValida ? ' (' + distanciaNum + ' km × ' + formatearPrecio(PRECIO_POR_KM) + ')' : ''}</span>
-                  <strong>{demasiadoLejos ? 'No disponible' : costoEnvio > 0 ? formatearPrecio(costoEnvio) : '—'}</strong>
-                </div>
+                <>
+                  <div className="cart-total" style={{ fontWeight: 'normal', fontSize: '0.9em' }}>
+                    <span>Recargo por servicio a domicilio (25%)</span>
+                    <strong>{formatearPrecio(recargo)}</strong>
+                  </div>
+                  <p style={{ margin: '0 0 6px', fontSize: '.68rem', color: '#6b6152', lineHeight: 1.5 }}>
+                    El recargo del 25% se aplica para cubrir los gastos de gestión del servicio a domicilio.
+                  </p>
+                  <div className="cart-total" style={{ fontWeight: 'normal', fontSize: '0.9em' }}>
+                    <span>Gastos de envío{distanciaValida ? ' (' + distanciaNum + ' km × ' + formatearPrecio(PRECIO_POR_KM) + ')' : ''}</span>
+                    <strong>{demasiadoLejos ? 'No disponible' : costoEnvio > 0 ? formatearPrecio(costoEnvio) : '—'}</strong>
+                  </div>
+                </>
               )}
               {demasiadoLejos && (
                 <p className="cart-mesa" style={{ borderLeftColor: '#c0392b' }}>
@@ -390,7 +410,7 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
               )}
               <div className="cart-total">
                 <span>Total</span>
-                <strong>{formatearPrecio(total + costoEnvio)}</strong>
+                <strong>{formatearPrecio(subtotal + recargo + costoEnvio)}</strong>
               </div>
 
               {!mesaUrl && (
