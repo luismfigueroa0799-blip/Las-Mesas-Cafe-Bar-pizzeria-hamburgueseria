@@ -10,6 +10,7 @@ type TipoEntrega = 'recogida' | 'domicilio' | 'mesa';
 interface SugerenciaDireccion {
   calle: string;
   poblacion: string;
+  codigoPostal: string;
   etiqueta: string;
 }
 
@@ -103,7 +104,8 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
         partes.push('Spain');
         const url = 'https://nominatim.openstreetmap.org/search?q=' +
           encodeURIComponent(partes.join(', ')) +
-          '&format=jsonv2&addressdetails=1&limit=8';
+          '&format=jsonv2&addressdetails=1&limit=8' +
+          '&viewbox=-15.52,28.18,-15.38,28.05&bounded=1';
         const respuesta = await fetch(url, { signal: controlador.signal });
         const crudo = await respuesta.json();
         const vistos = new Set<string>();
@@ -119,7 +121,7 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
             const clave = calle.toLowerCase();
             if (vistos.has(clave)) continue;
             vistos.add(clave);
-            sugerido.push({ calle, poblacion, etiqueta });
+            sugerido.push({ calle, poblacion, codigoPostal: cpItem, etiqueta });
           }
         }
         setSugerencias(sugerido);
@@ -140,6 +142,7 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
       ...previo,
       calle: s.calle || previo.calle,
       ciudad: s.poblacion || previo.ciudad,
+      codigoPostal: s.codigoPostal || previo.codigoPostal,
     }));
     setSugerencias([]);
     setEstado('');
@@ -434,30 +437,22 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
                       <input
                         type="text"
                         value={datos.calle}
-                        onChange={(e) => actualizar('calle', e.target.value)}
+                        onChange={(e) => {
+                          const elegida = sugerencias.find((x) => x.calle === e.target.value);
+                          if (elegida) alElegirDireccion(elegida);
+                          else actualizar('calle', e.target.value);
+                        }}
                         placeholder="Nombre de la calle"
                         autoComplete="address-line1"
+                        list="sugerencias-calle"
                         required
                       />
                     </label>
-                    {(sugerencias.length > 0 || buscandoDir) && (
-                      <label className="cart-field cart-field-wide">
-                        <span>{buscandoDir ? 'Buscando calles…' : 'Selecciona la calle'}</span>
-                        <select
-                          value=""
-                          onChange={(e) => {
-                            const s = sugerencias.find((x) => x.etiqueta === e.target.value);
-                            if (s) alElegirDireccion(s);
-                          }}
-                          disabled={buscandoDir}
-                        >
-                          <option value="">{buscandoDir ? 'Buscando…' : 'Elige una calle'}</option>
-                          {sugerencias.map((s, idx) => (
-                            <option key={idx} value={s.etiqueta}>{s.etiqueta}</option>
-                          ))}
-                        </select>
-                      </label>
-                    )}
+                    <datalist id="sugerencias-calle">
+                      {sugerencias.map((s, idx) => (
+                        <option key={idx} value={s.calle}>{s.etiqueta}</option>
+                      ))}
+                    </datalist>
                     <label className="cart-field">
                       <span>Número *</span>
                       <input
