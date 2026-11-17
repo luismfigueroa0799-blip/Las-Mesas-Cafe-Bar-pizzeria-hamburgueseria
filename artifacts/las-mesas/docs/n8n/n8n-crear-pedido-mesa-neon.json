@@ -8,25 +8,26 @@
         "responseMode": "responseNode",
         "options": {}
       },
-      "id": "498d4885-1d3e-4699-8128-b4a2aed6a1ab",
+      "id": "247fae5c-a2d7-4ea0-a85c-d2f9c186b83f",
       "name": "Recibir pedido mesa",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.2,
       "position": [
-        16,
+        -16,
         128
-      ]
+      ],
+      "webhookId": "7cd76368-247f-4e19-b891-21e874707a9b"
     },
     {
       "parameters": {
         "jsCode": "// n8n a veces envuelve el body en $json.body y otras veces lo deja en $json directamente\nconst raw = $json.body ?? $json;\n\n// Validar mesa\nconst mesa = Number(raw.mesa ?? '');\nif (!Number.isInteger(mesa) || mesa < 1 || mesa > 8) {\n  return [{ json: { ok: false, error: 'Mesa inválida' } } ];\n}\n\n// Buscar items en cualquier propiedad posible\nlet itemsRaw = [];\nif (Array.isArray(raw.items)) itemsRaw = raw.items;\nelse if (Array.isArray(raw.carrito)) itemsRaw = raw.carrito;\nelse if (Array.isArray(raw.lineas)) itemsRaw = raw.lineas;\n\nif (!itemsRaw || itemsRaw.length === 0) {\n  return [{ json: { ok: false, error: 'No hay items en el carrito' } } ];\n}\n\n// El frontend envia \"quantity\", otros flujos usan \"qty\" o \"cantidad\"\nconst agrupados = {};\nfor (const it of itemsRaw) {\n  const id = String(it && (it.id ?? it.producto_id) ?? '').trim();\n  const qty = Number(it && (it.qty ?? it.quantity ?? it.cantidad));\n  if (!id) return [{ json: { ok: false, error: 'Producto sin id' } } ];\n  if (!Number.isInteger(qty) || qty < 1 || qty > 50) return [{ json: { ok: false, error: 'Cantidad inválida' } } ];\n  agrupados[id] = (agrupados[id] || 0) + qty;\n}\n\nconst items = Object.keys(agrupados).map(id => ({ id, qty: agrupados[id] }));\n\nreturn [{\n  json: {\n    mesa: String(mesa),\n    tipo_entrega: 'mesa',\n    items: items,\n    id_pedido: 'MES-' + String(mesa) + '-' + Date.now(),\n    customerName: raw.customerName ?? raw.nombre ?? '',\n    customerEmail: raw.customerEmail ?? raw.email ?? '',\n    telefono: raw.telefono ?? '',\n    direccion: raw.direccion ?? '',\n    total: raw.total ?? '0',\n    urlOrigen: raw.urlOrigen ?? ''\n  }\n}];"
       },
-      "id": "69f8b5d5-f3be-43c3-a11a-3811949014ce",
+      "id": "21fba1c1-a272-496b-b464-8e28fc3bd930",
       "name": "Validar mesa y carrito",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        272,
+        240,
         128
       ]
     },
@@ -36,12 +37,12 @@
         "query": "SELECT id, name, price, is_available FROM products;",
         "options": {}
       },
-      "id": "40fc814a-e817-49aa-ab84-943fa51e69c4",
+      "id": "add7e226-d561-4b7b-92c0-9acc8d6f39d5",
       "name": "Consultar productos (Neon)",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.8,
       "position": [
-        512,
+        480,
         128
       ],
       "credentials": {
@@ -76,12 +77,12 @@
         },
         "options": {}
       },
-      "id": "08669294-d27e-4c42-b9ba-30b460b2339d",
+      "id": "9a3d34fe-d6a9-437d-950e-26ffc6657a94",
       "name": "¿Pedido válido?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        1024,
+        992,
         128
       ]
     },
@@ -232,12 +233,12 @@
         },
         "options": {}
       },
-      "id": "9426e14c-b6a6-496b-8b3b-123c53e4b62f",
+      "id": "b88d4157-26a8-42a1-ab08-9d9d42033f60",
       "name": "Insertar pedido (Neon)",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.8,
       "position": [
-        1280,
+        1248,
         112
       ],
       "credentials": {
@@ -321,12 +322,12 @@
         },
         "options": {}
       },
-      "id": "024a1044-faec-4694-ab75-5b18e42bf25c",
+      "id": "723abe01-9818-471a-96c4-05ac35d00cc1",
       "name": "Crear sesión Stripe (mesa)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        1552,
+        1520,
         112
       ],
       "credentials": {
@@ -344,13 +345,13 @@
           "responseCode": 200
         }
       },
-      "id": "f1d5c414-e9a7-4135-b610-6ee94033baff",
+      "id": "f045de83-2cc7-4a4f-8833-47f68f858661",
       "name": "Responder URL de pago (mesa)",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
         1760,
-        -16
+        112
       ]
     },
     {
@@ -361,12 +362,12 @@
           "appendAttribution": false
         }
       },
-      "id": "a26d6a53-8d87-4fbd-8216-c44dc47c6559",
+      "id": "faa1db87-8440-438c-8778-44e82a914403",
       "name": "Avisar cocina (Telegram)",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        1376,
+        1344,
         -176
       ],
       "retryOnFail": true,
@@ -403,12 +404,12 @@
           "timeout": 15000
         }
       },
-      "id": "176cf0a9-43ff-489a-b5da-c766aac3fc27",
+      "id": "4f95a68d-37e4-4bd9-9a18-8653a1ddc1ae",
       "name": "Avisar tablet (Bark)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        1376,
+        1344,
         336
       ]
     },
@@ -420,26 +421,26 @@
           "responseCode": "={{ $json.codigo || 400 }}"
         }
       },
-      "id": "134b0d58-32cb-4c8e-90bb-c89a068028b2",
+      "id": "ae95943f-24e9-4a11-b302-6f5d434b97f1",
       "name": "Responder error (mesa)",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        1024,
+        992,
         432
       ]
     },
     {
       "parameters": {
-        "jsCode": "const webhook = $('Recibir pedido mesa').first().json;\nconst pedido = webhook.body ?? webhook;\n\n// El frontend envia \"quantity\"; aceptar tambien \"qty\" y \"cantidad\"\nconst rawItems = Array.isArray(pedido.items) ? pedido.items : [];\nconst productos = $('Consultar productos (Neon)').all().map(i => i.json).filter(p => p && p.id != null);\n\nlet totalCents = 0;\nconst lineas = [];\n\nrawItems.forEach(function(it) {\n  const id = String(it && (it.id ?? it.producto_id) ?? '').trim();\n  const qty = Number(it && (it.qty ?? it.quantity ?? it.cantidad));\n  const prod = productos.find(function(p) { return String(p.id).trim() === id; });\n  const disponible = prod && (prod.is_available === undefined ? prod.disponible !== false : prod.is_available !== false);\n  if (prod && disponible && Number.isInteger(qty) && qty > 0) {\n    const precio = Number(prod.price ?? prod.precio ?? 0);\n    const sub = Math.round(precio * 100) * qty;\n    totalCents += sub;\n    lineas.push({ id: prod.id, nombre: prod.name || prod.nombre || id, qty: qty, precio: precio, subtotal: sub / 100 });\n  }\n});\n\nif (lineas.length === 0 || totalCents <= 0) {\n  return [{ json: { valido: false, error: 'No hay items para calcular' } }];\n}\n\nconst detalleTexto = lineas.map(function(l) {\n  return (l.qty > 1 ? l.qty + ' x ' : '') + l.nombre + ' - ' + l.precio.toFixed(2).replace('.', ',') + ' €';\n}).join('\\n');\n\nreturn [{\n  json: {\n    valido: true,\n    mesa: String(pedido.mesa ?? ''),\n    tipo_entrega: 'mesa',\n    id_pedido: 'MES-' + String(pedido.mesa ?? '') + '-' + Date.now(),\n    customerName: pedido.customerName ?? '',\n    telefono: pedido.telefono ?? '',\n    direccion: pedido.direccion ?? '',\n    urlOrigen: pedido.urlOrigen ?? '',\n    items: lineas,\n    lineas: lineas,\n    total: totalCents / 100,\n    total_centimos: totalCents,\n    total_texto: (totalCents / 100).toFixed(2),\n    detalle_texto: detalleTexto,\n    estado: 'pendiente_pago'\n  }\n}];"
+        "jsCode": "const webhook = $('Recibir pedido mesa').first().json;\nconst pedido = webhook.body ?? webhook;\n\nconst rawItems = Array.isArray(pedido.items) ? pedido.items : [];\nconst productos = $('Consultar productos (Neon)').all().map(i => i.json).filter(p => p && p.id != null);\n\nlet totalCents = 0;\nconst lineas = [];\n\nrawItems.forEach(function(it) {\n  const id = String(it && (it.id ?? it.producto_id) ?? '').trim();\n  const qty = Number(it && (it.qty ?? it.quantity ?? it.cantidad));\n  const prod = productos.find(function(p) { return String(p.id).trim() === id; });\n  if (prod && qty > 0) {\n    const precio = Number(prod.price ?? prod.precio ?? 0);\n    const sub = Math.round(precio * 100) * qty;\n    totalCents += sub;\n    lineas.push({ id: prod.id, nombre: prod.name || prod.nombre || id, qty: qty, precio: precio, subtotal: sub / 100 });\n  }\n});\n\nif (lineas.length === 0 || totalCents <= 0) {\n  return [{ json: { valido: false, error: 'No hay items. Recibido: ' + JSON.stringify(pedido).slice(0, 300) } }];\n}\n\nconst detalleTexto = lineas.map(function(l) {\n  return (l.qty > 1 ? l.qty + ' x ' : '') + l.nombre + ' - ' + l.precio.toFixed(2).replace('.', ',') + ' €';\n}).join('\\n');\n\nreturn [{\n  json: {\n    valido: true,\n    mesa: String(pedido.mesa ?? ''),\n    tipo_entrega: 'mesa',\n    id_pedido: 'MES-' + String(pedido.mesa ?? '') + '-' + Date.now(),\n    customerName: pedido.customerName ?? '',\n    telefono: pedido.telefono ?? '',\n    direccion: pedido.direccion ?? '',\n    urlOrigen: pedido.urlOrigen ?? '',\n    lineas: lineas,\n    total: totalCents / 100,\n    total_centimos: totalCents,\n    total_texto: (totalCents / 100).toFixed(2),\n    detalle_texto: detalleTexto,\n    estado: 'pendiente_pago'\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        784,
+        752,
         144
       ],
-      "id": "386eab24-37e4-4f3a-8d47-c74ef871dc5b",
+      "id": "ff390fe4-8fe1-4adc-a4cf-9d66d79949cf",
       "name": "Calcular total (Neon)"
     }
   ],
@@ -545,7 +546,7 @@
     "executionOrder": "v1",
     "binaryMode": "separate"
   },
-  "versionId": "0836392d-12e8-4075-a091-6307abf71a04",
+  "versionId": "a3f2fa21-ea35-4f56-a0af-a3e9333b7c1b",
   "meta": {
     "instanceId": "91f9c812266692c02151b84cfda10ce4a643b978c44e62a952c0574d0a918cfa"
   },

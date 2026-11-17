@@ -1,0 +1,168 @@
+{
+  "name": "Pedidos: confirmación de pago (Neon)",
+  "nodes": [
+    {
+      "parameters": {
+        "events": [
+          "checkout.session.completed"
+        ]
+      },
+      "type": "n8n-nodes-base.stripeTrigger",
+      "typeVersion": 1,
+      "position": [
+        -624,
+        -32
+      ],
+      "id": "536bbaef-7a8e-4632-a361-73f6f886d1b5",
+      "name": "Stripe Trigger",
+      "webhookId": "503c0c2b-cb5c-4731-8f1f-dd1f39a40efd",
+      "credentials": {
+        "stripeApi": {
+          "id": "pUBcgXLy44KcEpje",
+          "name": "Stripe account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const salida = [];\nfor (const item of $input.all()) {\n  const evento = item.json || {};\n  const objeto = (evento.data && evento.data.object) || evento.object || {};\n  const metadata = objeto.metadata || {};\n  const idSesion = String(objeto.id || evento.id || '');\n  const codigoPedido = metadata.codigo || metadata.order_code || metadata.codigo_pedido || ('PED-' + idSesion.slice(-4).toUpperCase());\n  const nombre = metadata.cliente_nombre || metadata.nombre || 'Cliente';\n  const telefono = metadata.telefono || metadata.cliente_telefono || 'Sin teléfono';\n  const direccion = metadata.direccion || metadata.cliente_direccion || 'Sin dirección';\n  const mesa = metadata.mesa || '';\n  const tipo_entrega = metadata.tipo_entrega || metadata.tipo || 'domicilio';\n  const total = metadata.total_centimos ? Number(metadata.total_centimos) / 100 : (Number(objeto.amount_total) || 0) / 100;\n  const total_texto = metadata.total_texto || total.toFixed(2);\n  let items = [];\n  try {\n    const parseado = JSON.parse(metadata.detalle || metadata.items || '[]');\n    if (Array.isArray(parseado)) items = parseado;\n  } catch (e) { items = []; }\n  const detalle_texto = metadata.detalle_texto || items.map(it => {\n    const precio = typeof it.precio === 'number' ? it.precio.toFixed(2).replace('.', ',') + ' €' : it.precio || '';\n    const unidades = (it.cantidad || it.qty || 1) > 1 ? (it.cantidad || it.qty) + ' x ' : '';\n    return unidades + (it.nombre || it.name || '') + ' - ' + precio;\n  }).join('\\n');\n  salida.push({\n    json: {\n      ...evento,\n      order_code: codigoPedido,\n      codigo_pedido: codigoPedido,\n      cliente_nombre: nombre,\n      cliente_telefono: telefono,\n      direccion: direccion,\n      mesa: mesa,\n      tipo_entrega: tipo_entrega,\n      total: total,\n      total_centimos: Math.round(total * 100),\n      total_texto: total_texto,\n      detalle_texto: detalle_texto,\n      pedido_id: metadata.pedido_id || codigoPedido,\n      pagado: true\n    },\n  });\n}\nreturn salida;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -336,
+        -32
+      ],
+      "id": "097e973c-0c25-4eea-b558-1446d39f74cc",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "chatId": "8279256563",
+        "text": "=💰 PAGO COMPLETADO 💰\n\n{{ $('Code in JavaScript').first().json.mesa ? '🪑 MESA ' + $('Code in JavaScript').first().json.mesa : $('Code in JavaScript').first().json.tipo_entrega === 'domicilio' ? '📍 DOMICILIO: ' + $('Code in JavaScript').first().json.direccion : '🏪 RECOGIDA EN LOCAL' }}\n\nCódigo: {{ $('Code in JavaScript').first().json.pedido_id }}\nCliente: {{ $('Code in JavaScript').first().json.cliente_nombre }}\nTeléfono: {{ $('Code in JavaScript').first().json.cliente_telefono }}\nTotal: {{ $('Code in JavaScript').first().json.total_texto }} €",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "cc63533f-9a90-4720-994e-cd77ba784de9",
+      "name": "Avisar cocina (Telegram)",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        64,
+        -240
+      ],
+      "webhookId": "4ffa0cb1-8151-4cf9-9531-6931b98c79d3",
+      "retryOnFail": true,
+      "credentials": {
+        "telegramApi": {
+          "id": "sIFKDmcGc2Y9u7TU",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.day.app/gZpwvjWgU8Qedd",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"title\": \"💰 PAGO COMPLETADO\",\n  \"body\": \"{{ $json.mesa ? '🪑 MESA ' + $json.mesa : $json.tipo_entrega === 'domicilio' ? '📍 DOMICILIO: ' + $json.direccion : '🏪 RECOGIDA EN LOCAL' }}\\nCódigo: {{ $json.pedido_id }}\\nTotal: {{ $json.total_texto }} €\",\n  \"group\": \"cocina\"\n}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        64,
+        256
+      ],
+      "id": "09924431-f023-4907-9fe2-f8827d973d52",
+      "name": "Avisar tablet (Bark)",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE public.pedidos SET estado = 'pagado' WHERE id_pedido = $1;",
+        "options": {
+          "queryReplacement": "={{ $json.pedido_id }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        -48,
+        -32
+      ],
+      "id": "00c157e0-65f0-445d-b77c-7b5dc4603418",
+      "name": "Execute a SQL query",
+      "credentials": {
+        "postgres": {
+          "id": "1X9SZfp6WIb993oR",
+          "name": "Postgres account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Stripe Trigger": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute a SQL query": {
+      "main": [
+        [
+          {
+            "node": "Avisar cocina (Telegram)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Avisar tablet (Bark)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Avisar cocina (Telegram)": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "dd445c35-5f4b-4378-afab-f2651cd28cba",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "91f9c812266692c02151b84cfda10ce4a643b978c44e62a952c0574d0a918cfa"
+  },
+  "nodeGroups": [],
+  "id": "KEnCQNrHlTDUFf9i",
+  "tags": []
+}
