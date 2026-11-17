@@ -1149,88 +1149,154 @@ h1, h2, h3, .hero h1, .play-section h2, .gallery-heading h2, .essence h2 {
 .cart-checkout[disabled] { opacity: .5; }
 
 
-/* ===== Paleta cálida: fondo gris oscuro cálido, tarjetas resaltadas, dorado del logo ===== */
+
+/* ===== Tema CLARO, luminoso y cálido (blanco roto + dorado del logo) ===== */
 :root {
   --oro: #D4AF37;
-  --oro-claro: #E8C65A;
-  --negro-puro: #1A1817;
-  --gris-tarjeta: #2A2725;
-  --texto-crema: #F5F0E6;
-  --texto-gris-calido: #A69F99;
-  --fondo-input: #2A2725;
+  --oro-claro: #C5A059;
+  --fondo-web: #F9F7F2;
+  --fondo-tarjeta: #FFFFFF;
+  --texto-oscuro: #2C2C2C;
+  --texto-gris: #666666;
+  --fondo-input-claro: #F5F5F5;
 }
 
-/* Fondo general de la web (secciones oscuras) */
+/* Fondo general: crema suave, nunca blanco puro */
+body,
+html,
 .menu-section,
 .hero,
 .dish-list,
 section[class*="section"],
-body.dark {
-  background: var(--negro-puro) !important;
-  color: var(--texto-crema);
+.contact-section,
+.play-section {
+  background: var(--fondo-web) !important;
+  color: var(--texto-oscuro) !important;
 }
 
-/* Tarjetas de producto: gris más claro + borde dorado sutil */
-.product-card {
-  background: var(--gris-tarjeta) !important;
-  border: 1px solid rgba(212, 175, 55, 0.20) !important;
+/* Header / navegación: crema con textos oscuros y detalle dorado */
+.site-header,
+.topline {
+  background: var(--fondo-web) !important;
+  color: var(--texto-oscuro) !important;
+  border-bottom: 1px solid rgba(0,0,0,.08) !important;
 }
-.product-card:hover {
-  border-color: rgba(212, 175, 55, 0.5) !important;
+.main-nav > a,
+.site-header a,
+.topline a { color: var(--texto-oscuro) !important; }
+.main-nav .nav-cta,
+.site-header .nav-cta {
+  background: var(--oro) !important;
+  color: #FFFFFF !important;
 }
-.product-card-media { background: #232120 !important; }
 
-/* Textos: títulos crema, descripciones gris cálido */
+/* Títulos, eyebrow y precios: gris muy oscuro / marrón */
+h1, h2, h3, h4,
 .product-card-name,
 .cart-drawer-head h2,
 .cart-form-title,
-.cart-total strong {
-  color: var(--texto-crema) !important;
+.cart-total strong,
+.section-lede,
+.eyebrow {
+  color: var(--texto-oscuro) !important;
 }
+.eyebrow, .hero .eyebrow, .menu-section .eyebrow { color: var(--oro-claro) !important; }
+
+/* Descripciones e ingredientes: gris medio */
 .product-card-desc,
 .product-card-sizes-label,
+.product-card-cat,
 .cart-item-info span,
 .cart-field > span,
-.cart-field > legend {
-  color: var(--texto-gris-calido) !important;
+.cart-field > legend,
+.cart-field > span em,
+.cart-empty,
+.cart-email,
+.section-index span {
+  color: var(--texto-gris) !important;
 }
 
-/* Botón Añadir: dorado con texto oscuro */
+/* Tarjetas de producto: blanco puro, sombra sutil, borde suave gris */
+.product-card {
+  background: var(--fondo-tarjeta) !important;
+  border: 1px solid #E5E7EB !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,.06) !important;
+}
+.product-card:hover {
+  border-color: var(--oro) !important;
+  box-shadow: 0 6px 18px rgba(0,0,0,.10) !important;
+}
+.product-card-media { background: #F0EEE8 !important; }
+.product-card-sizes-options label { border-color: #E5E7EB !important; }
+.product-card-sizes-options label span { color: var(--texto-gris) !important; }
+.product-card-foot { border-top: 1px solid #E5E7EB !important; }
+.product-card-allergens {
+  background: rgba(255,255,255,.92) !important;
+  border-color: var(--oro) !important;
+  color: var(--oro-claro) !important;
+}
+
+/* Botón Añadir / Pagar: dorado con texto blanco */
 .product-card-foot button,
-.cart-checkout {
+.cart-checkout,
+.button,
+.nav-cta {
   background: var(--oro) !important;
-  color: #1A1817 !important;
+  color: #FFFFFF !important;
 }
 .product-card-foot button:hover,
 .cart-checkout:hover {
   background: var(--oro-claro) !important;
-  color: #1A1817 !important;
+  color: #FFFFFF !important;
 }
+.product-card-price { color: var(--oro-claro) !important; }
 
-/* Inputs del carrito: fondo ligeramente más claro y legible */
+/* Carrito lateral: fondo blanco, inputs gris clarito con borde suave */
+.cart-drawer,
+.cart-drawer-head,
+.cart-drawer-foot,
+.cart-form {
+  background: var(--fondo-tarjeta) !important;
+  color: var(--texto-oscuro) !important;
+  border-color: #E5E7EB !important;
+}
+.cart-overlay { background: rgba(44,44,44,.35) !important; }
 .cart-field input[type="text"],
 .cart-field input[type="tel"],
 .cart-field input[type="email"],
 .cart-field input[type="number"],
 .cart-field select,
 .cart-email input {
-  background: var(--fondo-input) !important;
-  color: var(--texto-crema) !important;
-  border: 1px solid rgba(212, 175, 55, 0.25) !important;
+  background: var(--fondo-input-claro) !important;
+  color: var(--texto-oscuro) !important;
+  border: 1px solid #DDDDDD !important;
 }
 .cart-field input::placeholder,
-.cart-email input::placeholder { color: #857e77 !important; }
+.cart-email input::placeholder { color: #999999 !important; }
 .cart-field input:focus,
 .cart-field select:focus,
 .cart-email input:focus {
   border-color: var(--oro) !important;
-  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.18) !important;
+  box-shadow: 0 0 0 3px rgba(212,175,55,.20) !important;
 }
-
-/* Avisos del carrito (mesa / legal): gris cálido con borde dorado */
-.cart-mesa,
-.cart-status {
-  background: rgba(212, 175, 55, 0.10) !important;
+.cart-total { border-top: 1px solid #E5E7EB !important; color: var(--texto-oscuro) !important; }
+.cart-item { border-bottom: 1px solid #E5E7EB !important; }
+.cart-mesa, .cart-status {
+  background: #F9F3E0 !important;
   border-left: 3px solid var(--oro) !important;
-  color: var(--texto-crema) !important;
+  color: var(--texto-oscuro) !important;
+}
+.cart-errors { background: #FDECEA !important; color: #A8322A !important; }
+
+/* Barra de categorías (tabs): inactivas gris claro, activa dorada con texto blanco */
+.tab, [role="tab"], .category-tab, .cat-tab, .filter-tab {
+  background: #F0EEE8 !important;
+  color: var(--texto-gris) !important;
+  border: 1px solid #E5E7EB !important;
+}
+.tab.is-active, [role="tab"][aria-selected="true"], .category-tab.is-active,
+.cat-tab.is-active, .filter-tab.is-active {
+  background: var(--oro) !important;
+  color: #FFFFFF !important;
+  border-color: var(--oro) !important;
 }

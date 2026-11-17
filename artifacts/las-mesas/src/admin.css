@@ -642,49 +642,52 @@
 }
 
 
-/* ===== Paleta cálida en el panel de administración ===== */
+
+/* ===== Tema CLARO en el panel de administración ===== */
 .admin-login,
 .admin {
-  background: #1A1817 !important;
-  color: #F5F0E6 !important;
+  background: #F9F7F2 !important;
+  color: #2C2C2C !important;
 }
 .admin-card,
 .admin-table-wrap,
 .admin-panel,
-.admin-section {
-  background: #2A2725 !important;
-  border-color: rgba(212, 175, 55, 0.20) !important;
+.admin-section,
+.admin-form-card {
+  background: #FFFFFF !important;
+  border: 1px solid #E5E7EB !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,.06) !important;
 }
 .admin input,
 .admin select,
 .admin textarea,
 .admin-login input {
-  background: #2A2725 !important;
-  color: #F5F0E6 !important;
-  border-color: rgba(212, 175, 55, 0.25) !important;
+  background: #F5F5F5 !important;
+  color: #2C2C2C !important;
+  border: 1px solid #DDDDDD !important;
 }
 .admin input:focus,
 .admin select:focus,
 .admin textarea:focus,
 .admin-login input:focus {
   border-color: #D4AF37 !important;
-  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.18) !important;
+  box-shadow: 0 0 0 3px rgba(212,175,55,.20) !important;
 }
-.admin h1,
-.admin h2,
-.admin h3,
-.admin th {
-  color: #F5F0E6 !important;
+.admin h1, .admin h2, .admin h3, .admin th, .admin label {
+  color: #2C2C2C !important;
 }
-.admin td,
-.admin label,
-.admin small,
-.admin p {
-  color: #A69F99 !important;
+.admin td, .admin small, .admin p, .admin .admin-subtitle {
+  color: #666666 !important;
 }
+.admin table th, .admin table td { border-color: #E5E7EB !important; }
 .admin button.primary,
 .admin .admin-save,
-.admin .btn-primary {
+.admin .btn-primary,
+.admin-login button {
   background: #D4AF37 !important;
-  color: #1A1817 !important;
+  color: #FFFFFF !important;
 }
+.admin button.primary:hover,
+.admin .admin-save:hover,
+.admin .btn-primary:hover { background: #C5A059 !important; }
+.admin .admin-eyebrow { color: #C5A059 !important; }
