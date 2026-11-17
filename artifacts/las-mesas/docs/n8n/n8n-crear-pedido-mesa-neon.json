@@ -319,6 +319,14 @@
             {
               "name": "cancel_url",
               "value": "https://las-mesas-cafe-bar-pizzeria-hamburgueseria-7l1h-git-main-luism4.vercel.app/?pedido=cancelado"
+            },
+            {
+              "name": "metadata[detalle_texto]",
+              "value": "={{ $('Calcular total (Neon)').first().json.detalle_texto.slice(0, 490) }}"
+            },
+            {
+              "name": "metadata[items]",
+              "value": "={{ JSON.stringify($('Calcular total (Neon)').first().json.lineas).slice(0, 490) }}"
             }
           ]
         },
@@ -355,65 +363,6 @@
       "position": [
         1760,
         112
-      ]
-    },
-    {
-      "parameters": {
-        "chatId": "8279256563",
-        "text": "=🚨 NUEVO PEDIDO EN COCINA 🚨\n\n🪑 MESA {{ $('Calcular total (Neon)').first().json.mesa }}\n\nCódigo: {{ $('Calcular total (Neon)').first().json.id_pedido }}\n...",
-        "additionalFields": {
-          "appendAttribution": false
-        }
-      },
-      "id": "faa1db87-8440-438c-8778-44e82a914403",
-      "name": "Avisar cocina (Telegram)",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1.2,
-      "position": [
-        1344,
-        -176
-      ],
-      "retryOnFail": true,
-      "webhookId": "191d1d07-6059-40d7-8060-4ed9db4f5fc9",
-      "credentials": {
-        "telegramApi": {
-          "id": "sIFKDmcGc2Y9u7TU",
-          "name": "Telegram account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "https://api.day.app/gZpwvjWgU8Qedd",
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "title",
-              "value": "🚨 NUEVO PEDIDO EN COCINA"
-            },
-            {
-              "name": "body",
-              "value": "={{ $('Calcular total (Neon)').first().json.mesa ? '🪑 MESA ' + $('Calcular total (Neon)').first().json.mesa : '🏪 RECOGIDA EN LOCAL' }}\\nCódigo: {{ $('Calcular total (Neon)').first().json.id_pedido }}\\nTotal: {{ $('Calcular total (Neon)').first().json.total_texto }} €"
-            },
-            {
-              "name": "group",
-              "value": "cocina"
-            }
-          ]
-        },
-        "options": {
-          "timeout": 15000
-        }
-      },
-      "id": "4f95a68d-37e4-4bd9-9a18-8653a1ddc1ae",
-      "name": "Avisar tablet (Bark)",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.5,
-      "position": [
-        1344,
-        336
       ]
     },
     {
@@ -528,16 +477,6 @@
     "Insertar pedido (Neon)": {
       "main": [
         [
-          {
-            "node": "Avisar cocina (Telegram)",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Avisar tablet (Bark)",
-            "type": "main",
-            "index": 0
-          },
           {
             "node": "Crear sesión Stripe (mesa)",
             "type": "main",

@@ -39,7 +39,7 @@
     {
       "parameters": {
         "chatId": "8279256563",
-        "text": "=💰 PAGO COMPLETADO 💰\n\n{{ $('Code in JavaScript').first().json.mesa ? '🪑 MESA ' + $('Code in JavaScript').first().json.mesa : $('Code in JavaScript').first().json.tipo_entrega === 'domicilio' ? '📍 DOMICILIO: ' + $('Code in JavaScript').first().json.direccion : '🏪 RECOGIDA EN LOCAL' }}\n\nCódigo: {{ $('Code in JavaScript').first().json.pedido_id }}\nCliente: {{ $('Code in JavaScript').first().json.cliente_nombre }}\nTeléfono: {{ $('Code in JavaScript').first().json.cliente_telefono }}\nTotal: {{ $('Code in JavaScript').first().json.total_texto }} €",
+        "text": "=🚨 NUEVO PEDIDO EN COCINA 🚨\n\n{{ $('Code in JavaScript').first().json.mesa ? '🪑 MESA ' + $('Code in JavaScript').first().json.mesa : $('Code in JavaScript').first().json.tipo_entrega === 'domicilio' ? '📍 DOMICILIO: ' + $('Code in JavaScript').first().json.direccion : '🏪 RECOGIDA EN LOCAL' }}\n\nCódigo: {{ $('Code in JavaScript').first().json.pedido_id }}\nCliente: {{ $('Code in JavaScript').first().json.cliente_nombre }}\nTeléfono: {{ $('Code in JavaScript').first().json.cliente_telefono }}\n-------------------------\nDETALLE:\n{{ $('Code in JavaScript').first().json.detalle_texto }}\n-------------------------\nTOTAL: {{ $('Code in JavaScript').first().json.total_texto }} €",
         "additionalFields": {
           "appendAttribution": false
         }
@@ -67,7 +67,7 @@
         "url": "https://api.day.app/gZpwvjWgU8Qedd",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"title\": \"💰 PAGO COMPLETADO\",\n  \"body\": \"{{ $json.mesa ? '🪑 MESA ' + $json.mesa : $json.tipo_entrega === 'domicilio' ? '📍 DOMICILIO: ' + $json.direccion : '🏪 RECOGIDA EN LOCAL' }}\\nCódigo: {{ $json.pedido_id }}\\nTotal: {{ $json.total_texto }} €\",\n  \"group\": \"cocina\"\n}",
+        "jsonBody": "={\n  \"title\": \"🚨 NUEVO PEDIDO EN COCINA\",\n  \"body\": \"{{ $('Code in JavaScript').first().json.mesa ? '🪑 MESA ' + $('Code in JavaScript').first().json.mesa : $('Code in JavaScript').first().json.tipo_entrega === 'domicilio' ? '📍 DOMICILIO: ' + $('Code in JavaScript').first().json.direccion : '🏪 RECOGIDA EN LOCAL' }}\\nCódigo: {{ $('Code in JavaScript').first().json.pedido_id }}\\n{{ $('Code in JavaScript').first().json.detalle_texto }}\\nTOTAL: {{ $('Code in JavaScript').first().json.total_texto }} €\",\n  \"group\": \"cocina\"\n}",
         "options": {
           "timeout": 15000
         }
