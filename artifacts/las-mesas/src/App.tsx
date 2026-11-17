@@ -293,8 +293,8 @@ function App() {
         <div className="home-hero-overlay" aria-hidden="true" />
         <div className="shell home-hero-content">
           <p className="eyebrow"><span className="gold-dot" /> Las Mesas · Café & Bar</p>
-          <h1 className="home-hero-title">La mejor jugada<br /><em>es de partir la mesa</em></h1>
-          <p className="home-hero-desc">Un lugar de barrio para comer, encontrarse y jugar un rato. Las Palmas de Gran Canaria.</p>
+          <h1 className="home-hero-title">{t('home.hero.titulo1')}<br /><em>{t('home.hero.titulo2')}</em></h1>
+          <p className="home-hero-desc">{t('home.hero.desc')}</p>
           <Link className="button button-gold home-hero-btn" href="/carta" data-testid="link-ver-carta">
             Ver la carta <ArrowRight size={18} />
           </Link>
@@ -306,24 +306,24 @@ function App() {
         <div className="shell">
           <div className="home-section-head">
             <p className="eyebrow"><span className="gold-dot" /> Una mesa para cada plan</p>
-            <h2 id="gallery-title">Así se disfruta<span>.</span></h2>
-            <p>Comer sin prisa, compartir algo rico y dejar sitio para una partida.</p>
+            <h2 id="gallery-title">{t('home.galeria.titulo')}<span>.</span></h2>
+            <p>{t('home.galeria.desc')}</p>
           </div>
           <div className="home-gallery-grid">
             <figure className="home-gallery-card home-gallery-card-tall">
               <img src="/assets/local-billar-1.webp" alt="Mesa de billar y mesas del comedor de Las Mesas" width="896" height="1195" loading="lazy" decoding="async" />
-              <figcaption><span>El billar del local</span></figcaption>
+              <figcaption><span>{t('home.galeria.billar')}</span></figcaption>
             </figure>
             <figure className="home-gallery-card">
               <img src="/assets/platos-compartir.jpg" alt="Platos para compartir de la carta" width="550" height="440" loading="lazy" decoding="async" />
-              <figcaption><span>Platos para compartir</span></figcaption>
+              <figcaption><span>{t('home.galeria.compartir')}</span></figcaption>
             </figure>
             <figure className="home-gallery-card">
               <img src="/assets/hero-las-mesas.webp" alt="El comedor de Las Mesas" width="640" height="854" loading="lazy" decoding="async" />
-              <figcaption><span>Un sitio para quedarse</span></figcaption>
+              <figcaption><span>{t('home.galeria.quedarse')}</span></figcaption>
             </figure>
           </div>
-          <div className="house-note"><span className="note-mark">LM</span><p>«La mejor jugada<br />es compartir la mesa.»</p><span className="note-rule" /><span className="eyebrow">Las Mesas · Gran Canaria</span></div>
+          <div className="house-note"><span className="note-mark">LM</span><p>«La mejor jugada<br />{t('home.galeria.cita')}»</p><span className="note-rule" /><span className="eyebrow">Las Mesas · Gran Canaria</span></div>
         </div>
       </section>
 
@@ -333,9 +333,9 @@ function App() {
           <div className="home-fav-head">
             <div>
               <p className="eyebrow"><span className="gold-dot" /> Los más pedidos</p>
-              <h2>Nuestros favoritos<span>.</span></h2>
+              <h2>{t('home.fav.titulo')}<span>.</span></h2>
             </div>
-            <Link className="button button-outline" href="/carta" data-testid="link-toda-carta">Ver toda la carta <ArrowRight size={16} /></Link>
+            <Link className="button button-outline" href="/carta" data-testid="link-toda-carta">{t('home.fav.verToda')} <ArrowRight size={16} /></Link>
           </div>
           <div className="home-fav-grid">
             {[
@@ -376,10 +376,10 @@ function App() {
               aria-orientation="vertical"
             >
               {categorias.map((category, index) => <button key={category.slug} className={activeCategory.slug === category.slug ? 'category-tab active' : 'category-tab'} role="tab" tabIndex={activeCategory.slug === category.slug ? 0 : -1} id={`tab-${index}`} aria-selected={activeCategory.slug === category.slug} aria-controls="menu-panel" onClick={() => setActiveSlug(category.slug)} onKeyDown={(e) => { const next = e.key === 'ArrowDown' || e.key === 'ArrowRight' ? (index + 1) % categorias.length : e.key === 'ArrowUp' || e.key === 'ArrowLeft' ? (index - 1 + categorias.length) % categorias.length : -1; if (next >= 0) { e.preventDefault(); document.getElementById(`tab-${next}`)?.focus(); setActiveSlug(categorias[next].slug); } }} data-testid={`tab-category-${index}`}><span>{String(index + 1).padStart(2, '0')}</span>{category.name}<ArrowRight size={14} /></button>)}
-              <p className="menu-download-note">La carta completa, lista para consultar o guardar.</p>
+              <p className="menu-download-note">{t('carta.download')}</p>
             </div>
             <div className="menu-panel" role="tabpanel" id="menu-panel" aria-labelledby={`tab-${categorias.findIndex((c) => c.slug === activeCategory.slug)}`} key={activeCategory.slug}>
-              <div className="panel-title"><div><span className="eyebrow">En la mesa</span><h3>{activeCategory.name}</h3></div><span className="dish-count">{String(productos.length).padStart(2, '0')} opciones</span></div>
+              <div className="panel-title"><div><span className="eyebrow">{t('carta.enMesa')}</span><h3>{activeCategory.name}</h3></div><span className="dish-count">{String(productos.length).padStart(2, '0')} opciones</span></div>
               <div className="dish-list dish-grid grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
                 {productosActivos.slice(0, productosVisibles).map((producto) => (
                   <ProductCard
@@ -408,9 +408,9 @@ function App() {
                   </button>
                 </div>
               )}
-              <p className="allergen-note"><b>Alérgenos</b> · G = gluten · H = huevo · L = lácteos · P = pescado · CR = crustáceos · MO = moluscos · S = sulfitos · MZ = mostaza.<br />Información orientativa. Si tienes alergia o intolerancia, avísanos para confirmar los ingredientes.</p>
-              {activeCategory.slug === 'bocadillos-calientes' && <p className="allergen-note">Todos los bocadillos se sirven con pan de bombón.</p>}
-              <p className="allergen-note">Los asteriscos se muestran tal como aparecen en la carta original.</p>
+              <p className="allergen-note"><b>{t('carta.alergenos.texto')}</b> · G = gluten · H = huevo · L = lácteos · P = pescado · CR = crustáceos · MO = moluscos · S = sulfitos · MZ = mostaza.<br />Información orientativa. Si tienes alergia o intolerancia, avísanos para confirmar los ingredientes.</p>
+              {activeCategory.slug === 'bocadillos-calientes' && <p className="allergen-note">{t('carta.bocadillos')}</p>}
+              <p className="allergen-note">{t('carta.asteriscos')}</p>
             </div>
           </div>
         </div>
@@ -423,47 +423,47 @@ function App() {
       <section className="essence section-pad" id="esencia">
         <div className="shell essence-grid">
           <div className="section-index">01 <span>— LA CASA</span></div>
-          <div className="essence-title"><p className="eyebrow">{t('casa.titulo')}</p><h2>Ven por la cena.<br /><em>Quédate por el rato.</em></h2></div>
-          <div className="essence-text"><p>En Las Mesas el plan no tiene que complicarse: algo rico para picar, una charla sin prisa y, si apetece, una partida de billar.</p><p>Un café de barrio con espíritu de bar. Hecho para encontrarse.</p><a className="text-link dark-link" href="#contacto">Encuéntranos en Las Mesas <ArrowRight size={15} /></a></div>
+          <div className="essence-title"><p className="eyebrow">{t('casa.titulo')}</p><h2>{t('local.volver.cena')}<br /><em>{t('local.quedate')}</em></h2></div>
+          <div className="essence-text"><p>En Las Mesas el plan no tiene que complicarse: algo rico para picar, una charla sin prisa y, si apetece, una partida de billar.</p><p>Un café de barrio con espíritu de bar. Hecho para encontrarse.</p><a className="text-link dark-link" href="#contacto">{t('local.contacto')} <ArrowRight size={15} /></a></div>
         </div>
       </section>
       <section className="gallery-section section-pad" id="local-galeria" aria-labelledby="gallery-title">
         <div className="shell">
           <div className="gallery-heading">
-            <div><p className="eyebrow"><span className="gold-dot" /> Una mesa para cada plan</p><h2 id="gallery-title">Así se disfruta<span>.</span></h2></div>
-            <p>Comer sin prisa, compartir algo rico y dejar sitio para una partida.</p>
+            <div><p className="eyebrow"><span className="gold-dot" /> Una mesa para cada plan</p><h2 id="gallery-title">{t('home.galeria.titulo')}<span>.</span></h2></div>
+            <p>{t('home.galeria.desc')}</p>
           </div>
           <div className="gallery-grid">
             <figure className="gallery-card gallery-card-tall">
               <img src="/assets/local-billar-1.webp" alt="Mesa de billar y mesas del comedor de Las Mesas" width="896" height="1195" loading="lazy" decoding="async" />
-              <figcaption><span>{t('casa.billar')}</span><small>El billar del local</small></figcaption>
+              <figcaption><span>{t('casa.billar')}</span><small>{t('home.galeria.billar')}</small></figcaption>
             </figure>
             <figure className="gallery-card">
               <img src="/assets/platos-compartir.jpg" alt="Selección fotografiada de platos para compartir de la carta" width="550" height="440" loading="lazy" decoding="async" />
               <figcaption><span>{t('casa.compartir')}</span><small>Platos de la carta</small></figcaption>
             </figure>
             </div>
-          <p className="gallery-note">Fotografías reales del billar, el comedor y platos de la carta.</p>
+          <p className="gallery-note">{t('home.galeria.desc')}</p>
           <div className="house-note"><span className="note-mark">LM</span><p>«La mejor jugada<br />{t('cita.sub')}»</p><span className="note-rule" /><span className="eyebrow">Las Mesas · Gran Canaria</span></div>
         </div>
       </section>
       <section className="contact-section section-pad" id="contacto">
         <div className="shell">
-          <div className="contact-heading"><div><p className="eyebrow"><span className="gold-dot" /> Nos vemos en el barrio</p><h2>Ven a Las Mesas<span>.</span></h2></div><a className="button button-outline" href={mapsUrl} target="_blank" rel="noreferrer" data-testid="link-maps">Cómo llegar <ArrowUpRight size={16} /></a></div>
+          <div className="contact-heading"><div><p className="eyebrow"><span className="gold-dot" /> Nos vemos en el barrio</p><h2>{t('contacto.ven')}<span>.</span></h2></div><a className="button button-outline" href={mapsUrl} target="_blank" rel="noreferrer" data-testid="link-maps">{t('contacto.comoLlegar')} <ArrowUpRight size={16} /></a></div>
           <div className="contact-grid">
-            <div className="address-block"><MapPin size={21} /><span className="eyebrow">Dirección</span><address className="break-words">{address}</address><a className="text-link dark-link" href={mapsUrl} target="_blank" rel="noreferrer">Abrir en Google Maps <ArrowUpRight size={14} /></a></div>
+            <div className="address-block"><MapPin size={21} /><span className="eyebrow">Dirección</span><address className="break-words">{address}</address><a className="text-link dark-link" href={mapsUrl} target="_blank" rel="noreferrer">{t('contacto.abrirMaps')} <ArrowUpRight size={14} /></a></div>
             <div className="hours-block"><Clock3 size={21} /><span className="eyebrow">Horario</span>{hours.map(([day, time]) => <div className="hours-row" key={day}><span>{day}</span><strong>{time}</strong></div>)}</div>
-            <div className="phone-block"><Phone size={21} /><span className="eyebrow">Llámanos</span><a href={phoneHref} data-testid="link-call-footer">{phone}</a><p>Para consultas y reservas, estamos al otro lado.</p></div>
+            <div className="phone-block"><Phone size={21} /><span className="eyebrow">Llámanos</span><a href={phoneHref} data-testid="link-call-footer">{phone}</a><p>{t('contacto.llamamos.desc')}</p></div>
           </div>
           {/* La URL de las reseñas NO se imprime: se muestra como enlace para
               que no aparezca el texto gigante que rompía el móvil. */}
           <div className="social-editable">
             <span className="eyebrow">Redes y reseñas</span>
-            <p>Instagram oficial disponible; los demás enlaces están pendientes.</p>
+            <p>{t('contacto.redes')}</p>
             <span className="min-w-0 break-words">
               Instagram:{' '}
               {instagramUrl ? (
-                <a href={instagramUrl} target="_blank" rel="noreferrer">ver perfil</a>
+                <a href={instagramUrl} target="_blank" rel="noreferrer">{t('contacto.verPerfil')}</a>
               ) : (
                 'pendiente de añadir'
               )}
@@ -471,7 +471,7 @@ function App() {
             <span className="min-w-0 break-words">
               Facebook:{' '}
               {facebookUrl ? (
-                <a href={facebookUrl} target="_blank" rel="noreferrer">ver perfil</a>
+                <a href={facebookUrl} target="_blank" rel="noreferrer">{t('contacto.verPerfil')}</a>
               ) : (
                 'pendiente de añadir'
               )}
@@ -496,22 +496,22 @@ function App() {
     <>
       <section className="celebration section-pad" id="celebraciones">
         <div className="shell celebration-grid">
-          <div className="celebration-copy"><p className="eyebrow"><span className="gold-dot" /> Un motivo para juntarse</p><h2>¿Qué celebramos<br /><em>esta vez?</em></h2><p>Cumpleaños, cenas de empresa o esa reunión que lleva tiempo pendiente. Cuéntanos tu idea y el equipo podrá preparar una propuesta a medida.</p><div className="celebration-tags"><span>Cumpleaños</span><span>Cenas de empresa</span><span>Otros encuentros</span></div></div>
+          <div className="celebration-copy"><p className="eyebrow"><span className="gold-dot" /> Un motivo para juntarse</p><h2>{t('celebrar.titulo2')}<br /><em>{t('celebrar.titulo3')}</em></h2><p>{t('celebrar.desc')}</p><div className="celebration-tags"><span>{t('form.cumple')}</span><span>Cenas de empresa</span><span>Otros encuentros</span></div></div>
           <form className="form-card event-form" onSubmit={(e) => void enviarCelebracion(e)}>
-            <span className="eyebrow">Cuéntanos tu idea</span><h3>Solicitud de celebración</h3>
+            <span className="eyebrow">{t('celebrar.boton')}</span><h3>{t('celebrar.submit')}</h3>
             <div className="field-grid">
-              <label>Nombre<input name="eventName" required autoComplete="name" placeholder="Tu nombre" data-testid="input-event-name" /></label>
-              <label>Teléfono o email<input name="eventContact" required autoComplete="email" pattern="(?:[^@ ]+@[^@ ]+\\.[^@ ]+|\\+?[0-9][0-9 \\-]{6,})" title="Introduce un teléfono válido o un correo electrónico." placeholder="¿Cómo te contactamos?" data-testid="input-event-contact" /></label>
-              <label>Tipo de evento<select name="type" defaultValue="" required data-testid="select-event-type"><option value="" disabled>Elige una opción</option><option>Cumpleaños</option><option>Cena de empresa</option><option>Otro encuentro</option></select></label>
-              <label>Fecha aproximada<input type="date" name="eventDate" min={minDate} required data-testid="input-event-date" /></label>
-              <label>Número de personas<input type="number" min="1" max="100" name="eventPeople" required placeholder="Ej. 12" data-testid="input-event-people" /></label>
-              <label className="full-field">Detalles<textarea name="details" required rows={3} placeholder="Cuéntanos un poco más sobre lo que tienes en mente" data-testid="input-event-details" /></label>
+              <label>{t('form.nombre')}<input name="eventName" required autoComplete="name" placeholder={t('form.nombre.ph')} data-testid="input-event-name" /></label>
+              <label>{t('form.contacto')}<input name="eventContact" required autoComplete="email" pattern="(?:[^@ ]+@[^@ ]+\\.[^@ ]+|\\+?[0-9][0-9 \\-]{6,})" title={t('form.contacto.title')} placeholder={t('form.contacto.ph')} data-testid="input-event-contact" /></label>
+              <label>{t('form.tipoEvento')}<select name="type" defaultValue="" required data-testid="select-event-type"><option value="" disabled>{t('form.elige')}</option><option>{t('form.cumple')}</option><option>{t('form.cenaEmpresa')}</option><option>{t('form.otro')}</option></select></label>
+              <label>{t('form.fecha')}<input type="date" name="eventDate" min={minDate} required data-testid="input-event-date" /></label>
+              <label>{t('form.personas')}<input type="number" min="1" max="100" name="eventPeople" required placeholder={t('form.personas.ph')} data-testid="input-event-people" /></label>
+              <label className="full-field">{t('form.detalles')}<textarea name="details" required rows={3} placeholder={t('form.detalles.ph')} data-testid="input-event-details" /></label>
             </div>
             <button className="button button-gold form-submit" type="submit" disabled={enviandoCelebracion} data-testid="button-event-submit">
               {enviandoCelebracion ? 'Enviando…' : 'Enviar solicitud'}
               <ArrowRight size={16} />
             </button>
-            <p className="form-disclaimer">Recibimos tu solicitud y te contactamos para preparar la propuesta. No implica una reserva confirmada.</p>
+            <p className="form-disclaimer">{t('form.celebrar.desc')}</p>
             {eventStatus && <p className="form-status" role="status" data-testid="status-event">{eventStatus}</p>}
           </form>
         </div>
@@ -523,19 +523,19 @@ function App() {
     <>
       <section className="reservation section-pad" id="reserva">
         <div className="shell reservation-grid">
-          <div className="reservation-intro"><p className="eyebrow">Una mesa te espera</p><h2>Hacemos<br /><em>un hueco.</em></h2><p>Cuéntanos cuándo vienes y cuántos sois. Te enviaremos la solicitud por WhatsApp para que puedas confirmarla con el equipo.</p><div className="direct-call"><span>¿Prefieres llamar?</span><a href={phoneHref} data-testid="link-call-reservation"><Phone size={16} /> {phone}</a></div></div>
+          <div className="reservation-intro"><p className="eyebrow">{t('reserva.titulo1')}</p><h2>{t('reserva.titulo2')}<br /><em>{t('reserva.titulo3')}</em></h2><p>Cuéntanos cuándo vienes y cuántos sois. Te enviaremos la solicitud por WhatsApp para que puedas confirmarla con el equipo.</p><div className="direct-call"><span>{t('reserva.prefieres')}</span><a href={phoneHref} data-testid="link-call-reservation"><Phone size={16} /> {phone}</a></div></div>
           <form className="form-card reservation-form" onSubmit={(e) => sendWhatsApp(e, 'reserva')}>
-            <span className="eyebrow">Solicitud de reserva</span>
+            <span className="eyebrow">{t('reserva.submit')}</span>
             <div className="field-grid">
-              <label>Nombre<input name="name" required autoComplete="name" placeholder="Tu nombre" data-testid="input-reservation-name" /></label>
-              <label>Teléfono o email<input name="contact" required autoComplete="email" pattern="(?:[^@ ]+@[^@ ]+\\.[^@ ]+|\\+?[0-9][0-9 \\-]{6,})" title="Introduce un teléfono válido o un correo electrónico." placeholder="Tu contacto" data-testid="input-reservation-contact" /></label>
-              <label>Fecha<input type="date" name="date" min={minDate} required value={reservationDate} onChange={(event) => { setReservationDate(event.target.value); setReservationTime(''); }} data-testid="input-reservation-date" /></label>
-              <label>Hora<select name="time" required value={reservationTime} onChange={(event) => setReservationTime(event.target.value)} disabled={!reservationDate} data-testid="select-reservation-time"><option value="" disabled>{reservationDate ? 'Elige una hora' : 'Elige primero una fecha'}</option>{reservationTimes.map((time) => <option key={time}>{time}</option>)}</select></label>
-              <label>Número de personas<input type="number" min="1" max="20" name="people" required placeholder="Ej. 4" data-testid="input-reservation-people" /></label>
-              <label className="full-field">Comentarios <span className="optional">(opcional)</span><textarea name="comments" rows={2} placeholder="Algo que debamos tener en cuenta" data-testid="input-reservation-comments" /></label>
+              <label>{t('form.nombre')}<input name="name" required autoComplete="name" placeholder={t('form.nombre.ph')} data-testid="input-reservation-name" /></label>
+              <label>{t('form.contacto')}<input name="contact" required autoComplete="email" pattern="(?:[^@ ]+@[^@ ]+\\.[^@ ]+|\\+?[0-9][0-9 \\-]{6,})" title="Introduce un teléfono válido o un correo electrónico." placeholder={t('form.nombre.ph')} data-testid="input-reservation-contact" /></label>
+              <label>{t('form.fechaReserva')}<input type="date" name="date" min={minDate} required value={reservationDate} onChange={(event) => { setReservationDate(event.target.value); setReservationTime(''); }} data-testid="input-reservation-date" /></label>
+              <label>{t('form.hora')}<select name="time" required value={reservationTime} onChange={(event) => setReservationTime(event.target.value)} disabled={!reservationDate} data-testid="select-reservation-time"><option value="" disabled>{reservationDate ? 'Elige una hora' : 'Elige primero una fecha'}</option>{reservationTimes.map((time) => <option key={time}>{time}</option>)}</select></label>
+              <label>{t('form.personas')}<input type="number" min="1" max="20" name="people" required placeholder="Ej. 4" data-testid="input-reservation-people" /></label>
+              <label className="full-field">{t('form.comentarios')} <span className="optional">{t('form.opcional')}</span><textarea name="comments" rows={2} placeholder={t('form.comentarios.ph')} data-testid="input-reservation-comments" /></label>
             </div>
-            <button className="button button-gold form-submit" type="submit" data-testid="button-reservation-submit">Preparar solicitud <ArrowRight size={16} /></button>
-            <p className="form-disclaimer">Se abrirá WhatsApp con el mensaje preparado. Debes pulsar «Enviar»; la mesa no queda reservada hasta recibir confirmación del local.</p>
+            <button className="button button-gold form-submit" type="submit" data-testid="button-reservation-submit">{t('reserva.preparar')} <ArrowRight size={16} /></button>
+            <p className="form-disclaimer">{t('form.reserva.desc')}</p>
             {reservationStatus && <p className="form-status" role="status" data-testid="status-reservation">{reservationStatus}</p>}
           </form>
         </div>
@@ -555,9 +555,9 @@ function App() {
                   <strong>{t('pedido.confirmado')}</strong>
                   <p>
                     Te hemos enviado la confirmación por correo.
-                    {avisoPedido.codigo && <> Tu codigo de pedido es <b>{avisoPedido.codigo}</b>.</>}
-                    {avisoPedido.idPedido && <> Referencia <b>{avisoPedido.idPedido}</b>.</>}
-                    {avisoPedido.total && <> Total: <b>{avisoPedido.total} €</b>.</>}
+                    {avisoPedido.codigo && <>{' '}{t('pedido.codigo')} <b>{avisoPedido.codigo}</b>.</>}
+                    {avisoPedido.idPedido && <>{' '}{t('pedido.referencia')} <b>{avisoPedido.idPedido}</b>.</>}
+                    {avisoPedido.total && <>{' '}{t('pedido.total')} <b>{avisoPedido.total} €</b>.</>}
                     {avisoPedido.articulos.length > 0 && (
                       <> {' '}{avisoPedido.articulos.map((a) => `${a.qty} × ${a.name}`).join(', ')}.</>
                     )}
@@ -571,7 +571,7 @@ function App() {
                 <span className="pedido-aviso-icon" aria-hidden="true">!</span>
                 <div>
                   <strong>{t('pedido.cancelado')}</strong>
-                  <p>No se ha realizado ningún cobro. Tu carrito sigue intacto.</p>
+                  <p>{t('pedido.cancelado2')}</p>
                 </div>
                 <button type="button" onClick={() => setAvisoPedido(null)} aria-label="Cerrar aviso">×</button>
               </>
@@ -580,7 +580,7 @@ function App() {
               <>
                 <span className="pedido-aviso-icon" aria-hidden="true">!</span>
                 <div>
-                  <strong>No hemos podido confirmar el pago</strong>
+                  <strong>{t('pedido.error')}</strong>
                   <p>{avisoPedido.mensaje} Si se ha realizado el cargo, escríbenos y lo revisamos.</p>
                 </div>
                 <button type="button" onClick={() => setAvisoPedido(null)} aria-label="Cerrar aviso">×</button>
@@ -589,7 +589,7 @@ function App() {
           </div>
         </div>
       )}
-      <div className="topline"><span>Las Mesas Bajas · Gran Canaria</span><span>Un sitio para compartir algo más que mesa</span><a href={phoneHref} data-testid="link-call-top">{phone}</a></div>
+      <div className="topline"><span>Las Mesas Bajas · Gran Canaria</span><span>{t('home.hero.desc')}</span><a href={phoneHref} data-testid="link-call-top">{phone}</a></div>
       <header className={compactHeader ? 'site-header compact' : 'site-header'}>
         <a href="#inicio" className="brand" aria-label="Las Mesas, inicio"><img src="/assets/logo-las-mesas.jpeg" alt="Logo de Las Mesas Café & Bar" /></a>
         <button className="mobile-toggle" aria-label={mobileOpen ? 'Cerrar menú' : 'Abrir menú'} aria-expanded={mobileOpen} onClick={() => setMobileOpen(!mobileOpen)} data-testid="button-mobile-menu">{mobileOpen ? <X /> : <MenuIcon />}</button>
@@ -646,7 +646,7 @@ function App() {
         <div className="shell footer-details">
           <div className="footer-hours"><span className="footer-label">Horario</span>{hours.map(([day, time]) => <p key={day}><span>{day}</span><strong>{time}</strong></p>)}</div>
           <div className="footer-contact"><span className="footer-label">Contacto</span><a href={phoneHref}>{phone}</a><a href={mapsUrl} target="_blank" rel="noreferrer">Pintor Antonio Padrón, 59 · Cómo llegar</a></div>
-          <div className="footer-social min-w-0"><span className="footer-label">Redes y reseñas</span><span>Instagram: {instagramUrl ? <a href={instagramUrl} target="_blank" rel="noreferrer">ver perfil</a> : 'enlace pendiente de añadir'}</span><span>Facebook: {facebookUrl ? <a href={facebookUrl} target="_blank" rel="noreferrer">ver perfil</a> : 'enlace pendiente de añadir'}</span><span>Reseñas Google: {reviewsUrl ? <a href={reviewsUrl} target="_blank" rel="noreferrer">compartir opinión</a> : 'enlace pendiente de añadir'}</span></div>
+          <div className="footer-social min-w-0"><span className="footer-label">Redes y reseñas</span><span>Instagram: {instagramUrl ? <a href={instagramUrl} target="_blank" rel="noreferrer">{t('contacto.verPerfil')}</a> : 'enlace pendiente de añadir'}</span><span>Facebook: {facebookUrl ? <a href={facebookUrl} target="_blank" rel="noreferrer">{t('contacto.verPerfil')}</a> : 'enlace pendiente de añadir'}</span><span>Reseñas Google: {reviewsUrl ? <a href={reviewsUrl} target="_blank" rel="noreferrer">{t('contacto.compartir')}</a> : 'enlace pendiente de añadir'}</span></div>
         </div>
         <div className="shell footer-bottom"><span>© Las Mesas · Café & Bar</span><span>Pintor Antonio Padrón, 59 · Las Mesas Bajas · Las Palmas de Gran Canaria</span></div>
         <div className="shell"><p style={{ fontSize: '.7rem', opacity: .75, lineHeight: 1.6, margin: '10px 0 0' }}>Condiciones de envío: Los precios de la carta son para consumo en local o recogida. Los pedidos a domicilio tienen un recargo del 25% sobre el precio de los productos y un coste de envío de 1,50 €/km (máximo 8 km).</p></div>

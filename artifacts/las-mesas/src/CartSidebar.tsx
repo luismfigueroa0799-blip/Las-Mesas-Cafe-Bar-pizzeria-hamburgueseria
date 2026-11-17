@@ -407,7 +407,7 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
 
         {cart.length === 0 ? (
           <div className="cart-drawer-body">
-            <p className="cart-empty">Tu carrito está vacío. Añade algo rico desde la carta.</p>
+            <p className="cart-empty">{t('carrito.vacio2')}</p>
           </div>
         ) : (
           <>
@@ -436,13 +436,13 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
               </ul>
 
               <div className="cart-total" style={{ fontWeight: 'normal', fontSize: '0.9em' }}>
-                <span>Subtotal (productos)</span>
+                <span>{t('carrito.subtotal')}</span>
                 <strong>{formatearPrecio(subtotal)}</strong>
               </div>
               {tipoEntregaActiva === 'domicilio' && (
                 <>
                   <div className="cart-total" style={{ fontWeight: 'normal', fontSize: '0.9em' }}>
-                    <span>Recargo por servicio a domicilio (25%)</span>
+                    <span>{t('carrito.recargo')}</span>
                     <strong>{formatearPrecio(recargo)}</strong>
                   </div>
                   <p style={{ margin: '0 0 6px', fontSize: '.68rem', color: '#6b6152', lineHeight: 1.5 }}>
@@ -455,7 +455,7 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
                 </>
               )}
               <div className="cart-total">
-                <span>Total</span>
+                <span>{t('carrito.total')}</span>
                 <strong>{formatearPrecio(subtotal + recargo + costoEnvio)}</strong>
               </div>
 
@@ -471,7 +471,7 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
                     type="text"
                     value={datos.nombre}
                     onChange={(e) => actualizar('nombre', e.target.value)}
-                    placeholder="Nombre y apellidos"
+                    placeholder={t('carrito.nombre.ph')}
                     autoComplete="name"
                     required
                     aria-invalid={!datos.nombre.trim()}
@@ -484,7 +484,7 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
                     type="tel"
                     value={datos.telefono}
                     onChange={(e) => actualizar('telefono', e.target.value)}
-                    placeholder="600 00 00 00"
+                    placeholder={t('carrito.tel.ph')}
                     autoComplete="tel"
                     aria-invalid={Boolean(datos.telefono.trim()) && !telefonoValido(datos.telefono.trim())}
                   />
@@ -496,7 +496,7 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
                     type="email"
                     value={datos.email}
                     onChange={(e) => actualizar('email', e.target.value)}
-                    placeholder="tu@correo.com"
+                    placeholder={t('carrito.email.ph')}
                     autoComplete="email"
                     required
                     aria-invalid={Boolean(datos.email.trim()) && !EMAIL_VALIDO.test(datos.email.trim())}
@@ -530,7 +530,7 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
                 {tipoEntregaActiva === 'domicilio' && (
                   <div className="cart-address">
                     <div className="cart-field cart-field-wide">
-                      <span>Distancia al local (se calcula por GPS)</span>
+                      <span>{t('carrito.distancia.gps')}</span>
                       {pidiendoUbicacion ? (
                         <p className="cart-mesa">📍 Obteniendo tu ubicación…</p>
                       ) : distanciaValida ? (
@@ -547,7 +547,7 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
                         type="text"
                         value={datos.calle}
                         onChange={(e) => actualizar('calle', e.target.value)}
-                        placeholder="Nombre de la calle"
+                        placeholder={t('carrito.calle.ph')}
                         autoComplete="address-line1"
                         required
                       />
@@ -555,7 +555,7 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
                     {(sugerencias.length > 0 || buscandoDir) && (
                       <div style={{ marginTop: '-6px', marginBottom: '10px' }}>
                         {buscandoDir && (
-                          <div style={{ fontSize: '12px', opacity: 0.7, padding: '4px 0' }}>Buscando calles…</div>
+                          <div style={{ fontSize: '12px', opacity: 0.7, padding: '4px 0' }}>{t('carrito.buscando')}</div>
                         )}
                         {!buscandoDir && sugerencias.map((s, idx) => (
                           <button
@@ -598,7 +598,7 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
                         type="text"
                         value={datos.piso}
                         onChange={(e) => actualizar('piso', e.target.value)}
-                        placeholder="3º B"
+                        placeholder={t('carrito.piso.ph')}
                       />
                     </label>
                     <label className="cart-field">
@@ -607,7 +607,7 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
                         type="text"
                         value={datos.codigoPostal}
                         onChange={(e) => actualizar('codigoPostal', e.target.value)}
-                        placeholder="35018"
+                        placeholder={t('carrito.cp.ph')}
                         autoComplete="postal-code"
                         required
                       />
@@ -618,7 +618,7 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
                         type="text"
                         value={datos.ciudad}
                         onChange={(e) => actualizar('ciudad', e.target.value)}
-                        placeholder="Las Palmas de Gran Canaria"
+                        placeholder={t('carrito.ciudad.ph')}
                         autoComplete="address-level2"
                       />
                     </label>

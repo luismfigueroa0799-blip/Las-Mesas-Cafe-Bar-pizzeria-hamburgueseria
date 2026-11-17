@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useI18n } from '@/I18nContext';
 import { iniciales } from '@/products';
 import { AvailabilityBadge } from '@/AvailabilityBadge';
 
@@ -30,6 +31,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
   selectedSize = 'normal',
   showSizeSelector = false,
 }) => {
+  const { t } = useI18n();
   const [size, setSize] = useState(selectedSize);
   const foto = product.image_url ?? null;
   // Agotado: el panel de inventario (/admin/inventario) lo marca.
@@ -57,7 +59,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
           </div>
         )}
         {product.allergens && (
-          <span className="product-card-allergens" title="Alérgenos">
+          <span className="product-card-allergens" title={t('card.alergenos')}>
             {product.allergens}
           </span>
         )}
@@ -74,7 +76,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
 
         {showSizeSelector && (
           <div className="product-card-sizes">
-            <span className="product-card-sizes-label">Tamaño:</span>
+            <span className="product-card-sizes-label">{t('card.tamano')}</span>
             <div className="product-card-sizes-options">
               {(['mini', 'normal'] as const).map((valor) => (
                 <label key={valor} className={size === valor ? 'is-active' : ''}>
