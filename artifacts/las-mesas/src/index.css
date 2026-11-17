@@ -1669,3 +1669,19 @@ html.dark .cart-select-entrega option {
   background: #2A2725 !important;
   color: #F5F0E6 !important;
 }
+
+/* ===== Navegación multipágina ===== */
+.carta-cta-section { text-align: center; padding: 60px 0 90px; }
+.carta-cta-button {
+  min-height: 64px;
+  padding: 0 42px;
+  font-size: 1.05rem;
+  letter-spacing: .08em;
+  box-shadow: 0 10px 30px rgba(212,175,55,.35);
+}
+.carta-cta-button:hover { transform: translateY(-3px); box-shadow: 0 16px 38px rgba(212,175,55,.45); }
+.carta-mas-wrap { display: flex; justify-content: center; margin: 26px 0 10px; }
+.carta-mas { min-width: 260px; }
+/* Enlaces del menú activos */
+.main-nav a[href="/"], .main-nav a[href="/carta"], .main-nav a[href="/local"],
+.main-nav a[href="/celebraciones"] { transition: color .2s; }

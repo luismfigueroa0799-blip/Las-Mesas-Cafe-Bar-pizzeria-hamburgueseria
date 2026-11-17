@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { Link, Route, Switch, useLocation } from 'wouter';
 import { ArrowDown, ArrowRight, ArrowUpRight, CalendarDays, Clock3, MapPin, Menu as MenuIcon, Moon, Phone, ShoppingBag, Sun, X } from 'lucide-react';
 import './index.css';
 import { useCart } from '@/CartContext';
@@ -83,12 +84,15 @@ function App() {
   const [reservationTime, setReservationTime] = useState('');
   const [cartOpen, setCartOpen] = useState(false);
   const [avisoPedido, setAvisoPedido] = useState<AvisoPedido>(null);
+  const [location, navegar] = useLocation();
+  const [productosVisibles, setProductosVisibles] = useState(12);
   const { cart, addToCart, clearCart } = useCart();
   const { tema, alternarTema } = useTheme();
   const { idioma, cambiarIdioma, t } = useI18n();
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
   const activeCategory = categorias.find((c) => c.slug === activeSlug) ?? categorias[0];
   const productosActivos = productos.filter((p) => p.category_slug === activeCategory.slug);
+  useEffect(() => { setProductosVisibles(12); }, [activeSlug]);
 
   // Cargar la carta desde la API (lee Neon: ids, precios y disponibilidad).
   useEffect(() => {
@@ -279,6 +283,220 @@ function App() {
   if (esRutaLogin) return <Login />;
   if (esRutaAdmin) return <Inventario />;
 
+
+  // ===== Páginas (contenido por ruta) =====
+  const paginaInicio = (
+    <>
+      <section className="gallery-section section-pad" id="local" aria-labelledby="gallery-title">
+        <div className="shell">
+          <div className="gallery-heading">
+            <div><p className="eyebrow"><span className="gold-dot" /> Una mesa para cada plan</p><h2 id="gallery-title">Así se disfruta<span>.</span></h2></div>
+            <p>Comer sin prisa, compartir algo rico y dejar sitio para una partida.</p>
+          </div>
+          <div className="gallery-grid">
+            <figure className="gallery-card gallery-card-tall">
+              <img src="/assets/local-billar-1.webp" alt="Mesa de billar y mesas del comedor de Las Mesas" width="896" height="1195" loading="lazy" decoding="async" />
+              <figcaption><span>{t('casa.billar')}</span><small>El billar del local</small></figcaption>
+            </figure>
+            <figure className="gallery-card">
+              <img src="/assets/platos-compartir.jpg" alt="Selección fotografiada de platos para compartir de la carta" width="550" height="440" loading="lazy" decoding="async" />
+              <figcaption><span>{t('casa.compartir')}</span><small>Platos de la carta</small></figcaption>
+            </figure>
+            </div>
+          <p className="gallery-note">Fotografías reales del billar, el comedor y platos de la carta.</p>
+          <div className="house-note"><span className="note-mark">LM</span><p>«La mejor jugada<br />{t('cita.sub')}»</p><span className="note-rule" /><span className="eyebrow">Las Mesas · Gran Canaria</span></div>
+        </div>
+      </section>
+      <section className="carta-cta-section section-pad">
+        <div className="shell">
+          <Link className="button button-gold carta-cta-button" href="/carta" data-testid="link-ver-carta">
+            Ver la carta <ArrowRight size={18} />
+          </Link>
+        </div>
+      </section>
+    </>
+  );
+
+  const paginaCarta = (
+    <>
+      <section className="menu-section section-pad" id="carta">
+        <div className="shell">
+          <div className="menu-heading"><div><p className="eyebrow"><span className="gold-dot" /> {t('carta.titulo')}</p><h2>{t('carta.titulo')}<span>.</span></h2><p className="section-lede">{t('carta.desc')}</p></div><a className="button button-outline" href="/assets/carta-las-mesas.pdf" download="carta-las-mesas.pdf" data-testid="link-download-menu">{t('carta.descargar')} <ArrowDown size={16} /></a></div>
+          <div className="menu-experience">
+            <div
+              className="category-list overflow-x-auto whitespace-nowrap px-4 min-w-0"
+              role="tablist"
+              aria-label="Categorías de la carta"
+              aria-orientation="vertical"
+            >
+              {categorias.map((category, index) => <button key={category.slug} className={activeCategory.slug === category.slug ? 'category-tab active' : 'category-tab'} role="tab" tabIndex={activeCategory.slug === category.slug ? 0 : -1} id={`tab-${index}`} aria-selected={activeCategory.slug === category.slug} aria-controls="menu-panel" onClick={() => setActiveSlug(category.slug)} onKeyDown={(e) => { const next = e.key === 'ArrowDown' || e.key === 'ArrowRight' ? (index + 1) % categorias.length : e.key === 'ArrowUp' || e.key === 'ArrowLeft' ? (index - 1 + categorias.length) % categorias.length : -1; if (next >= 0) { e.preventDefault(); document.getElementById(`tab-${next}`)?.focus(); setActiveSlug(categorias[next].slug); } }} data-testid={`tab-category-${index}`}><span>{String(index + 1).padStart(2, '0')}</span>{category.name}<ArrowRight size={14} /></button>)}
+              <p className="menu-download-note">La carta completa, lista para consultar o guardar.</p>
+            </div>
+            <div className="menu-panel" role="tabpanel" id="menu-panel" aria-labelledby={`tab-${categorias.findIndex((c) => c.slug === activeCategory.slug)}`} key={activeCategory.slug}>
+              <div className="panel-title"><div><span className="eyebrow">En la mesa</span><h3>{activeCategory.name}</h3></div><span className="dish-count">{String(productos.length).padStart(2, '0')} opciones</span></div>
+              <div className="dish-list dish-grid grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+                {productosActivos.slice(0, productosVisibles).map((producto) => (
+                  <ProductCard
+                    key={producto.id}
+                    product={producto}
+                    onAddToCart={(product) => addToCart({
+                      id: String(product.id || product.name),
+                      name: product.name,
+                      price: product.price,
+                      image: product.image,
+                    })}
+                    showSizeSelector={false}
+                  />
+                ))}
+              </div>
+
+              {productosActivos.length > productosVisibles && (
+                <div className="carta-mas-wrap">
+                  <button
+                    type="button"
+                    className="button button-outline carta-mas"
+                    onClick={() => setProductosVisibles((n) => n + 12)}
+                    data-testid="button-cargar-mas"
+                  >
+                    Ver más ({productosActivos.length - productosVisibles} restantes) <ArrowDown size={16} />
+                  </button>
+                </div>
+              )}
+              <p className="allergen-note"><b>Alérgenos</b> · G = gluten · H = huevo · L = lácteos · P = pescado · CR = crustáceos · MO = moluscos · S = sulfitos · MZ = mostaza.<br />Información orientativa. Si tienes alergia o intolerancia, avísanos para confirmar los ingredientes.</p>
+              {activeCategory.slug === 'bocadillos-calientes' && <p className="allergen-note">Todos los bocadillos se sirven con pan de bombón.</p>}
+              <p className="allergen-note">Los asteriscos se muestran tal como aparecen en la carta original.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </>
+  );
+
+  const paginaLocal = (
+    <>
+      <section className="essence section-pad" id="esencia">
+        <div className="shell essence-grid">
+          <div className="section-index">01 <span>— LA CASA</span></div>
+          <div className="essence-title"><p className="eyebrow">{t('casa.titulo')}</p><h2>Ven por la cena.<br /><em>Quédate por el rato.</em></h2></div>
+          <div className="essence-text"><p>En Las Mesas el plan no tiene que complicarse: algo rico para picar, una charla sin prisa y, si apetece, una partida de billar.</p><p>Un café de barrio con espíritu de bar. Hecho para encontrarse.</p><a className="text-link dark-link" href="#contacto">Encuéntranos en Las Mesas <ArrowRight size={15} /></a></div>
+        </div>
+      </section>
+      <section className="gallery-section section-pad" id="local-galeria" aria-labelledby="gallery-title">
+        <div className="shell">
+          <div className="gallery-heading">
+            <div><p className="eyebrow"><span className="gold-dot" /> Una mesa para cada plan</p><h2 id="gallery-title">Así se disfruta<span>.</span></h2></div>
+            <p>Comer sin prisa, compartir algo rico y dejar sitio para una partida.</p>
+          </div>
+          <div className="gallery-grid">
+            <figure className="gallery-card gallery-card-tall">
+              <img src="/assets/local-billar-1.webp" alt="Mesa de billar y mesas del comedor de Las Mesas" width="896" height="1195" loading="lazy" decoding="async" />
+              <figcaption><span>{t('casa.billar')}</span><small>El billar del local</small></figcaption>
+            </figure>
+            <figure className="gallery-card">
+              <img src="/assets/platos-compartir.jpg" alt="Selección fotografiada de platos para compartir de la carta" width="550" height="440" loading="lazy" decoding="async" />
+              <figcaption><span>{t('casa.compartir')}</span><small>Platos de la carta</small></figcaption>
+            </figure>
+            </div>
+          <p className="gallery-note">Fotografías reales del billar, el comedor y platos de la carta.</p>
+          <div className="house-note"><span className="note-mark">LM</span><p>«La mejor jugada<br />{t('cita.sub')}»</p><span className="note-rule" /><span className="eyebrow">Las Mesas · Gran Canaria</span></div>
+        </div>
+      </section>
+      <section className="contact-section section-pad" id="contacto">
+        <div className="shell">
+          <div className="contact-heading"><div><p className="eyebrow"><span className="gold-dot" /> Nos vemos en el barrio</p><h2>Ven a Las Mesas<span>.</span></h2></div><a className="button button-outline" href={mapsUrl} target="_blank" rel="noreferrer" data-testid="link-maps">Cómo llegar <ArrowUpRight size={16} /></a></div>
+          <div className="contact-grid">
+            <div className="address-block"><MapPin size={21} /><span className="eyebrow">Dirección</span><address className="break-words">{address}</address><a className="text-link dark-link" href={mapsUrl} target="_blank" rel="noreferrer">Abrir en Google Maps <ArrowUpRight size={14} /></a></div>
+            <div className="hours-block"><Clock3 size={21} /><span className="eyebrow">Horario</span>{hours.map(([day, time]) => <div className="hours-row" key={day}><span>{day}</span><strong>{time}</strong></div>)}</div>
+            <div className="phone-block"><Phone size={21} /><span className="eyebrow">Llámanos</span><a href={phoneHref} data-testid="link-call-footer">{phone}</a><p>Para consultas y reservas, estamos al otro lado.</p></div>
+          </div>
+          {/* La URL de las reseñas NO se imprime: se muestra como enlace para
+              que no aparezca el texto gigante que rompía el móvil. */}
+          <div className="social-editable">
+            <span className="eyebrow">Redes y reseñas</span>
+            <p>Instagram oficial disponible; los demás enlaces están pendientes.</p>
+            <span className="min-w-0 break-words">
+              Instagram:{' '}
+              {instagramUrl ? (
+                <a href={instagramUrl} target="_blank" rel="noreferrer">ver perfil</a>
+              ) : (
+                'pendiente de añadir'
+              )}
+            </span>
+            <span className="min-w-0 break-words">
+              Facebook:{' '}
+              {facebookUrl ? (
+                <a href={facebookUrl} target="_blank" rel="noreferrer">ver perfil</a>
+              ) : (
+                'pendiente de añadir'
+              )}
+            </span>
+            <span className="min-w-0 break-words">
+              Reseñas Google:{' '}
+              {reviewsUrl ? (
+                <a href={reviewsUrl} target="_blank" rel="noreferrer">
+                  compartir opinión
+                </a>
+              ) : (
+                'pendiente de añadir'
+              )}
+            </span>
+          </div>
+        </div>
+      </section>
+    </>
+  );
+
+  const paginaCelebraciones = (
+    <>
+      <section className="celebration section-pad" id="celebraciones">
+        <div className="shell celebration-grid">
+          <div className="celebration-copy"><p className="eyebrow"><span className="gold-dot" /> Un motivo para juntarse</p><h2>¿Qué celebramos<br /><em>esta vez?</em></h2><p>Cumpleaños, cenas de empresa o esa reunión que lleva tiempo pendiente. Cuéntanos tu idea y el equipo podrá preparar una propuesta a medida.</p><div className="celebration-tags"><span>Cumpleaños</span><span>Cenas de empresa</span><span>Otros encuentros</span></div></div>
+          <form className="form-card event-form" onSubmit={(e) => void enviarCelebracion(e)}>
+            <span className="eyebrow">Cuéntanos tu idea</span><h3>Solicitud de celebración</h3>
+            <div className="field-grid">
+              <label>Nombre<input name="eventName" required autoComplete="name" placeholder="Tu nombre" data-testid="input-event-name" /></label>
+              <label>Teléfono o email<input name="eventContact" required autoComplete="email" pattern="(?:[^@ ]+@[^@ ]+\\.[^@ ]+|\\+?[0-9][0-9 \\-]{6,})" title="Introduce un teléfono válido o un correo electrónico." placeholder="¿Cómo te contactamos?" data-testid="input-event-contact" /></label>
+              <label>Tipo de evento<select name="type" defaultValue="" required data-testid="select-event-type"><option value="" disabled>Elige una opción</option><option>Cumpleaños</option><option>Cena de empresa</option><option>Otro encuentro</option></select></label>
+              <label>Fecha aproximada<input type="date" name="eventDate" min={minDate} required data-testid="input-event-date" /></label>
+              <label>Número de personas<input type="number" min="1" max="100" name="eventPeople" required placeholder="Ej. 12" data-testid="input-event-people" /></label>
+              <label className="full-field">Detalles<textarea name="details" required rows={3} placeholder="Cuéntanos un poco más sobre lo que tienes en mente" data-testid="input-event-details" /></label>
+            </div>
+            <button className="button button-gold form-submit" type="submit" disabled={enviandoCelebracion} data-testid="button-event-submit">
+              {enviandoCelebracion ? 'Enviando…' : 'Enviar solicitud'}
+              <ArrowRight size={16} />
+            </button>
+            <p className="form-disclaimer">Recibimos tu solicitud y te contactamos para preparar la propuesta. No implica una reserva confirmada.</p>
+            {eventStatus && <p className="form-status" role="status" data-testid="status-event">{eventStatus}</p>}
+          </form>
+        </div>
+      </section>
+    </>
+  );
+
+  const paginaReservas = (
+    <>
+      <section className="reservation section-pad" id="reserva">
+        <div className="shell reservation-grid">
+          <div className="reservation-intro"><p className="eyebrow">Una mesa te espera</p><h2>Hacemos<br /><em>un hueco.</em></h2><p>Cuéntanos cuándo vienes y cuántos sois. Te enviaremos la solicitud por WhatsApp para que puedas confirmarla con el equipo.</p><div className="direct-call"><span>¿Prefieres llamar?</span><a href={phoneHref} data-testid="link-call-reservation"><Phone size={16} /> {phone}</a></div></div>
+          <form className="form-card reservation-form" onSubmit={(e) => sendWhatsApp(e, 'reserva')}>
+            <span className="eyebrow">Solicitud de reserva</span>
+            <div className="field-grid">
+              <label>Nombre<input name="name" required autoComplete="name" placeholder="Tu nombre" data-testid="input-reservation-name" /></label>
+              <label>Teléfono o email<input name="contact" required autoComplete="email" pattern="(?:[^@ ]+@[^@ ]+\\.[^@ ]+|\\+?[0-9][0-9 \\-]{6,})" title="Introduce un teléfono válido o un correo electrónico." placeholder="Tu contacto" data-testid="input-reservation-contact" /></label>
+              <label>Fecha<input type="date" name="date" min={minDate} required value={reservationDate} onChange={(event) => { setReservationDate(event.target.value); setReservationTime(''); }} data-testid="input-reservation-date" /></label>
+              <label>Hora<select name="time" required value={reservationTime} onChange={(event) => setReservationTime(event.target.value)} disabled={!reservationDate} data-testid="select-reservation-time"><option value="" disabled>{reservationDate ? 'Elige una hora' : 'Elige primero una fecha'}</option>{reservationTimes.map((time) => <option key={time}>{time}</option>)}</select></label>
+              <label>Número de personas<input type="number" min="1" max="20" name="people" required placeholder="Ej. 4" data-testid="input-reservation-people" /></label>
+              <label className="full-field">Comentarios <span className="optional">(opcional)</span><textarea name="comments" rows={2} placeholder="Algo que debamos tener en cuenta" data-testid="input-reservation-comments" /></label>
+            </div>
+            <button className="button button-gold form-submit" type="submit" data-testid="button-reservation-submit">Preparar solicitud <ArrowRight size={16} /></button>
+            <p className="form-disclaimer">Se abrirá WhatsApp con el mensaje preparado. Debes pulsar «Enviar»; la mesa no queda reservada hasta recibir confirmación del local.</p>
+            {reservationStatus && <p className="form-status" role="status" data-testid="status-reservation">{reservationStatus}</p>}
+          </form>
+        </div>
+      </section>
+    </>
+  );
+
   return (
     <main>
       {avisoPedido && (
@@ -330,8 +548,8 @@ function App() {
         <a href="#inicio" className="brand" aria-label="Las Mesas, inicio"><img src="/assets/logo-las-mesas.jpeg" alt="Logo de Las Mesas Café & Bar" /></a>
         <button className="mobile-toggle" aria-label={mobileOpen ? 'Cerrar menú' : 'Abrir menú'} aria-expanded={mobileOpen} onClick={() => setMobileOpen(!mobileOpen)} data-testid="button-mobile-menu">{mobileOpen ? <X /> : <MenuIcon />}</button>
         <nav className={mobileOpen ? 'main-nav open' : 'main-nav'} aria-label="Navegación principal">
-          {[[t('nav.casa'), '#esencia'], [t('nav.local'), '#local'], [t('nav.carta'), '#carta'], [t('nav.celebraciones'), '#celebraciones'], [t('nav.visitamos'), '#contacto']].map(([label, href]) => <a key={href} href={href} onClick={() => setMobileOpen(false)}>{label}</a>)}
-          <a className="nav-cta" href="#reserva" onClick={() => setMobileOpen(false)}>{t('nav.reserva')} <ArrowUpRight size={15} /></a>
+          {[[t('nav.casa'), '/'], [t('nav.local'), '/local'], [t('nav.carta'), '/carta'], [t('nav.celebraciones'), '/celebraciones'], [t('nav.visitamos'), '/local']].map(([label, href]) => <Link key={href} href={href} onClick={() => setMobileOpen(false)}>{label}</Link>)}
+          <Link className="nav-cta" href="/reservas" onClick={() => setMobileOpen(false)}>{t('nav.reserva')} <ArrowUpRight size={15} /></Link>
         </nav>
         <div className="lang-toggle" role="group" aria-label="Idioma / Language / Langue">
           {([['es','🇪🇸'],['en','🇬🇧'],['fr','🇫🇷']] as Array<[Idioma,string]>).map(([cod, bandera]) => (
@@ -368,185 +586,14 @@ function App() {
         </button>
       </header>
 
-      <section className="hero" id="inicio">
-        <div className="hero-copy reveal">
-          <p className="eyebrow"><span className="gold-dot" /> Café · Bar · Billar</p>
-          <h1>{t('hero.leyenda')}<br />{t('hero.leyenda2')} <em>{t('hero.leyenda3')}</em></h1>
-          <p className="hero-intro">{t('hero.desc')}</p>
-          <div className="hero-actions"><a className="button button-gold" href="#reserva">Reserva tu mesa <ArrowRight size={17} /></a><a className="text-link" href="#carta">{t('hero.carta')} <ArrowDown size={15} /></a></div>
-          <div className="hero-meta"><span><MapPin size={15} /> Las Mesas Bajas</span><span><Clock3 size={15} /> Consulta nuestro horario</span></div>
-        </div>
-        <figure className="hero-art hero-photo reveal">
-          <img src="/assets/hero-las-mesas.webp" alt="Mesa de billar y comedor de Las Mesas" width="640" height="854" fetchPriority="high" decoding="async" />
-          <figcaption className="hero-photo-caption"><span>LAS MESAS · GRAN CANARIA</span><b>Entre bocados y una partida</b></figcaption>
-        </figure>
-        <a className="scroll-cue" href="#esencia" aria-label="Desplazarse a la siguiente sección"><span>BAJA UN POCO</span><ArrowDown size={15} /></a>
-      </section>
-
-      <section className="essence section-pad" id="esencia">
-        <div className="shell essence-grid">
-          <div className="section-index">01 <span>— LA CASA</span></div>
-          <div className="essence-title"><p className="eyebrow">{t('casa.titulo')}</p><h2>Ven por la cena.<br /><em>Quédate por el rato.</em></h2></div>
-          <div className="essence-text"><p>En Las Mesas el plan no tiene que complicarse: algo rico para picar, una charla sin prisa y, si apetece, una partida de billar.</p><p>Un café de barrio con espíritu de bar. Hecho para encontrarse.</p><a className="text-link dark-link" href="#contacto">Encuéntranos en Las Mesas <ArrowRight size={15} /></a></div>
-        </div>
-      </section>
-
-      <section className="gallery-section section-pad" id="local" aria-labelledby="gallery-title">
-        <div className="shell">
-          <div className="gallery-heading">
-            <div><p className="eyebrow"><span className="gold-dot" /> Una mesa para cada plan</p><h2 id="gallery-title">Así se disfruta<span>.</span></h2></div>
-            <p>Comer sin prisa, compartir algo rico y dejar sitio para una partida.</p>
-          </div>
-          <div className="gallery-grid">
-            <figure className="gallery-card gallery-card-tall">
-              <img src="/assets/local-billar-1.webp" alt="Mesa de billar y mesas del comedor de Las Mesas" width="896" height="1195" loading="lazy" decoding="async" />
-              <figcaption><span>{t('casa.billar')}</span><small>El billar del local</small></figcaption>
-            </figure>
-            <figure className="gallery-card">
-              <img src="/assets/platos-compartir.jpg" alt="Selección fotografiada de platos para compartir de la carta" width="550" height="440" loading="lazy" decoding="async" />
-              <figcaption><span>{t('casa.compartir')}</span><small>Platos de la carta</small></figcaption>
-            </figure>
-            </div>
-          <p className="gallery-note">Fotografías reales del billar, el comedor y platos de la carta.</p>
-          <div className="house-note"><span className="note-mark">LM</span><p>«La mejor jugada<br />{t('cita.sub')}»</p><span className="note-rule" /><span className="eyebrow">Las Mesas · Gran Canaria</span></div>
-        </div>
-      </section>
-
-      <section className="menu-section section-pad" id="carta">
-        <div className="shell">
-          <div className="menu-heading"><div><p className="eyebrow"><span className="gold-dot" /> {t('carta.titulo')}</p><h2>{t('carta.titulo')}<span>.</span></h2><p className="section-lede">{t('carta.desc')}</p></div><a className="button button-outline" href="/assets/carta-las-mesas.pdf" download="carta-las-mesas.pdf" data-testid="link-download-menu">{t('carta.descargar')} <ArrowDown size={16} /></a></div>
-          <div className="menu-experience">
-            <div
-              className="category-list overflow-x-auto whitespace-nowrap px-4 min-w-0"
-              role="tablist"
-              aria-label="Categorías de la carta"
-              aria-orientation="vertical"
-            >
-              {categorias.map((category, index) => <button key={category.slug} className={activeCategory.slug === category.slug ? 'category-tab active' : 'category-tab'} role="tab" tabIndex={activeCategory.slug === category.slug ? 0 : -1} id={`tab-${index}`} aria-selected={activeCategory.slug === category.slug} aria-controls="menu-panel" onClick={() => setActiveSlug(category.slug)} onKeyDown={(e) => { const next = e.key === 'ArrowDown' || e.key === 'ArrowRight' ? (index + 1) % categorias.length : e.key === 'ArrowUp' || e.key === 'ArrowLeft' ? (index - 1 + categorias.length) % categorias.length : -1; if (next >= 0) { e.preventDefault(); document.getElementById(`tab-${next}`)?.focus(); setActiveSlug(categorias[next].slug); } }} data-testid={`tab-category-${index}`}><span>{String(index + 1).padStart(2, '0')}</span>{category.name}<ArrowRight size={14} /></button>)}
-              <p className="menu-download-note">La carta completa, lista para consultar o guardar.</p>
-            </div>
-            <div className="menu-panel" role="tabpanel" id="menu-panel" aria-labelledby={`tab-${categorias.findIndex((c) => c.slug === activeCategory.slug)}`} key={activeCategory.slug}>
-              <div className="panel-title"><div><span className="eyebrow">En la mesa</span><h3>{activeCategory.name}</h3></div><span className="dish-count">{String(productos.length).padStart(2, '0')} opciones</span></div>
-              <div className="dish-list dish-grid grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-                {productosActivos.map((producto) => (
-                  <ProductCard
-                    key={producto.id}
-                    product={producto}
-                    onAddToCart={(product) => addToCart({
-                      id: String(product.id || product.name),
-                      name: product.name,
-                      price: product.price,
-                      image: product.image,
-                    })}
-                    showSizeSelector={false}
-                  />
-                ))}
-              </div>
-              <p className="allergen-note"><b>Alérgenos</b> · G = gluten · H = huevo · L = lácteos · P = pescado · CR = crustáceos · MO = moluscos · S = sulfitos · MZ = mostaza.<br />Información orientativa. Si tienes alergia o intolerancia, avísanos para confirmar los ingredientes.</p>
-              {activeCategory.slug === 'bocadillos-calientes' && <p className="allergen-note">Todos los bocadillos se sirven con pan de bombón.</p>}
-              <p className="allergen-note">Los asteriscos se muestran tal como aparecen en la carta original.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="play-section section-pad" aria-labelledby="play-title">
-        <div className="shell play-grid">
-          <div className="play-number">02 / BILLAR</div>
-          <div><p className="eyebrow">{t('billard.titulo')}</p><h2 id="play-title" className="serif">Pide algo.<br /><em>Y que ruede la partida.</em></h2></div>
-          <div className="play-copy"><p>La conversación se mueve alrededor de la mesa. Entre plato y plato, una partida convierte una cena cualquiera en un buen recuerdo.</p><a className="button button-gold" href="#reserva">Ven a jugar <ArrowRight size={16} /></a></div>
-        </div>
-      </section>
-
-      <section className="celebration section-pad" id="celebraciones">
-        <div className="shell celebration-grid">
-          <div className="celebration-copy"><p className="eyebrow"><span className="gold-dot" /> Un motivo para juntarse</p><h2>¿Qué celebramos<br /><em>esta vez?</em></h2><p>Cumpleaños, cenas de empresa o esa reunión que lleva tiempo pendiente. Cuéntanos tu idea y el equipo podrá preparar una propuesta a medida.</p><div className="celebration-tags"><span>Cumpleaños</span><span>Cenas de empresa</span><span>Otros encuentros</span></div></div>
-          <form className="form-card event-form" onSubmit={(e) => void enviarCelebracion(e)}>
-            <span className="eyebrow">Cuéntanos tu idea</span><h3>Solicitud de celebración</h3>
-            <div className="field-grid">
-              <label>Nombre<input name="eventName" required autoComplete="name" placeholder="Tu nombre" data-testid="input-event-name" /></label>
-              <label>Teléfono o email<input name="eventContact" required autoComplete="email" pattern="(?:[^@ ]+@[^@ ]+\\.[^@ ]+|\\+?[0-9][0-9 \\-]{6,})" title="Introduce un teléfono válido o un correo electrónico." placeholder="¿Cómo te contactamos?" data-testid="input-event-contact" /></label>
-              <label>Tipo de evento<select name="type" defaultValue="" required data-testid="select-event-type"><option value="" disabled>Elige una opción</option><option>Cumpleaños</option><option>Cena de empresa</option><option>Otro encuentro</option></select></label>
-              <label>Fecha aproximada<input type="date" name="eventDate" min={minDate} required data-testid="input-event-date" /></label>
-              <label>Número de personas<input type="number" min="1" max="100" name="eventPeople" required placeholder="Ej. 12" data-testid="input-event-people" /></label>
-              <label className="full-field">Detalles<textarea name="details" required rows={3} placeholder="Cuéntanos un poco más sobre lo que tienes en mente" data-testid="input-event-details" /></label>
-            </div>
-            <button className="button button-gold form-submit" type="submit" disabled={enviandoCelebracion} data-testid="button-event-submit">
-              {enviandoCelebracion ? 'Enviando…' : 'Enviar solicitud'}
-              <ArrowRight size={16} />
-            </button>
-            <p className="form-disclaimer">Recibimos tu solicitud y te contactamos para preparar la propuesta. No implica una reserva confirmada.</p>
-            {eventStatus && <p className="form-status" role="status" data-testid="status-event">{eventStatus}</p>}
-          </form>
-        </div>
-      </section>
-
-      <section className="review-strip">
-        <div className="shell review-inner"><span className="review-star" aria-hidden="true" /><p>¿Ya has pasado por aquí?<br /><em>Nos encantará saber qué te pareció.</em></p>{reviewsUrl ? <a className="button button-light" href={reviewsUrl} target="_blank" rel="noreferrer">Compartir opinión <ArrowUpRight size={15} /></a> : <span className="editable-note">Enlace a reseñas pendiente de añadir</span>}</div>
-      </section>
-
-      <section className="reservation section-pad" id="reserva">
-        <div className="shell reservation-grid">
-          <div className="reservation-intro"><p className="eyebrow">Una mesa te espera</p><h2>Hacemos<br /><em>un hueco.</em></h2><p>Cuéntanos cuándo vienes y cuántos sois. Te enviaremos la solicitud por WhatsApp para que puedas confirmarla con el equipo.</p><div className="direct-call"><span>¿Prefieres llamar?</span><a href={phoneHref} data-testid="link-call-reservation"><Phone size={16} /> {phone}</a></div></div>
-          <form className="form-card reservation-form" onSubmit={(e) => sendWhatsApp(e, 'reserva')}>
-            <span className="eyebrow">Solicitud de reserva</span>
-            <div className="field-grid">
-              <label>Nombre<input name="name" required autoComplete="name" placeholder="Tu nombre" data-testid="input-reservation-name" /></label>
-              <label>Teléfono o email<input name="contact" required autoComplete="email" pattern="(?:[^@ ]+@[^@ ]+\\.[^@ ]+|\\+?[0-9][0-9 \\-]{6,})" title="Introduce un teléfono válido o un correo electrónico." placeholder="Tu contacto" data-testid="input-reservation-contact" /></label>
-              <label>Fecha<input type="date" name="date" min={minDate} required value={reservationDate} onChange={(event) => { setReservationDate(event.target.value); setReservationTime(''); }} data-testid="input-reservation-date" /></label>
-              <label>Hora<select name="time" required value={reservationTime} onChange={(event) => setReservationTime(event.target.value)} disabled={!reservationDate} data-testid="select-reservation-time"><option value="" disabled>{reservationDate ? 'Elige una hora' : 'Elige primero una fecha'}</option>{reservationTimes.map((time) => <option key={time}>{time}</option>)}</select></label>
-              <label>Número de personas<input type="number" min="1" max="20" name="people" required placeholder="Ej. 4" data-testid="input-reservation-people" /></label>
-              <label className="full-field">Comentarios <span className="optional">(opcional)</span><textarea name="comments" rows={2} placeholder="Algo que debamos tener en cuenta" data-testid="input-reservation-comments" /></label>
-            </div>
-            <button className="button button-gold form-submit" type="submit" data-testid="button-reservation-submit">Preparar solicitud <ArrowRight size={16} /></button>
-            <p className="form-disclaimer">Se abrirá WhatsApp con el mensaje preparado. Debes pulsar «Enviar»; la mesa no queda reservada hasta recibir confirmación del local.</p>
-            {reservationStatus && <p className="form-status" role="status" data-testid="status-reservation">{reservationStatus}</p>}
-          </form>
-        </div>
-      </section>
-
-      <section className="contact-section section-pad" id="contacto">
-        <div className="shell">
-          <div className="contact-heading"><div><p className="eyebrow"><span className="gold-dot" /> Nos vemos en el barrio</p><h2>Ven a Las Mesas<span>.</span></h2></div><a className="button button-outline" href={mapsUrl} target="_blank" rel="noreferrer" data-testid="link-maps">Cómo llegar <ArrowUpRight size={16} /></a></div>
-          <div className="contact-grid">
-            <div className="address-block"><MapPin size={21} /><span className="eyebrow">Dirección</span><address className="break-words">{address}</address><a className="text-link dark-link" href={mapsUrl} target="_blank" rel="noreferrer">Abrir en Google Maps <ArrowUpRight size={14} /></a></div>
-            <div className="hours-block"><Clock3 size={21} /><span className="eyebrow">Horario</span>{hours.map(([day, time]) => <div className="hours-row" key={day}><span>{day}</span><strong>{time}</strong></div>)}</div>
-            <div className="phone-block"><Phone size={21} /><span className="eyebrow">Llámanos</span><a href={phoneHref} data-testid="link-call-footer">{phone}</a><p>Para consultas y reservas, estamos al otro lado.</p></div>
-          </div>
-          {/* La URL de las reseñas NO se imprime: se muestra como enlace para
-              que no aparezca el texto gigante que rompía el móvil. */}
-          <div className="social-editable">
-            <span className="eyebrow">Redes y reseñas</span>
-            <p>Instagram oficial disponible; los demás enlaces están pendientes.</p>
-            <span className="min-w-0 break-words">
-              Instagram:{' '}
-              {instagramUrl ? (
-                <a href={instagramUrl} target="_blank" rel="noreferrer">ver perfil</a>
-              ) : (
-                'pendiente de añadir'
-              )}
-            </span>
-            <span className="min-w-0 break-words">
-              Facebook:{' '}
-              {facebookUrl ? (
-                <a href={facebookUrl} target="_blank" rel="noreferrer">ver perfil</a>
-              ) : (
-                'pendiente de añadir'
-              )}
-            </span>
-            <span className="min-w-0 break-words">
-              Reseñas Google:{' '}
-              {reviewsUrl ? (
-                <a href={reviewsUrl} target="_blank" rel="noreferrer">
-                  compartir opinión
-                </a>
-              ) : (
-                'pendiente de añadir'
-              )}
-            </span>
-          </div>
-        </div>
-      </section>
+      <Switch>
+        <Route path="/">{paginaInicio}</Route>
+        <Route path="/carta">{paginaCarta}</Route>
+        <Route path="/local">{paginaLocal}</Route>
+        <Route path="/celebraciones">{paginaCelebraciones}</Route>
+        <Route path="/reservas">{paginaReservas}</Route>
+        <Route>{paginaInicio}</Route>
+      </Switch>
 
       <footer className="site-footer">
         <div className="shell footer-main"><a href="#inicio" className="footer-brand"><img src="/assets/logo-las-mesas.jpeg" alt="" /><span>Las Mesas · Café & Bar</span></a><p>{t('footer.lema')}</p><nav aria-label="Navegación de pie">{[['La casa','#esencia'],['El local','#local'],['La carta','#carta'],['Celebraciones','#celebraciones'],['Reservas','#reserva']].map(([label,href]) => <a key={href} href={href}>{label}</a>)}</nav></div>

@@ -29,14 +29,14 @@ function idValido(id: unknown): boolean {
 }
 
 /**
- * Lee el carrito guardado en sessionStorage.
+ * Lee el carrito guardado en localStorage.
  * Se descartan los articulos cuyo id no es valido: si no, el navegador
  * arrastraria ids de una version antigua de la carta y el servidor los
  * rechazaria con "El carrito tiene articulos no validos".
  */
 function leerAlmacen(): CartProduct[] {
   try {
-    const bruto = window.sessionStorage.getItem(CLAVE_ALMACEN);
+    const bruto = window.localStorage.getItem(CLAVE_ALMACEN);
     if (!bruto) return [];
     const datos = JSON.parse(bruto);
     if (!Array.isArray(datos)) return [];
@@ -52,11 +52,11 @@ function leerAlmacen(): CartProduct[] {
 export const CartProvider = ({ children }: { children: ReactNode }) => {
   const [cart, setCart] = useState<CartProduct[]>(() => leerAlmacen());
 
-  // Guardar el carrito en sessionStorage para que no se pierda al recargar
+  // Guardar el carrito en localStorage para que no se pierda al recargar
   // la pagina ni al volver atras desde la pasarela de Stripe.
   useEffect(() => {
     try {
-      window.sessionStorage.setItem(CLAVE_ALMACEN, JSON.stringify(cart));
+      window.localStorage.setItem(CLAVE_ALMACEN, JSON.stringify(cart));
     } catch {
       /* sin almacenamiento: se perdera al recargar */
     }
@@ -95,7 +95,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   const clearCart = useCallback(() => {
     setCart([]);
     try {
-      window.sessionStorage.removeItem(CLAVE_ALMACEN);
+      window.localStorage.removeItem(CLAVE_ALMACEN);
     } catch {
       /* nada que borrar */
     }
