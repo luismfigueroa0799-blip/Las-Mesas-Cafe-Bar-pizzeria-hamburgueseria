@@ -287,29 +287,70 @@ function App() {
   // ===== Páginas (contenido por ruta) =====
   const paginaInicio = (
     <>
-      <section className="gallery-section section-pad" id="local" aria-labelledby="gallery-title">
-        <div className="shell">
-          <div className="gallery-heading">
-            <div><p className="eyebrow"><span className="gold-dot" /> Una mesa para cada plan</p><h2 id="gallery-title">Así se disfruta<span>.</span></h2></div>
-            <p>Comer sin prisa, compartir algo rico y dejar sitio para una partida.</p>
-          </div>
-          <div className="gallery-grid">
-            <figure className="gallery-card gallery-card-tall">
-              <img src="/assets/local-billar-1.webp" alt="Mesa de billar y mesas del comedor de Las Mesas" width="896" height="1195" loading="lazy" decoding="async" />
-              <figcaption><span>{t('casa.billar')}</span><small>El billar del local</small></figcaption>
-            </figure>
-            <figure className="gallery-card">
-              <img src="/assets/platos-compartir.jpg" alt="Selección fotografiada de platos para compartir de la carta" width="550" height="440" loading="lazy" decoding="async" />
-              <figcaption><span>{t('casa.compartir')}</span><small>Platos de la carta</small></figcaption>
-            </figure>
-            </div>
-          <p className="gallery-note">Fotografías reales del billar, el comedor y platos de la carta.</p>
-          <div className="house-note"><span className="note-mark">LM</span><p>«La mejor jugada<br />{t('cita.sub')}»</p><span className="note-rule" /><span className="eyebrow">Las Mesas · Gran Canaria</span></div>
+      {/* ===== HERO con imagen de fondo + overlay ===== */}
+      <section className="home-hero">
+        <div className="home-hero-bg" aria-hidden="true" />
+        <div className="home-hero-overlay" aria-hidden="true" />
+        <div className="shell home-hero-content">
+          <p className="eyebrow"><span className="gold-dot" /> Las Mesas · Café & Bar</p>
+          <h1 className="home-hero-title">La mejor jugada<br /><em>es de partir la mesa</em></h1>
+          <p className="home-hero-desc">Un lugar de barrio para comer, encontrarse y jugar un rato. Las Palmas de Gran Canaria.</p>
+          <Link className="button button-gold home-hero-btn" href="/carta" data-testid="link-ver-carta">
+            Ver la carta <ArrowRight size={18} />
+          </Link>
         </div>
       </section>
+
+      {/* ===== ASÍ SE DISFRUTA: fila de 3 imágenes grandes ===== */}
+      <section className="home-gallery section-pad" id="local" aria-labelledby="gallery-title">
+        <div className="shell">
+          <div className="home-section-head">
+            <p className="eyebrow"><span className="gold-dot" /> Una mesa para cada plan</p>
+            <h2 id="gallery-title">Así se disfruta<span>.</span></h2>
+            <p>Comer sin prisa, compartir algo rico y dejar sitio para una partida.</p>
+          </div>
+          <div className="home-gallery-grid">
+            <figure className="home-gallery-card home-gallery-card-tall">
+              <img src="/assets/local-billar-1.webp" alt="Mesa de billar y mesas del comedor de Las Mesas" width="896" height="1195" loading="lazy" decoding="async" />
+              <figcaption><span>El billar del local</span></figcaption>
+            </figure>
+            <figure className="home-gallery-card">
+              <img src="/assets/platos-compartir.jpg" alt="Platos para compartir de la carta" width="550" height="440" loading="lazy" decoding="async" />
+              <figcaption><span>Platos para compartir</span></figcaption>
+            </figure>
+            <figure className="home-gallery-card">
+              <img src="/assets/hero-las-mesas.webp" alt="El comedor de Las Mesas" width="640" height="854" loading="lazy" decoding="async" />
+              <figcaption><span>Un sitio para quedarse</span></figcaption>
+            </figure>
+          </div>
+          <div className="house-note"><span className="note-mark">LM</span><p>«La mejor jugada<br />es compartir la mesa.»</p><span className="note-rule" /><span className="eyebrow">Las Mesas · Gran Canaria</span></div>
+        </div>
+      </section>
+
+      {/* ===== NUESTROS FAVORITOS: 3 platos destacados ===== */}
+      <section className="home-favorites section-pad">
+        <div className="shell">
+          <div className="home-fav-head">
+            <div>
+              <p className="eyebrow"><span className="gold-dot" /> Los más pedidos</p>
+              <h2>Nuestros favoritos<span>.</span></h2>
+            </div>
+            <Link className="button button-outline" href="/carta" data-testid="link-toda-carta">Ver toda la carta <ArrowRight size={16} /></Link>
+          </div>
+          <div className="home-fav-grid">
+            {productos.slice(0, 3).map((p) => (
+              <article className="home-fav-card" key={p.id}>
+                <img src={p.image_url || '/assets/platos-compartir.jpg'} alt={p.name} loading="lazy" decoding="async" />
+                <div className="home-fav-info"><h3>{p.name}</h3><strong>{p.price}</strong></div>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
       <section className="carta-cta-section section-pad">
         <div className="shell">
-          <Link className="button button-gold carta-cta-button" href="/carta" data-testid="link-ver-carta">
+          <Link className="button button-gold carta-cta-button" href="/carta" data-testid="link-ver-carta-bottom">
             Ver la carta <ArrowRight size={18} />
           </Link>
         </div>
