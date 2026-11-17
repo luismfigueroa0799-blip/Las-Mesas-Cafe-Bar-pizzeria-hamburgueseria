@@ -1348,18 +1348,33 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   });
 
   try {
-    const respuesta = await g.fetch(limpiarUrl(webhook), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-
-    const texto = await respuesta.text();
+    // Timeout de 8 s: si n8n cuelga, seguimos con el plan B y creamos la
+    // sesion de Stripe aqui, para que el cliente nunca se quede esperando.
+    const controlador = new AbortController();
+    const temporizador = setTimeout(() => controlador.abort(), 8000);
+    let respuesta: any = null;
+    let texto = '';
     let datos: any = null;
+    let falloN8n = '';
     try {
-      datos = texto ? JSON.parse(texto) : null;
-    } catch {
-      datos = null;
+      respuesta = await g.fetch(limpiarUrl(webhook), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: controlador.signal,
+      });
+      texto = await respuesta.text();
+      try {
+        datos = texto ? JSON.parse(texto) : null;
+      } catch {
+        datos = null;
+      }
+    } catch (error) {
+      // n8n caido, colgado o timeout: lo tratamos como fallo y usamos el plan B.
+      falloN8n = error instanceof Error ? error.message : String(error);
+      log('[checkout] n8n no respondio a tiempo, usando plan B', falloN8n);
+    } finally {
+      clearTimeout(temporizador);
     }
 
     // Si el flujo de n8n falla (caido, en error, o sin sesion), la web sigue
@@ -1370,12 +1385,13 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     let urlN8n = '';
     let totalN8n = totalEuros;
 
-    if (!respuesta.ok || !datos?.ok) {
+    if (falloN8n || !respuesta?.ok || !datos?.ok) {
       const mensaje =
         datos?.error ||
         datos?.motivo ||
         datos?.message ||
-        `El servidor de pedidos respondió con el código ${respuesta.status}.`;
+        falloN8n ||
+        `El servidor de pedidos respondió con el código ${respuesta?.status}.`;
       log('[checkout] N8N NO PUDO CREAR EL PEDIDO (plan B: lo creamos aqui)', {
         estado: respuesta.status,
         cuerpo: texto,
