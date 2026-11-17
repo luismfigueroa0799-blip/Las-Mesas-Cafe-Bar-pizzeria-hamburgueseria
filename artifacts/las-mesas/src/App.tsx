@@ -143,10 +143,19 @@ function App() {
     const estado = params.get('pedido');
     const sessionId = params.get('session_id');
     const codigo = params.get('codigo') ?? '';
+    // Conservar la mesa del QR al limpiar la URL tras pagar/cancelar, para que
+    // el cliente siga en la misma mesa y pueda pedir más sin escanear de nuevo.
+    const mesaParam = params.get('mesa');
+    const urlLimpia = () => {
+      const limpia = new URLSearchParams();
+      if (mesaParam) limpia.set('mesa', mesaParam);
+      const query = limpia.toString();
+      return window.location.pathname + (query ? '?' + query : '');
+    };
 
     if (estado === 'cancelado') {
       setAvisoPedido({ tipo: 'cancelado' });
-      window.history.replaceState({}, '', window.location.pathname + '#carta');
+      window.history.replaceState({}, '', urlLimpia() + '#carta');
       return;
     }
     if (estado !== 'ok') return;
@@ -162,7 +171,7 @@ function App() {
         articulos: [],
       });
       clearCart();
-      window.history.replaceState({}, '', window.location.pathname);
+      window.history.replaceState({}, '', urlLimpia());
       return;
     }
 
@@ -191,7 +200,7 @@ function App() {
       }
     })();
 
-    window.history.replaceState({}, '', window.location.pathname);
+    window.history.replaceState({}, '', urlLimpia());
     return () => {
       vigente = false;
     };

@@ -1230,10 +1230,10 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   const base = urlBaseDeLaPeticion(req);
   const urlExito =
     base +
-    '/?pedido=ok&codigo=' +
+    '/?pedido=ok&mesa=' + encodeURIComponent(mesa) + '&codigo=' +
     encodeURIComponent(codigoPedido) +
     '&session_id={CHECKOUT_SESSION_ID}';
-  const urlCancelacion = base + '/?pedido=cancelado';
+  const urlCancelacion = base + '/?pedido=cancelado&mesa=' + encodeURIComponent(mesa);
 
   const payload = {
     // ── Formato plano que lee el flujo de n8n ──
