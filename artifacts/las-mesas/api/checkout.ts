@@ -1053,6 +1053,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     direccion?: Direccion;
     mesa?: string;
     urlOrigen?: string;
+    costoEnvio?: string | number;
   } | null;
 
   if (!body) {
@@ -1064,6 +1065,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   const telefono = normalizarTelefono(String(body.telefono ?? '').trim());
   const email = String(body.customerEmail ?? '').trim();
   const mesa = String(body.mesa ?? '').trim();
+  const costoEnvio = Math.max(0, Number(body.costoEnvio ?? 0) || 0);
   const tipoEntrega = String(body.tipoEntrega ?? '').trim() || (mesa ? 'mesa' : 'recogida');
 
   if (!nombre && tipoEntrega !== 'mesa') {
@@ -1145,7 +1147,8 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   // precio de la tabla `productos`).
   if (body.total !== undefined && body.total !== '') {
     const totalDelNavegador = aCentavos(body.total);
-    if (Math.abs(totalDelNavegador - totalDeclarado) > 1) {
+    const totalDeclaradoConEnvio = totalDeclarado + Math.round(costoEnvio * 100);
+    if (Math.abs(totalDelNavegador - totalDeclaradoConEnvio) > 1) {
       log('[checkout] El total del navegador no cuadra con los precios de la carta', {
         total_navegador: totalDelNavegador,
         total_carta: totalDeclarado,
@@ -1206,8 +1209,9 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   const lineasTexto = lineasComoTexto(lineas);
 
   // Total con los precios de la carta (es el que cobra n8n).
-  const totalEuros =
+  const subtotalEuros =
     Math.round(lineas.reduce((suma, l) => suma + l.subtotal, 0) * 100) / 100;
+  const totalEuros = Math.round((subtotalEuros + costoEnvio) * 100) / 100;
   const codigoPedido = generarCodigoPedido();
   const direccionFinal = direccionCompleta || 'Recogida en el local';
   const telefonoFinal = telefono || 'Sin teléfono';
@@ -1242,6 +1246,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     direccion: direccionFinal,
     telefono: telefonoFinal,
     total: totalEuros,
+    costo_envio: costoEnvio.toFixed(2),
     items: lineas,
 
     // ── Nombres que usa el flujo para crear el pedido ──
@@ -1268,7 +1273,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     total_texto: totalEuros.toFixed(2),
     total_euros: totalEuros.toFixed(2),
     origen: 'las-mesas-web',
-    subtotal: totalEuros,
+    subtotal: subtotalEuros,
     impuestos: 0,
     metodoPago: 'card',
     urlOrigen: String(body.urlOrigen ?? ''),
