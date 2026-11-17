@@ -691,3 +691,78 @@
 .admin .admin-save:hover,
 .admin .btn-primary:hover { background: #C5A059 !important; }
 .admin .admin-eyebrow { color: #C5A059 !important; }
+
+/* ===== PANEL ADMIN: modo oscuro por defecto, contraseño garantizado ===== */
+html .admin,
+html .admin-login {
+  background: #1A1817 !important;
+  color: #F5F0E6 !important;
+}
+html .admin-card,
+html .admin-form-card,
+html .admin-modal,
+html .admin-lista,
+html .admin-item,
+html .admin-pestanas,
+html .admin-filtros,
+html .admin-barra-carta,
+html .admin-imagen-zona,
+html .admin-error,
+html .admin-ok {
+  background: #2A2725 !important;
+  color: #F5F0E6 !important;
+  border-color: rgba(212,175,55,.25) !important;
+}
+html .admin h1, html .admin h2, html .admin h3,
+html .admin strong, html .admin label, html .admin th,
+html .admin .admin-eyebrow, html .admin .admin-sub,
+html .admin .admin-item-info p, html .admin .admin-item-precio {
+  color: #F5F0E6 !important;
+}
+html .admin p, html .admin span, html .admin small { color: #D1D5DB !important; }
+/* Buscador */
+html .admin .admin-buscar,
+html .admin input[type="search"],
+html .admin input[type="text"],
+html .admin input[type="number"],
+html .admin input[type="email"],
+html .admin input[type="password"],
+html .admin textarea,
+html .admin select,
+html .admin-login input {
+  background: #1F1D1B !important;
+  color: #F5F0E6 !important;
+  border: 1px solid rgba(212,175,55,.30) !important;
+}
+html .admin .admin-buscar::placeholder,
+html .admin input::placeholder { color: #A69F99 !important; }
+html .admin .admin-buscar:focus,
+html .admin input:focus, html .admin textarea:focus {
+  border-color: #D4AF37 !important;
+  box-shadow: 0 0 0 3px rgba(212,175,55,.20) !important;
+}
+/* Botones */
+html .admin .admin-boton,
+html .admin .admin-boton-claro {
+  background: #D4AF37 !important;
+  color: #1A1817 !important;
+  border-color: #D4AF37 !important;
+  font-weight: 700;
+}
+html .admin .admin-boton-claro { background: #2A2725 !important; color: #F5F0E6 !important; border-color: rgba(212,175,55,.4) !important; }
+html .admin .admin-boton:hover, html .admin .admin-boton-claro:hover { filter: brightness(1.1); }
+/* Pestañas */
+html .admin .admin-pestana {
+  background: #2A2725 !important;
+  color: #D1D5DB !important;
+  border-color: rgba(212,175,55,.25) !important;
+}
+html .admin .admin-pestana-activa {
+  background: #D4AF37 !important;
+  color: #1A1817 !important;
+}
+/* Interruptor disponible/agotado */
+html .admin .admin-switch-texto { color: #F5F0E6 !important; }
+html .admin .etiqueta-ok { color: #7BC47F !important; }
+html .admin .etiqueta-agotado { color: #E8877F !important; }
+html .admin .etiqueta-categoria { color: #D4AF37 !important; }

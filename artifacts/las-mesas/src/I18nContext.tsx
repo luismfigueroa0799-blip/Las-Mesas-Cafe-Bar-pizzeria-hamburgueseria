@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 
-export type Idioma = 'es' | 'en' | 'fr';
+export type Idioma = 'es' | 'en' | 'fr' | 'de';
 
 interface I18nCtx {
   idioma: Idioma;
@@ -153,13 +153,50 @@ const DICCIONARIOS: Record<Idioma, Record<string, string>> = {
     'pedido.confirmado.desc': 'Nous vous avons envoyé la confirmation par e-mail. Votre code de commande est',
     'pedido.cancelado.desc': 'Aucun prélèvement effectué. Votre panier est intact.',
   },
+  de: {
+    'nav.casa': 'Unser Haus', 'nav.local': 'Das Lokal', 'nav.carta': 'Speisekarte',
+    'nav.celebraciones': 'Feiern', 'nav.visitamos': 'Besuche uns',
+    'nav.reserva': 'Tisch reservieren',
+    'hero.leyenda': 'Die Abende', 'hero.leyenda2': 'werden länger', 'hero.leyenda3': 'in guter Gesellschaft.',
+    'hero.desc': 'Ein Tisch zum Essen, ein anderer zum Spielen und immer ein Grund, länger zu bleiben.',
+    'hero.reserva': 'Tisch reservieren', 'hero.carta': 'Speisekarte ansehen',
+    'hero.cafebar': 'Café · Bar · Billard', 'hero.baja': 'ETWAS RUNTER',
+    'casa.titulo': 'Ein Treffpunkt im Viertel',
+    'casa.desc': 'Bei Las Mesas bleibt es einfach: etwas Leckeres zum Naschen, ein Gespräch ohne Eile und, wenn du magst, eine Runde Billard.',
+    'casa.plan': 'Ein Tisch für jeden Plan', 'casa.billar': 'Eine Runde', 'casa.compartir': 'Etwas zum Teilen',
+    'cita.titulo': 'Der beste Zug', 'cita.sub': 'ist, den Tisch zu teilen.',
+    'billard.titulo': 'Ein Plan mit Pause',
+    'billard.desc': 'Das Gespräch dreht sich um den Tisch. Zwischen den Gängen macht eine Runde aus jedem Abend eine schöne Erinnerung.',
+    'carta.titulo': 'Die Karte', 'carta.desc': 'Vom schnellen Biss bis zur Pizza zum Teilen. Hier beginnt der Plan.',
+    'carta.descargar': 'Ganze Karte herunterladen', 'carta.enMesa': 'Am Tisch',
+    'carta.alergenos': 'Allergene', 'carta.todos': 'Alle',
+    'carrito.titulo': 'Meine Bestellung', 'carrito.vacio': 'Dein Warenkorb ist leer. Füge etwas Leckeres aus der Karte hinzu.',
+    'carrito.total': 'Gesamt', 'carrito.pagar': 'Mit Stripe bezahlen', 'carrito.vaciar': 'Warenkorb leeren',
+    'carrito.datos': 'Lieferdaten', 'carrito.nombre': 'Vollständiger Name',
+    'carrito.telefono': 'Telefon', 'carrito.email': 'E-Mail-Adresse',
+    'carrito.tipoEntrega': 'Lieferart', 'carrito.recogida': 'Abholung im Lokal',
+    'carrito.domicilio': 'Lieferung nach Hause', 'carrito.mesa': 'Tisch',
+    'carrito.calle': 'Straße', 'carrito.numero': 'Nummer', 'carrito.piso': 'Stock / Tür',
+    'carrito.cp': 'Postleitzahl', 'carrito.poblacion': 'Stadt',
+    'carrito.anyadir': 'Hinzufügen', 'carrito.distancia': 'Entfernung zum Lokal',
+    'error.nombre': 'Der Name ist erforderlich.', 'error.email': 'Die E-Mail ist erforderlich.',
+    'error.telefono': 'Für die Lieferung wird die Telefonnummer benötigt.',
+    'error.calle': 'Die Straße ist erforderlich.', 'error.numero': 'Die Nummer ist erforderlich.',
+    'error.cp': 'Die Postleitzahl ist erforderlich.',
+    'pedido.confirmado': 'Bestellung bestätigt!', 'pedido.cancelado': 'Bestellung storniert',
+    'pedido.confirmado.desc': 'Wir haben dir die Bestätigung per E-Mail gesendet. Deine Bestellnummer ist',
+    'pedido.cancelado.desc': 'Es wurde keine Zahlung vorgenommen. Dein Warenkorb ist noch da.',
+    'footer.condiciones': 'Lieferbedingungen:', 'footer.lema': 'Essen. Treffen. Spielen.',
+    'footer.direccion': 'Adresse', 'footer.horario': 'Öffnungszeiten', 'footer.contacto': 'Kontakt',
+    'footer.redes': 'Soziale Medien & Bewertungen', 'footer.llamanos': 'Ruf uns an',
+  },
 };
 
 export function I18nProvider({ children }: { children: React.ReactNode }) {
   const [idioma, setIdioma] = useState<Idioma>(() => {
     try {
       const guardado = window.localStorage.getItem(CLAVE_IDIOMA);
-      return guardado === 'en' || guardado === 'fr' ? guardado : 'es';
+      return guardado === 'en' || guardado === 'fr' || guardado === 'de' ? guardado : 'es';
     } catch {
       return 'es';
     }

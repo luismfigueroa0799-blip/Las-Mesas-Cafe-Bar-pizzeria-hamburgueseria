@@ -339,10 +339,10 @@ function App() {
           </div>
           <div className="home-fav-grid">
             {[
-              { nombre: 'Burger Pizza', imagen: '/assets/burger-pizza-real.webp', precio: '14,80 €' },
-              { nombre: 'La Encerrona', imagen: '/assets/el-ternera-crack.webp', precio: '12,00 €' },
+              { nombre: 'Burger Pizza', imagen: '/assets/burger-pizza.jpg', precio: '14,80 €' },
+              { nombre: 'La Encerrona', imagen: '/assets/hamburguesa-pollo-crispy-super.jpg', precio: '12,00 €' },
               { nombre: 'Costilla a la BBQ', imagen: '/assets/costillas-bbq.webp', precio: '15,95 €' },
-              { nombre: 'La Suprema', imagen: '/assets/la-super.webp', precio: '6,50 €' },
+              { nombre: 'La Suprema', imagen: '/assets/platos-compartir.jpg', precio: '6,50 €' },
             ].map((p) => (
               <article className="home-fav-card" key={p.nombre}>
                 <img src={p.imagen} alt={p.nombre} loading="lazy" decoding="async" />
@@ -598,7 +598,7 @@ function App() {
           <Link className="nav-cta" href="/reservas" onClick={() => setMobileOpen(false)}>{t('nav.reserva')} <ArrowUpRight size={15} /></Link>
         </nav>
         <div className="lang-toggle" role="group" aria-label="Idioma / Language / Langue">
-          {([['es','🇪🇸'],['en','🇬🇧'],['fr','🇫🇷']] as Array<[Idioma,string]>).map(([cod, bandera]) => (
+          {([['es','🇪🇸'],['en','🇬🇧'],['fr','🇫🇷'],['de','🇩🇪']] as Array<[Idioma,string]>).map(([cod, bandera]) => (
             <button
               key={cod}
               type="button"
