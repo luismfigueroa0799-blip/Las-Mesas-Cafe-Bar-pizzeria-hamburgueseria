@@ -338,10 +338,15 @@ function App() {
             <Link className="button button-outline" href="/carta" data-testid="link-toda-carta">Ver toda la carta <ArrowRight size={16} /></Link>
           </div>
           <div className="home-fav-grid">
-            {productos.slice(0, 3).map((p) => (
-              <article className="home-fav-card" key={p.id}>
-                <img src={p.image_url || '/assets/platos-compartir.jpg'} alt={p.name} loading="lazy" decoding="async" />
-                <div className="home-fav-info"><h3>{p.name}</h3><strong>{p.price}</strong></div>
+            {[
+              { nombre: 'Burger Pizza', imagen: '/assets/burger-pizza.jpg', precio: '6,50 €' },
+              { nombre: 'La Encerrona', imagen: '/assets/hamburguesa-pollo-crispy-super.jpg', precio: '12,00 €' },
+              { nombre: 'Costilla a la BBQ', imagen: '/assets/alitas-pollo-chipotle.jpg', precio: '15,95 €' },
+              { nombre: 'La Suprema', imagen: '/assets/hamburguesa-pollo-crispy-super.jpg', precio: '6,50 €' },
+            ].map((p) => (
+              <article className="home-fav-card" key={p.nombre}>
+                <img src={p.imagen} alt={p.nombre} loading="lazy" decoding="async" />
+                <div className="home-fav-info"><h3>{p.nombre}</h3><strong>{p.precio}</strong></div>
               </article>
             ))}
           </div>

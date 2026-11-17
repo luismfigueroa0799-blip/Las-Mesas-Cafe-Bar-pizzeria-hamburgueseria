@@ -1779,3 +1779,61 @@ html.dark .home-gallery,
 html.dark .home-favorites { background: #1A1817 !important; }
 html.dark .home-gallery-card,
 html.dark .home-fav-card { background: #2A2725 !important; border-color: rgba(212,175,55,.2) !important; }
+
+/* ===== ARREGLES VISUALES ===== */
+
+/* 1) Fotos "Así se disfruta": object-cover centrado y altura fija */
+.home-gallery-card img,
+.home-gallery-card-tall img {
+  width: 100%;
+  height: 320px !important;
+  object-fit: cover !important;
+  object-position: center center !important;
+  display: block;
+}
+@media (min-width: 900px) { .home-gallery-card img, .home-gallery-card-tall img { height: 380px !important; } }
+@media (max-width: 600px) { .home-gallery-card img, .home-gallery-card-tall img { height: 260px !important; } }
+
+/* 2) Menu movil desplegable: fondo oscuro sólido, textos claros */
+@media (max-width: 760px) {
+  .main-nav.open {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+    padding: 18px 20px 26px;
+    background: #1A1817 !important;
+    box-shadow: 0 18px 40px rgba(0,0,0,.4);
+    border-top: 1px solid rgba(212,175,55,.3);
+  }
+  .main-nav.open > a {
+    color: #F5F0E6 !important;
+    padding: 14px 8px;
+    font-size: 1rem;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+  }
+  .main-nav.open .nav-cta {
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    text-align: center !important;
+    margin: 16px auto 0 !important;
+    width: 100% !important;
+    background: #D4AF37 !important;
+    color: #1A1817 !important;
+    border: 0 !important;
+    border-radius: 6px !important;
+    font-weight: 700;
+    min-height: 52px;
+  }
+}
+
+/* 3) Favoritos: 4 columnas en escritorio */
+.home-fav-grid { grid-template-columns: repeat(4, 1fr) !important; }
+@media (max-width: 900px) { .home-fav-grid { grid-template-columns: repeat(2, 1fr) !important; } }
+@media (max-width: 600px) { .home-fav-grid { grid-template-columns: 1fr !important; } }
