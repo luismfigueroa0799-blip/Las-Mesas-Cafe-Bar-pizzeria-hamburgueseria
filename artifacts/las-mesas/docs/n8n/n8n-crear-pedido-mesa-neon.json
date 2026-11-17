@@ -8,95 +8,244 @@
         "responseMode": "responseNode",
         "options": {}
       },
-      "id": "webhook-mesa",
+      "id": "498d4885-1d3e-4699-8128-b4a2aed6a1ab",
       "name": "Recibir pedido mesa",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.2,
-      "position": [200, 300],
-      "webhookId": "TU_WEBHOOK_ID_MESA"
+      "position": [
+        16,
+        128
+      ]
     },
     {
       "parameters": {
-        "jsCode": "// Validar mesa (1-8) y items\nconst mesa = Number($json.mesa);\nif (!Number.isInteger(mesa) || mesa < 1 || mesa > 8) {\n  return [{ json: { ok: false, error: 'Mesa inválida: elige una mesa del 1 al 8' } }];\n}\nif (!Array.isArray($json.items) || $json.items.length === 0) {\n  return [{ json: { ok: false, error: 'El carrito está vacío' } }];\n}\n\nconst agrupados = {};\nfor (const it of $json.items) {\n  const id = it && it.id;\n  const qty = Number(it && it.qty);\n  if (!id || String(id).trim() === '') return [{ json: { ok: false, error: 'Producto sin id' } }];\n  if (!Number.isInteger(qty) || qty < 1 || qty > 50) return [{ json: { ok: false, error: 'Cantidad inválida' } }];\n  const clave = String(id);\n  agrupados[clave] = (agrupados[clave] || 0) + qty;\n}\n\nreturn [{ json: { ...$json, mesa: String(mesa), tipo_entrega: 'mesa', items: Object.keys(agrupados).map(id => ({ id, qty: agrupados[id] })) } }];",
-        "outputParameters": {}
+        "jsCode": "// n8n a veces envuelve el body en $json.body y otras veces lo deja en $json directamente\nconst raw = $json.body ?? $json;\n\n// Validar mesa\nconst mesa = Number(raw.mesa ?? '');\nif (!Number.isInteger(mesa) || mesa < 1 || mesa > 8) {\n  return [{ json: { ok: false, error: 'Mesa inválida' } } ];\n}\n\n// Buscar items en cualquier propiedad posible\nlet itemsRaw = [];\nif (Array.isArray(raw.items)) itemsRaw = raw.items;\nelse if (Array.isArray(raw.carrito)) itemsRaw = raw.carrito;\nelse if (Array.isArray(raw.lineas)) itemsRaw = raw.lineas;\n\nif (!itemsRaw || itemsRaw.length === 0) {\n  return [{ json: { ok: false, error: 'No hay items en el carrito' } } ];\n}\n\n// El frontend envia \"quantity\", otros flujos usan \"qty\" o \"cantidad\"\nconst agrupados = {};\nfor (const it of itemsRaw) {\n  const id = String(it && (it.id ?? it.producto_id) ?? '').trim();\n  const qty = Number(it && (it.qty ?? it.quantity ?? it.cantidad));\n  if (!id) return [{ json: { ok: false, error: 'Producto sin id' } } ];\n  if (!Number.isInteger(qty) || qty < 1 || qty > 50) return [{ json: { ok: false, error: 'Cantidad inválida' } } ];\n  agrupados[id] = (agrupados[id] || 0) + qty;\n}\n\nconst items = Object.keys(agrupados).map(id => ({ id, qty: agrupados[id] }));\n\nreturn [{\n  json: {\n    mesa: String(mesa),\n    tipo_entrega: 'mesa',\n    items: items,\n    id_pedido: 'MES-' + String(mesa) + '-' + Date.now(),\n    customerName: raw.customerName ?? raw.nombre ?? '',\n    customerEmail: raw.customerEmail ?? raw.email ?? '',\n    telefono: raw.telefono ?? '',\n    direccion: raw.direccion ?? '',\n    total: raw.total ?? '0',\n    urlOrigen: raw.urlOrigen ?? ''\n  }\n}];"
       },
-      "id": "validar-mesa",
+      "id": "69f8b5d5-f3be-43c3-a11a-3811949014ce",
       "name": "Validar mesa y carrito",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [450, 300]
+      "position": [
+        272,
+        128
+      ]
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT id, name, price, disponible FROM products;",
+        "query": "SELECT id, name, price, is_available FROM products;",
         "options": {}
       },
-      "id": "consultar-productos",
+      "id": "40fc814a-e817-49aa-ab84-943fa51e69c4",
       "name": "Consultar productos (Neon)",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.8,
-      "position": [700, 300],
+      "position": [
+        512,
+        128
+      ],
       "credentials": {
-        "postgres": { "id": "TU_CREDENCIAL_NEON", "name": "Neon / Postgres" }
+        "postgres": {
+          "id": "1X9SZfp6WIb993oR",
+          "name": "Postgres account"
+        }
       }
     },
     {
       "parameters": {
-        "jsCode": "// Calcular total con precios de Neon y validar disponibilidad\nconst pedido = $json;\nconst productos = $('Consultar productos (Neon)').all().map(i => i.json).filter(p => p && p.id != null);\n\nlet totalCents = 0;\nconst lineas = [];\nfor (const it of pedido.items) {\n  const prod = productos.find(p => String(p.id) === String(it.id));\n  if (!prod) return [{ json: { ok: false, error: 'Producto no encontrado: ' + it.id } }];\n  if (prod.disponible !== true) return [{ json: { ok: false, error: 'Producto agotado: ' + (prod.name || prod.id) } }];\n  const precio = Number(prod.price);\n  if (!Number.isFinite(precio) || precio < 0) return [{ json: { ok: false, error: 'Precio inválido' } }];\n  const unit = Math.round(precio * 100);\n  const sub = unit * it.qty;\n  totalCents += sub;\n  lineas.push({ id: prod.id, nombre: prod.name, qty: it.qty, precio, subtotal: sub / 100 });\n}\n\nif (totalCents <= 0) return [{ json: { ok: false, error: 'Total inválido' } }];\n\nconst detalleTexto = lineas.map(l => (l.qty > 1 ? l.qty + ' x ' : '') + l.nombre + ' - ' + l.precio.toFixed(2).replace('.', ',') + ' €').join('\\n');\n\nreturn [{ json: {\n  ...pedido,\n  valido: true,\n  lineas,\n  total: totalCents / 100,\n  total_centimos: totalCents,\n  total_texto: (totalCents / 100).toFixed(2),\n  detalle_texto: detalleTexto,\n  estado: 'pendiente_pago'\n} }];",
-        "outputParameters": {}
-      },
-      "id": "calcular-mesa",
-      "name": "Calcular total (Neon)",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [950, 300]
-    },
-    {
-      "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
-          "conditions": [{ "id": "valido", "leftValue": "={{ $json.valido }}", "rightValue": true, "operator": { "type": "boolean", "operation": "true", "singleValue": true } }],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "valido",
+              "leftValue": "={{ $json.valido }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
           "combinator": "and"
         },
         "options": {}
       },
-      "id": "valido-mesa",
+      "id": "08669294-d27e-4c42-b9ba-30b460b2339d",
       "name": "¿Pedido válido?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [1200, 300]
+      "position": [
+        1024,
+        128
+      ]
     },
     {
       "parameters": {
-        "table": { "__rl": true, "value": "pedidos", "mode": "list" },
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "pedidos",
+          "mode": "list",
+          "cachedResultName": "pedidos"
+        },
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
             "id_pedido": "={{ $json.id_pedido }}",
-            "cliente_nombre": "={{ $json.customer_name }}",
             "cliente_telefono": "={{ $json.telefono }}",
             "direccion": "={{ $json.direccion }}",
             "productos": "={{ JSON.stringify($json.lineas) }}",
-            "total": "={{ $json.total }}",
             "tipo_entrega": "={{ $json.tipo_entrega }}",
-            "mesa": "={{ $json.mesa }}",
             "estado": "Pendiente",
-            "fecha": "={{ $now.toISO() }}"
+            "fecha": "={{ $now.toISO() }}",
+            "mesa": "={{ $json.mesa }}",
+            "cliente_nombre": "={{ $json.customerName }}",
+            "total": "={{ $json.total }}"
           },
-          "matchingColumns": ["id"],
-          "schema": [],
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "id_pedido",
+              "displayName": "id_pedido",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "cliente_nombre",
+              "displayName": "cliente_nombre",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "cliente_telefono",
+              "displayName": "cliente_telefono",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "direccion",
+              "displayName": "direccion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "productos",
+              "displayName": "productos",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "total",
+              "displayName": "total",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "tipo_entrega",
+              "displayName": "tipo_entrega",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "estado",
+              "displayName": "estado",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "fecha",
+              "displayName": "fecha",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "mesa",
+              "displayName": "mesa",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
           "attemptToConvertTypes": false,
           "convertFieldsToString": false
         },
         "options": {}
       },
-      "id": "insertar-pedido-mesa",
+      "id": "9426e14c-b6a6-496b-8b3b-123c53e4b62f",
       "name": "Insertar pedido (Neon)",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.8,
-      "position": [1450, 150],
-      "credentials": { "postgres": { "id": "TU_CREDENCIAL_NEON", "name": "Neon / Postgres" } }
+      "position": [
+        1280,
+        112
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "1X9SZfp6WIb993oR",
+          "name": "Postgres account"
+        }
+      }
     },
     {
       "parameters": {
@@ -108,107 +257,299 @@
         "contentType": "form-urlencoded",
         "bodyParameters": {
           "parameters": [
-            { "name": "mode", "value": "payment" },
-            { "name": "line_items[0][price_data][currency]", "value": "eur" },
-            { "name": "line_items[0][price_data][product_data][name]", "value": "=Pedido Mesa {{ $json.mesa }} #{{ $json.id_pedido }}" },
-            { "name": "line_items[0][price_data][unit_amount]", "value": "={{ $json.total_centimos }}" },
-            { "name": "line_items[0][quantity]", "value": "1" },
-            { "name": "metadata[pedido_id]", "value": "={{ $json.id_pedido }}" },
-            { "name": "metadata[mesa]", "value": "={{ $json.mesa }}" },
-            { "name": "metadata[tipo_entrega]", "value": "mesa" },
-            { "name": "metadata[tipo]", "value": "mesa" },
-            { "name": "metadata[nombre]", "value": "={{ $json.customer_name }}" },
-            { "name": "metadata[telefono]", "value": "={{ $json.telefono }}" },
-            { "name": "metadata[total]", "value": "={{ $json.total_texto }}" },
-            { "name": "metadata[direccion]", "value": "={{ $json.direccion }}" },
-            { "name": "success_url", "value": "={{ $json.url_origen }}?pedido=ok&session_id={CHECKOUT_SESSION_ID}" },
-            { "name": "cancel_url", "value": "={{ $json.url_origen }}?pedido=cancelado" }
+            {
+              "name": "mode",
+              "value": "payment"
+            },
+            {
+              "name": "line_items[0][price_data][currency]",
+              "value": "eur"
+            },
+            {
+              "name": "line_items[0][price_data][product_data][name]",
+              "value": "=Pedido Mesa {{ $json.mesa }} #{{ $json.id_pedido }}"
+            },
+            {
+              "name": "line_items[0][price_data][unit_amount]",
+              "value": "={{ $json.total_centimos }}"
+            },
+            {
+              "name": "line_items[0][quantity]",
+              "value": "1"
+            },
+            {
+              "name": "metadata[pedido_id]",
+              "value": "={{ $json.id_pedido }}"
+            },
+            {
+              "name": "metadata[mesa]",
+              "value": "={{ $json.mesa }}"
+            },
+            {
+              "name": "metadata[tipo_entrega]",
+              "value": "mesa"
+            },
+            {
+              "name": "metadata[tipo]",
+              "value": "mesa"
+            },
+            {
+              "name": "metadata[nombre]",
+              "value": "={{ $json.customerName }}"
+            },
+            {
+              "name": "metadata[telefono]",
+              "value": "={{ $json.telefono }}"
+            },
+            {
+              "name": "metadata[total]",
+              "value": "={{ $json.total_texto }}"
+            },
+            {
+              "name": "metadata[direccion]",
+              "value": "={{ $json.direccion }}"
+            },
+            {
+              "name": "success_url",
+              "value": "={{ $json.urlOrigen }}?pedido=ok&session_id={CHECKOUT_SESSION_ID}"
+            },
+            {
+              "name": "cancel_url",
+              "value": "={{ $json.urlOrigen }}?pedido=cancelado"
+            }
           ]
         },
         "options": {}
       },
-      "id": "crear-sesion-mesa",
+      "id": "024a1044-faec-4694-ab75-5b18e42bf25c",
       "name": "Crear sesión Stripe (mesa)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
-      "position": [1700, 150],
-      "credentials": { "stripeApi": { "id": "TU_CREDENCIAL_STRIPE", "name": "Stripe account" } }
+      "position": [
+        1552,
+        112
+      ],
+      "credentials": {
+        "stripeApi": {
+          "id": "pUBcgXLy44KcEpje",
+          "name": "Stripe account"
+        }
+      }
     },
     {
       "parameters": {
         "respondWith": "json",
         "responseBody": "={{ JSON.stringify({ ok: true, pedido_id: $json.id_pedido, total: $json.total, checkout_url: $json.url }) }}",
-        "options": { "responseCode": 200 }
+        "options": {
+          "responseCode": 200
+        }
       },
-      "id": "responder-mesa",
+      "id": "f1d5c414-e9a7-4135-b610-6ee94033baff",
       "name": "Responder URL de pago (mesa)",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
-      "position": [1950, 150]
+      "position": [
+        1760,
+        -16
+      ]
     },
     {
       "parameters": {
         "chatId": "8279256563",
-        "text": "=🚨 NUEVO PEDIDO EN COCINA 🚨\n\n{{ $json.mesa ? '🪑 MESA ' + $json.mesa : '🏪 RECOGIDA EN LOCAL' }}\n\nCódigo: {{ $json.id_pedido }}\nCliente: {{ $json.customer_name }}\nTeléfono: {{ $json.telefono }}\nTotal: {{ $json.total_texto }} €\n-------------------------\nDETALLE:\n{{ $json.detalle_texto }}\n-------------------------",
-        "additionalFields": { "appendAttribution": false }
+        "text": "=🚨 NUEVO PEDIDO EN COCINA 🚨\n\n🪑 MESA {{ $json.mesa }}\n\nCódigo: {{ $json.id_pedido }}\n...",
+        "additionalFields": {
+          "appendAttribution": false
+        }
       },
-      "id": "telegram-mesa",
+      "id": "a26d6a53-8d87-4fbd-8216-c44dc47c6559",
       "name": "Avisar cocina (Telegram)",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [1450, 500],
+      "position": [
+        1376,
+        -176
+      ],
       "retryOnFail": true,
-      "credentials": { "telegramApi": { "id": "TU_CREDENCIAL_TELEGRAM", "name": "Telegram account" } }
+      "webhookId": "191d1d07-6059-40d7-8060-4ed9db4f5fc9",
+      "credentials": {
+        "telegramApi": {
+          "id": "sIFKDmcGc2Y9u7TU",
+          "name": "Telegram account"
+        }
+      }
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "https://api.day.app/TU_TOKEN_BARK",
+        "url": "https://api.day.app/gZpwvjWgU8Qedd",
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
-            { "name": "title", "value": "🚨 NUEVO PEDIDO EN COCINA" },
-            { "name": "body", "value": "={{ $json.mesa ? '🪑 MESA ' + $json.mesa : '🏪 RECOGIDA EN LOCAL' }}\\nCódigo: {{ $json.id_pedido }}\\nTotal: {{ $json.total_texto }} €" },
-            { "name": "group", "value": "cocina" }
+            {
+              "name": "title",
+              "value": "🚨 NUEVO PEDIDO EN COCINA"
+            },
+            {
+              "name": "body",
+              "value": "={{ $json.mesa ? '🪑 MESA ' + $json.mesa : '🏪 RECOGIDA EN LOCAL' }}\\nCódigo: {{ $json.id_pedido }}\\nTotal: {{ $json.total_texto }} €"
+            },
+            {
+              "name": "group",
+              "value": "cocina"
+            }
           ]
         },
-        "options": { "timeout": 15000 }
+        "options": {
+          "timeout": 15000
+        }
       },
-      "id": "bark-mesa",
+      "id": "176cf0a9-43ff-489a-b5da-c766aac3fc27",
       "name": "Avisar tablet (Bark)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
-      "position": [1450, 700]
+      "position": [
+        1376,
+        336
+      ]
     },
     {
       "parameters": {
         "respondWith": "json",
         "responseBody": "={{ JSON.stringify({ ok: false, error: $json.error }) }}",
-        "options": { "responseCode": "={{ $json.codigo || 400 }}" }
+        "options": {
+          "responseCode": "={{ $json.codigo || 400 }}"
+        }
       },
-      "id": "rechazar-mesa",
+      "id": "134b0d58-32cb-4c8e-90bb-c89a068028b2",
       "name": "Responder error (mesa)",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
-      "position": [1200, 600]
-    }
-  ],
-  "connections": {
-    "Recibir pedido mesa": { "main": [[ { "node": "Validar mesa y carrito", "type": "main", "index": 0 } ]] },
-    "Validar mesa y carrito": { "main": [[ { "node": "Consultar productos (Neon)", "type": "main", "index": 0 } ]] },
-    "Consultar productos (Neon)": { "main": [[ { "node": "Calcular total (Neon)", "type": "main", "index": 0 } ]] },
-    "Calcular total (Neon)": { "main": [[ { "node": "¿Pedido válido?", "type": "main", "index": 0 } ]] },
-    "¿Pedido válido?": {
-      "main": [
-        [ { "node": "Insertar pedido (Neon)", "type": "main", "index": 0 } ],
-        [ { "node": "Responder error (mesa)", "type": "main", "index": 0 } ]
+      "position": [
+        1024,
+        432
       ]
     },
-    "Insertar pedido (Neon)": { "main": [[ { "node": "Avisar cocina (Telegram)", "type": "main", "index": 0 }, { "node": "Avisar tablet (Bark)", "type": "main", "index": 0 }, { "node": "Crear sesión Stripe (mesa)", "type": "main", "index": 0 } ]] },
-    "Crear sesión Stripe (mesa)": { "main": [[ { "node": "Responder URL de pago (mesa)", "type": "main", "index": 0 } ]] }
+    {
+      "parameters": {
+        "jsCode": "const webhook = $('Recibir pedido mesa').first().json;\nconst pedido = webhook.body ?? webhook;\n\n// El frontend envia \"quantity\"; aceptar tambien \"qty\" y \"cantidad\"\nconst rawItems = Array.isArray(pedido.items) ? pedido.items : [];\nconst productos = $('Consultar productos (Neon)').all().map(i => i.json).filter(p => p && p.id != null);\n\nlet totalCents = 0;\nconst lineas = [];\n\nrawItems.forEach(function(it) {\n  const id = String(it && (it.id ?? it.producto_id) ?? '').trim();\n  const qty = Number(it && (it.qty ?? it.quantity ?? it.cantidad));\n  const prod = productos.find(function(p) { return String(p.id).trim() === id; });\n  const disponible = prod && (prod.is_available === undefined ? prod.disponible !== false : prod.is_available !== false);\n  if (prod && disponible && Number.isInteger(qty) && qty > 0) {\n    const precio = Number(prod.price ?? prod.precio ?? 0);\n    const sub = Math.round(precio * 100) * qty;\n    totalCents += sub;\n    lineas.push({ id: prod.id, nombre: prod.name || prod.nombre || id, qty: qty, precio: precio, subtotal: sub / 100 });\n  }\n});\n\nif (lineas.length === 0 || totalCents <= 0) {\n  return [{ json: { valido: false, error: 'No hay items para calcular' } }];\n}\n\nconst detalleTexto = lineas.map(function(l) {\n  return (l.qty > 1 ? l.qty + ' x ' : '') + l.nombre + ' - ' + l.precio.toFixed(2).replace('.', ',') + ' €';\n}).join('\\n');\n\nreturn [{\n  json: {\n    valido: true,\n    mesa: String(pedido.mesa ?? ''),\n    tipo_entrega: 'mesa',\n    id_pedido: 'MES-' + String(pedido.mesa ?? '') + '-' + Date.now(),\n    customerName: pedido.customerName ?? '',\n    telefono: pedido.telefono ?? '',\n    direccion: pedido.direccion ?? '',\n    urlOrigen: pedido.urlOrigen ?? '',\n    items: lineas,\n    lineas: lineas,\n    total: totalCents / 100,\n    total_centimos: totalCents,\n    total_texto: (totalCents / 100).toFixed(2),\n    detalle_texto: detalleTexto,\n    estado: 'pendiente_pago'\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        784,
+        144
+      ],
+      "id": "386eab24-37e4-4f3a-8d47-c74ef871dc5b",
+      "name": "Calcular total (Neon)"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Recibir pedido mesa": {
+      "main": [
+        [
+          {
+            "node": "Validar mesa y carrito",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar mesa y carrito": {
+      "main": [
+        [
+          {
+            "node": "Consultar productos (Neon)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consultar productos (Neon)": {
+      "main": [
+        [
+          {
+            "node": "Calcular total (Neon)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Pedido válido?": {
+      "main": [
+        [
+          {
+            "node": "Insertar pedido (Neon)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder error (mesa)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insertar pedido (Neon)": {
+      "main": [
+        [
+          {
+            "node": "Avisar cocina (Telegram)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Avisar tablet (Bark)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Crear sesión Stripe (mesa)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Crear sesión Stripe (mesa)": {
+      "main": [
+        [
+          {
+            "node": "Responder URL de pago (mesa)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calcular total (Neon)": {
+      "main": [
+        [
+          {
+            "node": "¿Pedido válido?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
-  "active": false,
-  "settings": { "executionOrder": "v1" },
-  "id": "mesa-flow-id",
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "0836392d-12e8-4075-a091-6307abf71a04",
+  "meta": {
+    "instanceId": "91f9c812266692c02151b84cfda10ce4a643b978c44e62a952c0574d0a918cfa"
+  },
+  "nodeGroups": [],
+  "id": "tsxapq6MwQM3zvss",
   "tags": []
 }
