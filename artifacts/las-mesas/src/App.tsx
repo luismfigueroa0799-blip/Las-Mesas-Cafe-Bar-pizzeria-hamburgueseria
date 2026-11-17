@@ -288,7 +288,7 @@ function App() {
               <>
                 <span className="pedido-aviso-icon" aria-hidden="true">✓</span>
                 <div>
-                  <strong>¡Pedido confirmado!</strong>
+                  <strong>{t('pedido.confirmado')}</strong>
                   <p>
                     Te hemos enviado la confirmación por correo.
                     {avisoPedido.codigo && <> Tu codigo de pedido es <b>{avisoPedido.codigo}</b>.</>}
@@ -306,7 +306,7 @@ function App() {
               <>
                 <span className="pedido-aviso-icon" aria-hidden="true">!</span>
                 <div>
-                  <strong>Pedido cancelado</strong>
+                  <strong>{t('pedido.cancelado')}</strong>
                   <p>No se ha realizado ningún cobro. Tu carrito sigue intacto.</p>
                 </div>
                 <button type="button" onClick={() => setAvisoPedido(null)} aria-label="Cerrar aviso">×</button>
@@ -371,9 +371,9 @@ function App() {
       <section className="hero" id="inicio">
         <div className="hero-copy reveal">
           <p className="eyebrow"><span className="gold-dot" /> Café · Bar · Billar</p>
-          <h1>Las noches<br />se alargan <em>en buena compañía.</em></h1>
-          <p className="hero-intro">Una mesa para comer, otra para jugar y siempre un motivo para quedarse un rato más.</p>
-          <div className="hero-actions"><a className="button button-gold" href="#reserva">Reserva tu mesa <ArrowRight size={17} /></a><a className="text-link" href="#carta">Descubre la carta <ArrowDown size={15} /></a></div>
+          <h1>{t('hero.leyenda')}<br />{t('hero.leyenda2')} <em>{t('hero.leyenda3')}</em></h1>
+          <p className="hero-intro">{t('hero.desc')}</p>
+          <div className="hero-actions"><a className="button button-gold" href="#reserva">Reserva tu mesa <ArrowRight size={17} /></a><a className="text-link" href="#carta">{t('hero.carta')} <ArrowDown size={15} /></a></div>
           <div className="hero-meta"><span><MapPin size={15} /> Las Mesas Bajas</span><span><Clock3 size={15} /> Consulta nuestro horario</span></div>
         </div>
         <figure className="hero-art hero-photo reveal">
@@ -386,7 +386,7 @@ function App() {
       <section className="essence section-pad" id="esencia">
         <div className="shell essence-grid">
           <div className="section-index">01 <span>— LA CASA</span></div>
-          <div className="essence-title"><p className="eyebrow">Un punto de encuentro en el barrio</p><h2>Ven por la cena.<br /><em>Quédate por el rato.</em></h2></div>
+          <div className="essence-title"><p className="eyebrow">{t('casa.titulo')}</p><h2>Ven por la cena.<br /><em>Quédate por el rato.</em></h2></div>
           <div className="essence-text"><p>En Las Mesas el plan no tiene que complicarse: algo rico para picar, una charla sin prisa y, si apetece, una partida de billar.</p><p>Un café de barrio con espíritu de bar. Hecho para encontrarse.</p><a className="text-link dark-link" href="#contacto">Encuéntranos en Las Mesas <ArrowRight size={15} /></a></div>
         </div>
       </section>
@@ -400,15 +400,15 @@ function App() {
           <div className="gallery-grid">
             <figure className="gallery-card gallery-card-tall">
               <img src="/assets/local-billar-1.webp" alt="Mesa de billar y mesas del comedor de Las Mesas" width="896" height="1195" loading="lazy" decoding="async" />
-              <figcaption><span>Una partida</span><small>El billar del local</small></figcaption>
+              <figcaption><span>{t('casa.billar')}</span><small>El billar del local</small></figcaption>
             </figure>
             <figure className="gallery-card">
               <img src="/assets/platos-compartir.jpg" alt="Selección fotografiada de platos para compartir de la carta" width="550" height="440" loading="lazy" decoding="async" />
-              <figcaption><span>Algo para compartir</span><small>Platos de la carta</small></figcaption>
+              <figcaption><span>{t('casa.compartir')}</span><small>Platos de la carta</small></figcaption>
             </figure>
             </div>
           <p className="gallery-note">Fotografías reales del billar, el comedor y platos de la carta.</p>
-          <div className="house-note"><span className="note-mark">LM</span><p>«La mejor jugada<br />es compartir la mesa.»</p><span className="note-rule" /><span className="eyebrow">Las Mesas · Gran Canaria</span></div>
+          <div className="house-note"><span className="note-mark">LM</span><p>«La mejor jugada<br />{t('cita.sub')}»</p><span className="note-rule" /><span className="eyebrow">Las Mesas · Gran Canaria</span></div>
         </div>
       </section>
 
@@ -453,7 +453,7 @@ function App() {
       <section className="play-section section-pad" aria-labelledby="play-title">
         <div className="shell play-grid">
           <div className="play-number">02 / BILLAR</div>
-          <div><p className="eyebrow">Un plan con pausa</p><h2 id="play-title" className="serif">Pide algo.<br /><em>Y que ruede la partida.</em></h2></div>
+          <div><p className="eyebrow">{t('billard.titulo')}</p><h2 id="play-title" className="serif">Pide algo.<br /><em>Y que ruede la partida.</em></h2></div>
           <div className="play-copy"><p>La conversación se mueve alrededor de la mesa. Entre plato y plato, una partida convierte una cena cualquiera en un buen recuerdo.</p><a className="button button-gold" href="#reserva">Ven a jugar <ArrowRight size={16} /></a></div>
         </div>
       </section>
@@ -549,7 +549,7 @@ function App() {
       </section>
 
       <footer className="site-footer">
-        <div className="shell footer-main"><a href="#inicio" className="footer-brand"><img src="/assets/logo-las-mesas.jpeg" alt="" /><span>Las Mesas · Café & Bar</span></a><p>Comer. Encontrarse. Jugar un rato.</p><nav aria-label="Navegación de pie">{[['La casa','#esencia'],['El local','#local'],['La carta','#carta'],['Celebraciones','#celebraciones'],['Reservas','#reserva']].map(([label,href]) => <a key={href} href={href}>{label}</a>)}</nav></div>
+        <div className="shell footer-main"><a href="#inicio" className="footer-brand"><img src="/assets/logo-las-mesas.jpeg" alt="" /><span>Las Mesas · Café & Bar</span></a><p>{t('footer.lema')}</p><nav aria-label="Navegación de pie">{[['La casa','#esencia'],['El local','#local'],['La carta','#carta'],['Celebraciones','#celebraciones'],['Reservas','#reserva']].map(([label,href]) => <a key={href} href={href}>{label}</a>)}</nav></div>
         <div className="shell footer-details">
           <div className="footer-hours"><span className="footer-label">Horario</span>{hours.map(([day, time]) => <p key={day}><span>{day}</span><strong>{time}</strong></p>)}</div>
           <div className="footer-contact"><span className="footer-label">Contacto</span><a href={phoneHref}>{phone}</a><a href={mapsUrl} target="_blank" rel="noreferrer">Pintor Antonio Padrón, 59 · Cómo llegar</a></div>
