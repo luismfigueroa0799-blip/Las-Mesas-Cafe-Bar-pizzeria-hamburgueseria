@@ -451,22 +451,19 @@ async function crearSesionStripePropia(
   try {
     const partes: string[] = [];
     anadirParametros(partes, 'mode', 'payment');
-    anadirParametros(
-      partes,
-      'line_items',
-      lineas.map((l) => ({
-        quantity: l.cantidad,
-        price_data: {
-          currency: 'eur',
-          unit_amount: Math.round(l.precio * 100),
-          product_data: { name: l.nombre || 'Articulo' },
-        },
-      })),
-    );
-    // Gastos de envío y recargo como conceptos separados (Stripe los cobra).
+    // Construir UN solo array con índices consecutivos: productos + extras.
+    // Stripe exige line_items[0], line_items[1]... sin huecos ni claves sueltas.
+    const todosLosItems = lineas.map((l) => ({
+      quantity: l.cantidad,
+      price_data: {
+        currency: 'eur',
+        unit_amount: Math.round(l.precio * 100),
+        product_data: { name: l.nombre || 'Articulo' },
+      },
+    }));
     for (const extra of extras) {
       if (extra.importe <= 0) continue;
-      anadirParametros(partes, 'line_items', {
+      todosLosItems.push({
         quantity: 1,
         price_data: {
           currency: 'eur',
@@ -475,6 +472,7 @@ async function crearSesionStripePropia(
         },
       });
     }
+    anadirParametros(partes, 'line_items', todosLosItems);
     anadirParametros(partes, 'success_url', urlExito);
     anadirParametros(partes, 'cancel_url', urlCancelacion);
     anadirParametros(partes, 'metadata', metadata);
