@@ -799,8 +799,10 @@ function itemsParaMetadata(
   const compactas = lineas.map((l) => ({
     id: String(l.id),
     nombre: l.nombre,
+    name: l.nombre,
     cantidad: l.cantidad,
     qty: l.cantidad,
+    price: l.precio.toFixed(2).replace('.', ',') + ' €',
     precio: l.precio.toFixed(2).replace('.', ',') + ' €',
   }));
   let json = JSON.stringify(compactas);
@@ -1478,7 +1480,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
       pedido_id: pedidoId,
 
       // ── Listos para pintar en Telegram o en la tablet ──
-      detalle_texto: textoDetalle,
+      detalle_texto: textoDetalle + (costoEnvio > 0 ? '\nGastos de envío - ' + costoEnvio.toFixed(2).replace('.', ',') + ' €' : '') + (recargoEuros > 0 ? '\nRecargo servicio a domicilio (25%) - ' + recargoEuros.toFixed(2).replace('.', ',') + ' €' : ''),
       resumen: textoResumen,
       total_texto: totalEuros.toFixed(2),
       total_euros: totalEuros.toFixed(2),

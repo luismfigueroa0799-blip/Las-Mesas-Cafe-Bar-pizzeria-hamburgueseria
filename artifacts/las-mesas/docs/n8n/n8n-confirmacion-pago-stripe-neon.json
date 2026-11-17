@@ -109,7 +109,7 @@
       "parameters": {
         "fromEmail": "=lasmesascafeteriabar@gmail.com",
         "toEmail": "={{ $('Code in JavaScript').first().json.cliente_correo || 'luism.figueroa0799@gmail.com' }}",
-        "subject": "=Nuevo pedido {{ $('Code in JavaScript').first().json.pedido_id }} - Las Mesas",
+        "subject": "=Nuevo pedido {{ $('Code in JavaScript').first().json.order_code }} - Las Mesas",
         "html": "=<div style=\"font-family:Arial,sans-serif;max-width:600px;margin:auto;color:#2a2620\">\n<h2 style=\"color:#8a6a12\">¡Gracias por tu pedido!</h2>\n<p>Hemos recibido y confirmado tu pedido <b>{{ $('Code in JavaScript').first().json.order_code }}</b>.</p>\n<p><b>Tipo de entrega:</b> {{ $('Code in JavaScript').first().json.mesa ? 'Mesa ' + $('Code in JavaScript').first().json.mesa : $('Code in JavaScript').first().json.tipo_entrega === 'domicilio' ? 'Envío a domicilio' : 'Recogida en local' }}</p>\n<p><b>Cliente:</b> {{ $('Code in JavaScript').first().json.cliente_nombre }}</p>\n<p><b>Teléfono:</b> {{ $('Code in JavaScript').first().json.cliente_telefono }}</p>\n<p><b>Dirección:</b> {{ $('Code in JavaScript').first().json.direccion }}</p>\n<hr>\n<p><b>DETALLE DEL PEDIDO:</b></p>\n<pre style=\"background:#faf8f3;padding:12px;border:1px solid #e0d8c0\">{{ $('Code in JavaScript').first().json.detalle_texto }}</pre>\n<hr>\n<p style=\"font-size:1.1em\"><b>TOTAL PAGADO: {{ $('Code in JavaScript').first().json.total_texto }} €</b></p>\n<p style=\"font-size:0.85em;color:#6b6152\">Los precios de la carta son para consumo en local o recogida. Los pedidos a domicilio incluyen un recargo del 25% y gastos de envío de 1,50 €/km (máximo 8 km).</p>\n</div>",
         "options": {}
       },
