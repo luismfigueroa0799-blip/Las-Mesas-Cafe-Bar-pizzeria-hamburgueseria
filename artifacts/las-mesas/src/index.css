@@ -1553,3 +1553,78 @@ html.dark .product-card-price { color: #E8C65A !important; }
 .lang-btn.is-active { opacity: 1; background: #D4AF37; box-shadow: 0 2px 8px rgba(212,175,55,.4); }
 html.dark .lang-toggle { background: #2A2725; border-color: rgba(212,175,55,.25) !important; }
 html.dark .lang-btn.is-active { background: #D4AF37; }
+
+/* ===== CORRECCIÓN GRAVE DE CONTRASTE EN MODO OSCURO ===== */
+
+/* --- Tabs de categorías: fondo oscuro + texto claro; activa dorada con texto OSCURO --- */
+html.dark .category-tab,
+html.dark [role="tab"],
+html.dark .tab,
+html.dark .cat-tab,
+html.dark .filter-tab {
+  background: #2A2725 !important;
+  color: #F5F0E6 !important;
+  border: 1px solid rgba(212,175,55,.35) !important;
+}
+html.dark .category-tab span,
+html.dark [role="tab"] span {
+  color: #D1D5DB !important; /* text-gray-300 */
+}
+html.dark .category-tab.active,
+html.dark .category-tab.is-active,
+html.dark [role="tab"][aria-selected="true"],
+html.dark .tab.is-active,
+html.dark .cat-tab.is-active,
+html.dark .filter-tab.is-active {
+  background: #D4AF37 !important;
+  color: #1A1817 !important;
+  border-color: #D4AF37 !important;
+  box-shadow: 0 6px 18px rgba(212,175,55,.30) !important;
+}
+html.dark .category-tab.active span,
+html.dark [role="tab"][aria-selected="true"] span {
+  color: #1A1817 !important;
+}
+html.dark .category-tab svg,
+html.dark .category-tab.active svg { color: #D4AF37 !important; }
+html.dark .category-tab.active svg { color: #1A1817 !important; }
+
+/* --- Tarjetas de producto: fondo gris más claro, título crema, descripción gris claro --- */
+html.dark .product-card {
+  background: #2A2725 !important;
+  border-color: rgba(212,175,55,.22) !important;
+}
+html.dark .product-card-name {
+  color: #F5F0E6 !important;
+}
+html.dark .product-card-desc {
+  color: #D1D5DB !important; /* text-gray-300 */
+}
+html.dark .product-card-cat,
+html.dark .product-card-sizes-label,
+html.dark .product-card-sizes-options label span {
+  color: #D1D5DB !important;
+}
+html.dark .product-card-price { color: #E8C65A !important; }
+html.dark .product-card-add {
+  background: #D4AF37 !important;
+  color: #1A1817 !important;
+}
+
+/* --- Cabecera: textos claros en modo oscuro --- */
+html.dark .site-header,
+html.dark .topline,
+html.dark .main-nav > a,
+html.dark .brand span { color: #F5F0E6 !important; }
+html.dark .nav-cta {
+  background: #D4AF37 !important;
+  color: #1A1817 !important;
+}
+
+/* --- Red de seguridad: ningún texto negro sobre fondo oscuro --- */
+html.dark .text-gray-900,
+html.dark .text-black,
+html.dark .text-neutral-900,
+html.dark .text-\[\#2C2C2C\] {
+  color: #F5F0E6 !important;
+}
