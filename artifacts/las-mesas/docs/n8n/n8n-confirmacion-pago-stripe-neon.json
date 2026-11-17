@@ -104,6 +104,30 @@
           "name": "Postgres account"
         }
       }
+    },
+    {
+      "parameters": {
+        "fromEmail": "=lasmesascafeteriabar@gmail.com",
+        "toEmail": "={{ $('Code in JavaScript').first().json.cliente_correo || 'luism.figueroa0799@gmail.com' }}",
+        "subject": "=Nuevo pedido {{ $('Code in JavaScript').first().json.pedido_id }} - Las Mesas",
+        "html": "=<h2>¡Gracias por tu pedido!</h2>\n<p>Hemos recibido tu pedido <b>{{ $('Code in JavaScript').first().json.pedido_id }}</b>.</p>\n<p>Cliente: <b>{{ $('Code in JavaScript').first().json.cliente_nombre }}</b></p>\n<p>Teléfono: <b>{{ $('Code in JavaScript').first().json.cliente_telefono }}</b></p>\n<p>Dirección: <b>{{ $('Code in JavaScript').first().json.direccion }}</b></p>\n<hr>\n<p><b>DETALLE:</b></p>\n<pre>{{ $('Code in JavaScript').first().json.detalle_texto }}</pre>\n<hr>\n<p><b>TOTAL: {{ $('Code in JavaScript').first().json.total_texto }} €</b></p>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        384,
+        400
+      ],
+      "id": "53034b14-fb74-4983-a508-1910fdc5d68b",
+      "name": "Enviar correo",
+      "webhookId": "9e02037c-f975-4dc1-a1af-99b5417d7320",
+      "credentials": {
+        "smtp": {
+          "id": "37Y454cF62lUwfaT",
+          "name": "SMTP account"
+        }
+      }
     }
   ],
   "pinData": {},
@@ -140,6 +164,11 @@
           },
           {
             "node": "Avisar tablet (Bark)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Enviar correo",
             "type": "main",
             "index": 0
           }
