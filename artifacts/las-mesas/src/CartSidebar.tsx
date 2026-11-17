@@ -504,27 +504,23 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
                 </label>
 
                 {mesaUrl ? (
-                  <p className="cart-mesa">Pedido para la mesa {mesa}. Te lo llevamos a esa mesa.</p>
+                  <div className="cart-field">
+                    <span>{t('carrito.tipoEntrega')}</span>
+                    <p className="cart-mesa">
+                      🪑 {t('carrito.mesa')} {mesa} — pedido asignado automáticamente desde el QR.
+                    </p>
+                  </div>
                 ) : (
                   <label className="cart-field">
                     <span>{t('carrito.tipoEntrega')} *</span>
                     <select
-                      value={datos.tipoEntrega === 'mesa' && datos.mesa ? 'mesa:' + datos.mesa : datos.tipoEntrega}
+                      className="cart-select-entrega"
+                      value={datos.tipoEntrega}
                       onChange={(e) => {
-                        const valor = e.target.value;
-                        if (valor.startsWith('mesa:')) {
-                          const numero = valor.slice(4);
-                          setDatos((previo) => ({ ...previo, tipoEntrega: 'mesa', mesa: numero }));
-                        } else {
-                          setDatos((previo) => ({ ...previo, tipoEntrega: valor as TipoEntrega, mesa: '' }));
-                        }
-                        setEstado('');
+                        actualizar('tipoEntrega', e.target.value);
                       }}
                       data-testid="select-tipo-entrega"
                     >
-                      {Array.from({ length: 8 }, (_, indice) => indice + 1).map((numero) => (
-                        <option key={numero} value={'mesa:' + numero}>Mesa {numero}</option>
-                      ))}
                       <option value="domicilio">{t('carrito.domicilio')}</option>
                       <option value="recogida">{t('carrito.recogida')}</option>
                     </select>
