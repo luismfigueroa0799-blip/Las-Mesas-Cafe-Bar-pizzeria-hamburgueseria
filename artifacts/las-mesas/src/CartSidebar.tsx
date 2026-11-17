@@ -97,11 +97,27 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
     const temporizador = window.setTimeout(async () => {
       setBuscandoDir(true);
       try {
-        const respuesta = await fetch('/api/direcciones?cp=' + encodeURIComponent(datos.codigoPostal.trim()), {
-          signal: controlador.signal,
-        });
-        const datosR = await respuesta.json();
-        setSugerencias(Array.isArray(datosR?.sugerencias) ? datosR.sugerencias : []);
+        const url = 'https://nominatim.openstreetmap.org/search?postalcode=' +
+          encodeURIComponent(datos.codigoPostal.trim()) +
+          '&country=Spain&format=jsonv2&addressdetails=1&limit=15';
+        const respuesta = await fetch(url, { signal: controlador.signal });
+        const crudo = await respuesta.json();
+        const vistos = new Set<string>();
+        const sugerido: SugerenciaDireccion[] = [];
+        if (Array.isArray(crudo)) {
+          for (const item of crudo) {
+            const addr = item.address || {};
+            const calle = String(addr.road || addr.pedestrian || addr.footway || '').trim();
+            const poblacion = String(addr.city || addr.town || addr.village || addr.municipality || addr.county || '').trim();
+            if (!calle && !poblacion) continue;
+            const etiqueta = [calle, poblacion].filter(Boolean).join(', ');
+            const clave = etiqueta.toLowerCase();
+            if (vistos.has(clave)) continue;
+            vistos.add(clave);
+            sugerido.push({ calle, poblacion, etiqueta });
+          }
+        }
+        setSugerencias(sugerido);
       } catch {
         setSugerencias([]);
       } finally {
