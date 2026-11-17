@@ -444,7 +444,7 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
                     <strong>{formatearPrecio(recargo)}</strong>
                   </div>
                   <p style={{ margin: '0 0 6px', fontSize: '.68rem', color: '#6b6152', lineHeight: 1.5 }}>
-                    El recargo del 25% se aplica para cubrir los gastos de gestión del servicio a domicilio.
+                    Los precios de la carta son para consumo en local o recogida. Los pedidos a domicilio incluyen un recargo del 25% sobre el precio de los productos para cubrir los gastos de gestión. Los gastos de envío se calculan por kilómetro (1,50 €/km).
                   </p>
                   <div className="cart-total" style={{ fontWeight: 'normal', fontSize: '0.9em' }}>
                     <span>Gastos de envío{distanciaValida ? ' (' + distanciaNum + ' km × ' + formatearPrecio(PRECIO_POR_KM) + ')' : ''}</span>
