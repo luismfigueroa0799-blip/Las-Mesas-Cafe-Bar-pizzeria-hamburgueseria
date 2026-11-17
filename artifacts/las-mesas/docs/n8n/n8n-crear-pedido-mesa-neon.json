@@ -270,11 +270,11 @@
             },
             {
               "name": "line_items[0][price_data][product_data][name]",
-              "value": "=Pedido Mesa {{ $json.mesa }} #{{ $json.id_pedido }}"
+              "value": "=Pedido Mesa {{ $('Calcular total (Neon)').first().json.mesa }} #{{ $('Calcular total (Neon)').first().json.id_pedido }}"
             },
             {
               "name": "line_items[0][price_data][unit_amount]",
-              "value": "={{ $json.total_centimos }}"
+              "value": "={{ $('Calcular total (Neon)').first().json.total_centimos }}"
             },
             {
               "name": "line_items[0][quantity]",
@@ -282,11 +282,11 @@
             },
             {
               "name": "metadata[pedido_id]",
-              "value": "={{ $json.id_pedido }}"
+              "value": "={{ $('Calcular total (Neon)').first().json.id_pedido }}"
             },
             {
               "name": "metadata[mesa]",
-              "value": "={{ $json.mesa }}"
+              "value": "={{ $('Calcular total (Neon)').first().json.mesa }}"
             },
             {
               "name": "metadata[tipo_entrega]",
@@ -298,19 +298,19 @@
             },
             {
               "name": "metadata[nombre]",
-              "value": "={{ $json.customerName }}"
+              "value": "={{ $('Calcular total (Neon)').first().json.customerName }}"
             },
             {
               "name": "metadata[telefono]",
-              "value": "={{ $json.telefono }}"
+              "value": "={{ $('Calcular total (Neon)').first().json.telefono }}"
             },
             {
               "name": "metadata[total]",
-              "value": "={{ $json.total_texto }}"
+              "value": "={{ $('Calcular total (Neon)').first().json.total_texto }}"
             },
             {
               "name": "metadata[direccion]",
-              "value": "={{ $json.direccion }}"
+              "value": "={{ $('Calcular total (Neon)').first().json.direccion }}"
             },
             {
               "name": "success_url",
@@ -343,7 +343,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({ ok: true, pedido_id: $json.id_pedido, total: $json.total, checkout_url: $json.url }) }}",
+        "responseBody": "={{ JSON.stringify({ ok: true, pedido_id: $('Calcular total (Neon)').first().json.id_pedido, total: $('Calcular total (Neon)').first().json.total, checkout_url: $json.url }) }}",
         "options": {
           "responseCode": 200
         }
@@ -360,7 +360,7 @@
     {
       "parameters": {
         "chatId": "8279256563",
-        "text": "=🚨 NUEVO PEDIDO EN COCINA 🚨\n\n🪑 MESA {{ $json.mesa }}\n\nCódigo: {{ $json.id_pedido }}\n...",
+        "text": "=🚨 NUEVO PEDIDO EN COCINA 🚨\n\n🪑 MESA {{ $('Calcular total (Neon)').first().json.mesa }}\n\nCódigo: {{ $('Calcular total (Neon)').first().json.id_pedido }}\n...",
         "additionalFields": {
           "appendAttribution": false
         }
@@ -395,7 +395,7 @@
             },
             {
               "name": "body",
-              "value": "={{ $json.mesa ? '🪑 MESA ' + $json.mesa : '🏪 RECOGIDA EN LOCAL' }}\\nCódigo: {{ $json.id_pedido }}\\nTotal: {{ $json.total_texto }} €"
+              "value": "={{ $('Calcular total (Neon)').first().json.mesa ? '🪑 MESA ' + $('Calcular total (Neon)').first().json.mesa : '🏪 RECOGIDA EN LOCAL' }}\\nCódigo: {{ $('Calcular total (Neon)').first().json.id_pedido }}\\nTotal: {{ $('Calcular total (Neon)').first().json.total_texto }} €"
             },
             {
               "name": "group",
