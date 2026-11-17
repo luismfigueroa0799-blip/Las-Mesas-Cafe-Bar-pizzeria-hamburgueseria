@@ -3,6 +3,7 @@ import { ArrowDown, ArrowRight, ArrowUpRight, CalendarDays, Clock3, MapPin, Menu
 import './index.css';
 import { useCart } from '@/CartContext';
 import { useTheme } from '@/ThemeContext';
+import { useI18n, type Idioma } from '@/I18nContext';
 import CartSidebar from '@/CartSidebar';
 import ProductCard from '@/ProductCard';
 import Inventario from '@/admin/Inventario';
@@ -84,6 +85,7 @@ function App() {
   const [avisoPedido, setAvisoPedido] = useState<AvisoPedido>(null);
   const { cart, addToCart, clearCart } = useCart();
   const { tema, alternarTema } = useTheme();
+  const { idioma, cambiarIdioma, t } = useI18n();
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
   const activeCategory = categorias.find((c) => c.slug === activeSlug) ?? categorias[0];
   const productosActivos = productos.filter((p) => p.category_slug === activeCategory.slug);
@@ -328,9 +330,24 @@ function App() {
         <a href="#inicio" className="brand" aria-label="Las Mesas, inicio"><img src="/assets/logo-las-mesas.jpeg" alt="Logo de Las Mesas Café & Bar" /></a>
         <button className="mobile-toggle" aria-label={mobileOpen ? 'Cerrar menú' : 'Abrir menú'} aria-expanded={mobileOpen} onClick={() => setMobileOpen(!mobileOpen)} data-testid="button-mobile-menu">{mobileOpen ? <X /> : <MenuIcon />}</button>
         <nav className={mobileOpen ? 'main-nav open' : 'main-nav'} aria-label="Navegación principal">
-          {[['La casa', '#esencia'], ['El local', '#local'], ['La carta', '#carta'], ['Celebraciones', '#celebraciones'], ['Visítanos', '#contacto']].map(([label, href]) => <a key={href} href={href} onClick={() => setMobileOpen(false)}>{label}</a>)}
-          <a className="nav-cta" href="#reserva" onClick={() => setMobileOpen(false)}>Reserva tu mesa <ArrowUpRight size={15} /></a>
+          {[[t('nav.casa'), '#esencia'], [t('nav.local'), '#local'], [t('nav.carta'), '#carta'], [t('nav.celebraciones'), '#celebraciones'], [t('nav.visitamos'), '#contacto']].map(([label, href]) => <a key={href} href={href} onClick={() => setMobileOpen(false)}>{label}</a>)}
+          <a className="nav-cta" href="#reserva" onClick={() => setMobileOpen(false)}>{t('nav.reserva')} <ArrowUpRight size={15} /></a>
         </nav>
+        <div className="lang-toggle" role="group" aria-label="Idioma / Language / Langue">
+          {([['es','🇪🇸'],['en','🇬🇧'],['fr','🇫🇷']] as Array<[Idioma,string]>).map(([cod, bandera]) => (
+            <button
+              key={cod}
+              type="button"
+              className={idioma === cod ? 'lang-btn is-active' : 'lang-btn'}
+              onClick={() => cambiarIdioma(cod)}
+              aria-label={cod.toUpperCase()}
+              aria-pressed={idioma === cod}
+              data-testid={'button-lang-' + cod}
+            >
+              {bandera}
+            </button>
+          ))}
+        </div>
         <button
           className="theme-toggle"
           onClick={alternarTema}
@@ -397,7 +414,7 @@ function App() {
 
       <section className="menu-section section-pad" id="carta">
         <div className="shell">
-          <div className="menu-heading"><div><p className="eyebrow"><span className="gold-dot" /> Cocina para compartir</p><h2>La carta<span>.</span></h2><p className="section-lede">De un bocado rápido a una pizza para el centro. Aquí empieza el plan.</p></div><a className="button button-outline" href="/assets/carta-las-mesas.pdf" download="carta-las-mesas.pdf" data-testid="link-download-menu">Descargar carta completa <ArrowDown size={16} /></a></div>
+          <div className="menu-heading"><div><p className="eyebrow"><span className="gold-dot" /> {t('carta.titulo')}</p><h2>{t('carta.titulo')}<span>.</span></h2><p className="section-lede">{t('carta.desc')}</p></div><a className="button button-outline" href="/assets/carta-las-mesas.pdf" download="carta-las-mesas.pdf" data-testid="link-download-menu">{t('carta.descargar')} <ArrowDown size={16} /></a></div>
           <div className="menu-experience">
             <div
               className="category-list overflow-x-auto whitespace-nowrap px-4 min-w-0"

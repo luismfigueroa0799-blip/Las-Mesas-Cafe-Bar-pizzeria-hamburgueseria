@@ -1407,3 +1407,149 @@ html.dark .theme-toggle {
   color: #D4AF37 !important;
   border-color: rgba(212,175,55,.25) !important;
 }
+
+/* ===== TAREA 1: Contraste reforzado en modo oscuro ===== */
+/* Texto principal siempre crema/blanco en modo oscuro, secundario gris claro */
+html.dark,
+html.dark body,
+html.dark * {
+  color-scheme: dark;
+}
+html.dark h1, html.dark h2, html.dark h3, html.dark h4, html.dark h5, html.dark h6,
+html.dark p, html.dark span, html.dark strong, html.dark b, html.dark li,
+html.dark td, html.dark th, html.dark label, html.dark legend,
+html.dark a, html.dark button {
+  color: #F5F0E6 !important;
+}
+/* Excepciones: textos secundarios en gris claro */
+html.dark .text-muted,
+html.dark .text-secondary,
+html.dark .opacity-70, html.dark .opacity-75, html.dark .opacity-80,
+html.dark small, html.dark .eyebrow span {
+  color: #D1D5DB !important; /* text-gray-300 */
+}
+/* Tarjetas: gris más claro que el fondo para que se distingan */
+html.dark .product-card,
+html.dark .card,
+html.dark .admin-card,
+html.dark [class*="card"] {
+  background: #2A2725 !important;
+  color: #F5F0E6 !important;
+  border-color: rgba(212,175,55,.20) !important;
+}
+/* Fondo oscuro general */
+html.dark body { background: #1A1817 !important; }
+/* Inputs legibles */
+html.dark input, html.dark textarea, html.dark select {
+  background: #2A2725 !important;
+  color: #F5F0E6 !important;
+  border-color: rgba(212,175,55,.25) !important;
+}
+html.dark input::placeholder, html.dark textarea::placeholder { color: #9CA3AF !important; }
+/* Botones dorados mantienen texto oscuro para contraste */
+html.dark .product-card-foot button,
+html.dark .cart-checkout,
+html.dark .nav-cta,
+html.dark .button,
+html.dark button.bg-gold {
+  background: #D4AF37 !important;
+  color: #1A1817 !important;
+}
+html.dark .product-card-price { color: #E8C65A !important; }
+
+/* ===== TAREA 3: Diseño móvil más creativo ===== */
+@media (max-width: 600px) {
+  /* Header: degradado suave + borde inferior dorado elegante */
+  .site-header,
+  .topline {
+    background: linear-gradient(135deg, #F9F7F2 0%, #F3EEE1 60%, #EFE7D2 100%) !important;
+    border-bottom: 2px solid transparent !important;
+    border-image: linear-gradient(90deg, transparent, #D4AF37, transparent) 1 !important;
+  }
+  /* Tarjetas: sombra más pronunciada y borde dorado al seleccionar */
+  .product-card {
+    box-shadow: 0 8px 22px rgba(0,0,0,.12) !important;
+    border: 1px solid rgba(212,175,55,.30) !important;
+  }
+  .product-card:hover,
+  .product-card:focus-within {
+    border-color: #D4AF37 !important;
+    box-shadow: 0 12px 28px rgba(212,175,55,.22) !important;
+  }
+  /* Botones Añadir: efecto de pulsación */
+  .product-card-foot button,
+  .cart-checkout,
+  .nav-cta,
+  .theme-toggle,
+  .lang-btn {
+    transition: transform .12s ease, box-shadow .12s ease, background .2s ease !important;
+  }
+  .product-card-foot button:active,
+  .cart-checkout:active,
+  .nav-cta:active,
+  .theme-toggle:active,
+  .lang-btn:active {
+    transform: scale(.95) !important;
+  }
+  /* Tipografía premium: títulos más grandes en móvil */
+  .hero h1, .hero h2 { font-size: 2.35rem !important; line-height: 1.08 !important; }
+  .menu-heading h2 { font-size: 2.1rem !important; }
+  .product-card-name { font-size: 1.08rem !important; }
+  .product-card-price { font-size: 1.5rem !important; }
+  /* Tabs: scroll suave y pestaña activa dorada con texto blanco */
+  .tabs, .tab-bar, .category-tabs, [role="tablist"] {
+    overflow-x: auto !important;
+    scroll-behavior: smooth !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+  }
+  .tabs::-webkit-scrollbar, .tab-bar::-webkit-scrollbar,
+  .category-tabs::-webkit-scrollbar, [role="tablist"]::-webkit-scrollbar { display: none !important; }
+  .tab, [role="tab"], .category-tab, .cat-tab, .filter-tab {
+    flex: 0 0 auto !important;
+    scroll-snap-align: start !important;
+  }
+  .tab.is-active, [role="tab"][aria-selected="true"], .category-tab.is-active,
+  .cat-tab.is-active, .filter-tab.is-active {
+    background: #D4AF37 !important;
+    color: #FFFFFF !important;
+  }
+}
+
+/* Modo oscuro móvil: degradado oscuro elegante */
+@media (max-width: 600px) {
+  html.dark .site-header,
+  html.dark .topline {
+    background: linear-gradient(135deg, #1A1817 0%, #22201F 60%, #2A2725 100%) !important;
+    border-image: linear-gradient(90deg, transparent, #D4AF37, transparent) 1 !important;
+  }
+  html.dark .product-card { box-shadow: 0 8px 22px rgba(0,0,0,.4) !important; }
+}
+
+/* ===== Selector de idioma en la cabecera ===== */
+.lang-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  border: 1px solid #E5E7EB;
+  border-radius: 999px;
+  padding: 2px;
+  background: #FFFFFF;
+}
+.lang-btn {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all .2s ease;
+  opacity: .55;
+}
+.lang-btn:hover { opacity: 1; transform: translateY(-1px); }
+.lang-btn.is-active { opacity: 1; background: #D4AF37; box-shadow: 0 2px 8px rgba(212,175,55,.4); }
+html.dark .lang-toggle { background: #2A2725; border-color: rgba(212,175,55,.25) !important; }
+html.dark .lang-btn.is-active { background: #D4AF37; }

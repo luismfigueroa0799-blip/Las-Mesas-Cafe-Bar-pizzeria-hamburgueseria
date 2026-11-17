@@ -4,6 +4,7 @@ import App from './App';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { CartProvider } from '@/CartContext';
 import { ThemeProvider } from '@/ThemeContext';
+import { I18nProvider } from '@/I18nContext';
 
 import './index.css';
 import './admin.css';
@@ -16,9 +17,11 @@ createRoot(document.getElementById('root')!, {
 }).render(
   <ErrorBoundary>
     <ThemeProvider>
-      <CartProvider>
-        <App />
-      </CartProvider>
+      <I18nProvider>
+        <CartProvider>
+          <App />
+        </CartProvider>
+      </I18nProvider>
     </ThemeProvider>
   </ErrorBoundary>,
 );

@@ -4,6 +4,7 @@ import { X } from 'lucide-react';
 import { formatearPrecio, precioANumero } from '@/precio';
 import { normalizarTelefono, telefonoValido } from '@/telefono';
 import { extraerUrlStripe } from '@/stripe-url';
+import { useI18n } from '@/I18nContext';
 
 type TipoEntrega = 'recogida' | 'domicilio' | 'mesa';
 
@@ -65,6 +66,7 @@ const vacio: DatosCliente = {
 
 const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, onClose }) => {
   const { cart, removeFromCart, clearCart, total } = useCart();
+  const { t } = useI18n();
   const [datos, setDatos] = useState<DatosCliente>(vacio);
   const [estado, setEstado] = useState('');
   const [cargando, setCargando] = useState(false);
@@ -397,7 +399,7 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
       {/* El ancho lo lleva el CSS: 100% en movil y 410px a partir de 600px. */}
       <aside className="cart-drawer" aria-label="Carrito de compra">
         <header className="cart-drawer-head shrink-0">
-          <h2 className="cart-drawer-title">Mi pedido</h2>
+          <h2 className="cart-drawer-title">{t('carrito.titulo')}</h2>
           <button type="button" onClick={onClose} aria-label="Cerrar carrito" className="cart-close">
             <X size={20} />
           </button>
@@ -461,10 +463,10 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
                 <>
                   {/* ---- Datos de entrega ---- */}
                   <div className="cart-form">
-                <span className="cart-form-title">Datos de entrega</span>
+                <span className="cart-form-title">{t('carrito.datos')}</span>
 
                 <label className="cart-field">
-                  <span>Nombre completo *</span>
+                  <span>{t('carrito.nombre')} *</span>
                   <input
                     type="text"
                     value={datos.nombre}
@@ -477,7 +479,7 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
                 </label>
 
                 <label className="cart-field">
-                  <span>Teléfono <em>(opcional)</em></span>
+                  <span>{t('carrito.telefono')} <em>(opcional)</em></span>
                   <input
                     type="tel"
                     value={datos.telefono}
@@ -489,7 +491,7 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
                 </label>
 
                 <label className="cart-field">
-                  <span>Correo electrónico *</span>
+                  <span>{t('carrito.email')} *</span>
                   <input
                     type="email"
                     value={datos.email}
@@ -505,7 +507,7 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
                   <p className="cart-mesa">Pedido para la mesa {mesa}. Te lo llevamos a esa mesa.</p>
                 ) : (
                   <label className="cart-field">
-                    <span>Tipo de entrega *</span>
+                    <span>{t('carrito.tipoEntrega')} *</span>
                     <select
                       value={datos.tipoEntrega === 'mesa' && datos.mesa ? 'mesa:' + datos.mesa : datos.tipoEntrega}
                       onChange={(e) => {
@@ -523,8 +525,8 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
                       {Array.from({ length: 8 }, (_, indice) => indice + 1).map((numero) => (
                         <option key={numero} value={'mesa:' + numero}>Mesa {numero}</option>
                       ))}
-                      <option value="domicilio">Envío a domicilio</option>
-                      <option value="recogida">Recogida en local</option>
+                      <option value="domicilio">{t('carrito.domicilio')}</option>
+                      <option value="recogida">{t('carrito.recogida')}</option>
                     </select>
                   </label>
                 )}
@@ -544,7 +546,7 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
                       )}
                     </div>
                     <label className="cart-field cart-field-wide">
-                      <span>Calle *</span>
+                      <span>{t('carrito.calle')} *</span>
                       <input
                         type="text"
                         value={datos.calle}
@@ -584,7 +586,7 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
                       </div>
                     )}
                     <label className="cart-field">
-                      <span>Número *</span>
+                      <span>{t('carrito.numero')} *</span>
                       <input
                         type="text"
                         value={datos.numero}
@@ -595,7 +597,7 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
                       />
                     </label>
                     <label className="cart-field">
-                      <span>Piso / puerta</span>
+                      <span>{t('carrito.piso')}</span>
                       <input
                         type="text"
                         value={datos.piso}
@@ -604,7 +606,7 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
                       />
                     </label>
                     <label className="cart-field">
-                      <span>Código postal *</span>
+                      <span>{t('carrito.cp')} *</span>
                       <input
                         type="text"
                         value={datos.codigoPostal}
@@ -615,7 +617,7 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
                       />
                     </label>
                     <label className="cart-field">
-                      <span>Población</span>
+                      <span>{t('carrito.poblacion')}</span>
                       <input
                         type="text"
                         value={datos.ciudad}
@@ -647,9 +649,9 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
             {/* ---- Pie fijo: el total y el pago siempre a mano ---- */}
             <div className="cart-drawer-foot">
               <button type="button" className="cart-checkout w-full" onClick={irAlPago} disabled={cargando || !listo}>
-                {cargando ? 'Procesando…' : 'Pagar con Stripe'}
+                {cargando ? 'Procesando…' : t('carrito.pagar')}
               </button>
-              <button type="button" className="cart-clear w-full" onClick={clearCart}>Vaciar carrito</button>
+              <button type="button" className="cart-clear w-full" onClick={clearCart}>{t('carrito.vaciar')}</button>
             </div>
           </>
         )}
