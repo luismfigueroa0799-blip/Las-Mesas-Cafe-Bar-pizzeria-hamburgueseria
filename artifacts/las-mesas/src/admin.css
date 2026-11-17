@@ -640,3 +640,51 @@
     justify-content: center;
   }
 }
+
+
+/* ===== Paleta cálida en el panel de administración ===== */
+.admin-login,
+.admin {
+  background: #1A1817 !important;
+  color: #F5F0E6 !important;
+}
+.admin-card,
+.admin-table-wrap,
+.admin-panel,
+.admin-section {
+  background: #2A2725 !important;
+  border-color: rgba(212, 175, 55, 0.20) !important;
+}
+.admin input,
+.admin select,
+.admin textarea,
+.admin-login input {
+  background: #2A2725 !important;
+  color: #F5F0E6 !important;
+  border-color: rgba(212, 175, 55, 0.25) !important;
+}
+.admin input:focus,
+.admin select:focus,
+.admin textarea:focus,
+.admin-login input:focus {
+  border-color: #D4AF37 !important;
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.18) !important;
+}
+.admin h1,
+.admin h2,
+.admin h3,
+.admin th {
+  color: #F5F0E6 !important;
+}
+.admin td,
+.admin label,
+.admin small,
+.admin p {
+  color: #A69F99 !important;
+}
+.admin button.primary,
+.admin .admin-save,
+.admin .btn-primary {
+  background: #D4AF37 !important;
+  color: #1A1817 !important;
+}

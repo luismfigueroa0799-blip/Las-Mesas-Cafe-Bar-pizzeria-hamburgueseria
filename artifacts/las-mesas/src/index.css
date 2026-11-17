@@ -193,7 +193,15 @@ h2 { font-family: var(--app-font-serif); font-size: clamp(2.6rem, 5vw, 4.35rem);
 .allergen-note b { color: #b6a76b; }
 
 /* ===== Carta: tema negro profundo con acentos dorados ===== */
-:root { --oro: #D4AF37; --oro-claro: #E8C65A; --negro-puro: #0A0A0A; --gris-tarjeta: #151515; }
+:root {
+  --oro: #D4AF37;
+  --oro-claro: #E8C65A;
+  --negro-puro: #1A1817;      /* fondo cálido en vez de negro puro */
+  --gris-tarjeta: #2A2725;    /* tarjetas resaltan sobre el fondo */
+  --texto-crema: #F5F0E6;     /* títulos blanco roto */
+  --texto-gris-calido: #A69F99; /* descripciones / ingredientes */
+  --fondo-input: #2A2725;     /* inputs del carrito */
+}
 .menu-section { background: var(--negro-puro); color: #f1eddf; }
 .menu-heading h2 { color: #fff; }
 .menu-heading h2 span { color: var(--oro); }
@@ -1139,3 +1147,90 @@ h1, h2, h3, .hero h1, .play-section h2, .gallery-heading h2, .essence h2 {
 .cart-checkout { background: #a8842c; color: #fff; }
 .cart-checkout:hover { background: #8a6a12; box-shadow: 0 6px 20px rgba(168, 132, 44, .35); }
 .cart-checkout[disabled] { opacity: .5; }
+
+
+/* ===== Paleta cálida: fondo gris oscuro cálido, tarjetas resaltadas, dorado del logo ===== */
+:root {
+  --oro: #D4AF37;
+  --oro-claro: #E8C65A;
+  --negro-puro: #1A1817;
+  --gris-tarjeta: #2A2725;
+  --texto-crema: #F5F0E6;
+  --texto-gris-calido: #A69F99;
+  --fondo-input: #2A2725;
+}
+
+/* Fondo general de la web (secciones oscuras) */
+.menu-section,
+.hero,
+.dish-list,
+section[class*="section"],
+body.dark {
+  background: var(--negro-puro) !important;
+  color: var(--texto-crema);
+}
+
+/* Tarjetas de producto: gris más claro + borde dorado sutil */
+.product-card {
+  background: var(--gris-tarjeta) !important;
+  border: 1px solid rgba(212, 175, 55, 0.20) !important;
+}
+.product-card:hover {
+  border-color: rgba(212, 175, 55, 0.5) !important;
+}
+.product-card-media { background: #232120 !important; }
+
+/* Textos: títulos crema, descripciones gris cálido */
+.product-card-name,
+.cart-drawer-head h2,
+.cart-form-title,
+.cart-total strong {
+  color: var(--texto-crema) !important;
+}
+.product-card-desc,
+.product-card-sizes-label,
+.cart-item-info span,
+.cart-field > span,
+.cart-field > legend {
+  color: var(--texto-gris-calido) !important;
+}
+
+/* Botón Añadir: dorado con texto oscuro */
+.product-card-foot button,
+.cart-checkout {
+  background: var(--oro) !important;
+  color: #1A1817 !important;
+}
+.product-card-foot button:hover,
+.cart-checkout:hover {
+  background: var(--oro-claro) !important;
+  color: #1A1817 !important;
+}
+
+/* Inputs del carrito: fondo ligeramente más claro y legible */
+.cart-field input[type="text"],
+.cart-field input[type="tel"],
+.cart-field input[type="email"],
+.cart-field input[type="number"],
+.cart-field select,
+.cart-email input {
+  background: var(--fondo-input) !important;
+  color: var(--texto-crema) !important;
+  border: 1px solid rgba(212, 175, 55, 0.25) !important;
+}
+.cart-field input::placeholder,
+.cart-email input::placeholder { color: #857e77 !important; }
+.cart-field input:focus,
+.cart-field select:focus,
+.cart-email input:focus {
+  border-color: var(--oro) !important;
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.18) !important;
+}
+
+/* Avisos del carrito (mesa / legal): gris cálido con borde dorado */
+.cart-mesa,
+.cart-status {
+  background: rgba(212, 175, 55, 0.10) !important;
+  border-left: 3px solid var(--oro) !important;
+  color: var(--texto-crema) !important;
+}
