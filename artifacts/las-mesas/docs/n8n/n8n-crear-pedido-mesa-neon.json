@@ -20,7 +20,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// n8n a veces envuelve el body en $json.body y otras veces lo deja en $json directamente\nconst raw = $json.body ?? $json;\n\n// Validar mesa\nconst mesa = Number(raw.mesa ?? '');\nif (!Number.isInteger(mesa) || mesa < 1 || mesa > 8) {\n  return [{ json: { ok: false, error: 'Mesa inválida' } } ];\n}\n\n// Buscar items en cualquier propiedad posible\nlet itemsRaw = [];\nif (Array.isArray(raw.items)) itemsRaw = raw.items;\nelse if (Array.isArray(raw.carrito)) itemsRaw = raw.carrito;\nelse if (Array.isArray(raw.lineas)) itemsRaw = raw.lineas;\n\nif (!itemsRaw || itemsRaw.length === 0) {\n  return [{ json: { ok: false, error: 'No hay items en el carrito' } } ];\n}\n\n// El frontend envia \"quantity\", otros flujos usan \"qty\" o \"cantidad\"\nconst agrupados = {};\nfor (const it of itemsRaw) {\n  const id = String(it && (it.id ?? it.producto_id) ?? '').trim();\n  const qty = Number(it && (it.qty ?? it.quantity ?? it.cantidad));\n  if (!id) return [{ json: { ok: false, error: 'Producto sin id' } } ];\n  if (!Number.isInteger(qty) || qty < 1 || qty > 50) return [{ json: { ok: false, error: 'Cantidad inválida' } } ];\n  agrupados[id] = (agrupados[id] || 0) + qty;\n}\n\nconst items = Object.keys(agrupados).map(id => ({ id, qty: agrupados[id] }));\n\nreturn [{\n  json: {\n    mesa: String(mesa),\n    tipo_entrega: 'mesa',\n    items: items,\n    id_pedido: 'MES-' + String(mesa) + '-' + Date.now(),\n    customerName: raw.customerName ?? raw.nombre ?? '',\n    customerEmail: raw.customerEmail ?? raw.email ?? '',\n    telefono: raw.telefono ?? '',\n    direccion: raw.direccion ?? '',\n    total: raw.total ?? '0',\n    urlOrigen: raw.urlOrigen ?? ''\n  }\n}];"
+        "jsCode": "// n8n a veces envuelve el body en $json.body y otras veces lo deja en $json directamente\nconst raw = $json.body ?? $json;\n\n// Validar mesa\nconst mesa = Number(raw.mesa ?? '');\nif (!Number.isInteger(mesa) || mesa < 1 || mesa > 8) {\n  return [{ json: { ok: false, error: 'Mesa inválida' } } ];\n}\n\n// Buscar items en cualquier propiedad posible\nlet itemsRaw = [];\nif (Array.isArray(raw.items)) itemsRaw = raw.items;\nelse if (Array.isArray(raw.carrito)) itemsRaw = raw.carrito;\nelse if (Array.isArray(raw.lineas)) itemsRaw = raw.lineas;\n\nif (!itemsRaw || itemsRaw.length === 0) {\n  return [{ json: { ok: false, error: 'No hay items en el carrito' } } ];\n}\n\n// El frontend envia \"quantity\", otros flujos usan \"qty\" o \"cantidad\"\nconst agrupados = {};\nfor (const it of itemsRaw) {\n  const id = String(it ? (it.id ?? it.producto_id ?? '') : '').trim();\n  const qty = Number(it ? (it.qty ?? it.quantity ?? it.cantidad) : 0);\n  if (!id) return [{ json: { ok: false, error: 'Producto sin id' } } ];\n  if (!Number.isInteger(qty) || qty < 1 || qty > 50) return [{ json: { ok: false, error: 'Cantidad inválida' } } ];\n  agrupados[id] = (agrupados[id] || 0) + qty;\n}\n\nconst items = Object.keys(agrupados).map(id => ({ id, qty: agrupados[id] }));\n\nreturn [{\n  json: {\n    mesa: String(mesa),\n    tipo_entrega: 'mesa',\n    items: items,\n    id_pedido: 'MES-' + String(mesa) + '-' + Date.now(),\n    customerName: raw.customerName ?? raw.nombre ?? '',\n    customerEmail: raw.customerEmail ?? raw.email ?? '',\n    telefono: raw.telefono ?? '',\n    direccion: raw.direccion ?? '',\n    total: raw.total ?? '0',\n    urlOrigen: raw.urlOrigen ?? ''\n  }\n}];"
       },
       "id": "21fba1c1-a272-496b-b464-8e28fc3bd930",
       "name": "Validar mesa y carrito",
@@ -50,7 +50,8 @@
           "id": "1X9SZfp6WIb993oR",
           "name": "Postgres account"
         }
-      }
+      },
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -246,7 +247,8 @@
           "id": "1X9SZfp6WIb993oR",
           "name": "Postgres account"
         }
-      }
+      },
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -335,7 +337,8 @@
           "id": "pUBcgXLy44KcEpje",
           "name": "Stripe account"
         }
-      }
+      },
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -432,7 +435,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const webhook = $('Recibir pedido mesa').first().json;\nconst pedido = webhook.body ?? webhook;\n\nconst rawItems = Array.isArray(pedido.items) ? pedido.items : [];\nconst productos = $('Consultar productos (Neon)').all().map(i => i.json).filter(p => p && p.id != null);\n\nlet totalCents = 0;\nconst lineas = [];\n\nrawItems.forEach(function(it) {\n  const id = String(it && (it.id ?? it.producto_id) ?? '').trim();\n  const qty = Number(it && (it.qty ?? it.quantity ?? it.cantidad));\n  const prod = productos.find(function(p) { return String(p.id).trim() === id; });\n  if (prod && qty > 0) {\n    const precio = Number(prod.price ?? prod.precio ?? 0);\n    const sub = Math.round(precio * 100) * qty;\n    totalCents += sub;\n    lineas.push({ id: prod.id, nombre: prod.name || prod.nombre || id, qty: qty, precio: precio, subtotal: sub / 100 });\n  }\n});\n\nif (lineas.length === 0 || totalCents <= 0) {\n  return [{ json: { valido: false, error: 'No hay items. Recibido: ' + JSON.stringify(pedido).slice(0, 300) } }];\n}\n\nconst detalleTexto = lineas.map(function(l) {\n  return (l.qty > 1 ? l.qty + ' x ' : '') + l.nombre + ' - ' + l.precio.toFixed(2).replace('.', ',') + ' €';\n}).join('\\n');\n\nreturn [{\n  json: {\n    valido: true,\n    mesa: String(pedido.mesa ?? ''),\n    tipo_entrega: 'mesa',\n    id_pedido: 'MES-' + String(pedido.mesa ?? '') + '-' + Date.now(),\n    customerName: pedido.customerName ?? '',\n    telefono: pedido.telefono ?? '',\n    direccion: pedido.direccion ?? '',\n    urlOrigen: pedido.urlOrigen ?? '',\n    lineas: lineas,\n    total: totalCents / 100,\n    total_centimos: totalCents,\n    total_texto: (totalCents / 100).toFixed(2),\n    detalle_texto: detalleTexto,\n    estado: 'pendiente_pago'\n  }\n}];"
+        "jsCode": "const webhook = $('Recibir pedido mesa').first().json;\nconst pedido = webhook.body ?? webhook;\n\nconst rawItems = Array.isArray(pedido.items) ? pedido.items : [];\nconst productos = $('Consultar productos (Neon)').all().map(i => i.json).filter(p => p && p.id != null);\n\nlet totalCents = 0;\nconst lineas = [];\n\nrawItems.forEach(function(it) {\n  const id = String(it ? (it.id ?? it.producto_id ?? '') : '').trim();\n  const qty = Number(it ? (it.qty ?? it.quantity ?? it.cantidad) : 0);\n  const prod = productos.find(function(p) { return String(p.id).trim() === id; });\n  if (prod && qty > 0) {\n    const precio = Number(prod.price ?? prod.precio ?? 0);\n    const sub = Math.round(precio * 100) * qty;\n    totalCents += sub;\n    lineas.push({ id: prod.id, nombre: prod.name || prod.nombre || id, qty: qty, precio: precio, subtotal: sub / 100 });\n  }\n});\n\nif (lineas.length === 0 || totalCents <= 0) {\n  return [{ json: { valido: false, error: 'No hay items. Recibido: ' + JSON.stringify(pedido).slice(0, 300) } }];\n}\n\nconst detalleTexto = lineas.map(function(l) {\n  return (l.qty > 1 ? l.qty + ' x ' : '') + l.nombre + ' - ' + l.precio.toFixed(2).replace('.', ',') + ' €';\n}).join('\\n');\n\nreturn [{\n  json: {\n    valido: true,\n    mesa: String(pedido.mesa ?? ''),\n    tipo_entrega: 'mesa',\n    id_pedido: 'MES-' + String(pedido.mesa ?? '') + '-' + Date.now(),\n    customerName: pedido.customerName ?? '',\n    telefono: pedido.telefono ?? '',\n    direccion: pedido.direccion ?? '',\n    urlOrigen: pedido.urlOrigen ?? '',\n    lineas: lineas,\n    total: totalCents / 100,\n    total_centimos: totalCents,\n    total_texto: (totalCents / 100).toFixed(2),\n    detalle_texto: detalleTexto,\n    estado: 'pendiente_pago'\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -441,7 +444,25 @@
         144
       ],
       "id": "ff390fe4-8fe1-4adc-a4cf-9d66d79949cf",
-      "name": "Calcular total (Neon)"
+      "name": "Calcular total (Neon)",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: false, error_debug: $json.message || $json.error || $json.description || String($json) }) }}",
+        "options": {
+          "responseCode": 500
+        }
+      },
+      "id": "11111111-2222-4333-8444-555555555555",
+      "name": "Responder error DEBUG",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1760,
+        600
+      ]
     }
   ],
   "pinData": {},
@@ -473,6 +494,13 @@
         [
           {
             "node": "Calcular total (Neon)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder error DEBUG",
             "type": "main",
             "index": 0
           }
@@ -515,6 +543,13 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Responder error DEBUG",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -526,6 +561,13 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Responder error DEBUG",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -534,6 +576,13 @@
         [
           {
             "node": "¿Pedido válido?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder error DEBUG",
             "type": "main",
             "index": 0
           }
