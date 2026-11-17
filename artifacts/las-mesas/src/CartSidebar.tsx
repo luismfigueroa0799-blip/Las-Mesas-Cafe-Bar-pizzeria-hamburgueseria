@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useCart } from '@/CartContext';
 import { X } from 'lucide-react';
 import { formatearPrecio, precioANumero } from '@/precio';
@@ -6,6 +6,12 @@ import { normalizarTelefono, telefonoValido } from '@/telefono';
 import { extraerUrlStripe } from '@/stripe-url';
 
 type TipoEntrega = 'recogida' | 'domicilio' | 'mesa';
+
+interface SugerenciaDireccion {
+  calle: string;
+  poblacion: string;
+  etiqueta: string;
+}
 
 interface DatosCliente {
   nombre: string;
@@ -41,6 +47,8 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
   const [datos, setDatos] = useState<DatosCliente>(vacio);
   const [estado, setEstado] = useState('');
   const [cargando, setCargando] = useState(false);
+  const [sugerencias, setSugerencias] = useState<SugerenciaDireccion[]>([]);
+  const [buscandoDir, setBuscandoDir] = useState(false);
 
   // ?mesa=N indica que el pedido es para esa mesa del local (QR de mesa).
   // Solo se admite entre 1 y 8 (las 8 mesas del local).
@@ -78,6 +86,43 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
     }
     return lista;
   }, [datos]);
+
+  // Al escribir un código postal de 5 dígitos, consultar direcciones sugeridas.
+  useEffect(() => {
+    if (tipoEntregaActiva !== 'domicilio' || !/^\d{5}$/.test(datos.codigoPostal.trim())) {
+      setSugerencias([]);
+      return;
+    }
+    const controlador = new AbortController();
+    const temporizador = window.setTimeout(async () => {
+      setBuscandoDir(true);
+      try {
+        const respuesta = await fetch('/api/direcciones?cp=' + encodeURIComponent(datos.codigoPostal.trim()), {
+          signal: controlador.signal,
+        });
+        const datosR = await respuesta.json();
+        setSugerencias(Array.isArray(datosR?.sugerencias) ? datosR.sugerencias : []);
+      } catch {
+        setSugerencias([]);
+      } finally {
+        setBuscandoDir(false);
+      }
+    }, 350);
+    return () => {
+      window.clearTimeout(temporizador);
+      controlador.abort();
+    };
+  }, [datos.codigoPostal, tipoEntregaActiva]);
+
+  const alElegirDireccion = (s: SugerenciaDireccion) => {
+    setDatos((previo) => ({
+      ...previo,
+      calle: s.calle || previo.calle,
+      ciudad: s.poblacion || previo.ciudad,
+    }));
+    setSugerencias([]);
+    setEstado('');
+  };
 
   const listo = cart.length > 0 && errores.length === 0;
 
@@ -405,6 +450,24 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
                         required
                       />
                     </label>
+                    {(sugerencias.length > 0 || buscandoDir) && (
+                      <label className="cart-field cart-field-wide">
+                        <span>{buscandoDir ? 'Buscando direcciones…' : 'Selecciona tu dirección'}</span>
+                        <select
+                          value=""
+                          onChange={(e) => {
+                            const s = sugerencias.find((x) => x.etiqueta === e.target.value);
+                            if (s) alElegirDireccion(s);
+                          }}
+                          disabled={buscandoDir}
+                        >
+                          <option value="">{buscandoDir ? 'Buscando…' : 'Elige una dirección'}</option>
+                          {sugerencias.map((s, idx) => (
+                            <option key={idx} value={s.etiqueta}>{s.etiqueta}</option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
                     <label className="cart-field">
                       <span>Población</span>
                       <input
