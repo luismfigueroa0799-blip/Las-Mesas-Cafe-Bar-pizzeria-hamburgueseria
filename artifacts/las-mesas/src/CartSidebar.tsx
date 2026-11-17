@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useCart } from '@/CartContext';
 import { X } from 'lucide-react';
 import { formatearPrecio, precioANumero } from '@/precio';
@@ -50,6 +50,7 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
   const [cargando, setCargando] = useState(false);
   const [sugerencias, setSugerencias] = useState<SugerenciaDireccion[]>([]);
   const [buscandoDir, setBuscandoDir] = useState(false);
+  const ultimaCalleElegida = useRef('');
 
   // ?mesa=N indica que el pedido es para esa mesa del local (QR de mesa).
   // Solo se admite entre 1 y 8 (las 8 mesas del local).
@@ -91,6 +92,10 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
   // Autocompletado de calles: buscar en Nominatim al escribir en el campo Calle.
   useEffect(() => {
     if (tipoEntregaActiva !== 'domicilio' || datos.calle.trim().length < 3) {
+      setSugerencias([]);
+      return;
+    }
+    if (datos.calle.trim() === ultimaCalleElegida.current) {
       setSugerencias([]);
       return;
     }
@@ -138,6 +143,7 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
   }, [datos.calle, datos.codigoPostal, datos.ciudad, tipoEntregaActiva]);
 
   const alElegirDireccion = (s: SugerenciaDireccion) => {
+    ultimaCalleElegida.current = s.calle;
     setDatos((previo) => ({
       ...previo,
       calle: s.calle || previo.calle,
@@ -437,22 +443,41 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
                       <input
                         type="text"
                         value={datos.calle}
-                        onChange={(e) => {
-                          const elegida = sugerencias.find((x) => x.calle === e.target.value);
-                          if (elegida) alElegirDireccion(elegida);
-                          else actualizar('calle', e.target.value);
-                        }}
+                        onChange={(e) => actualizar('calle', e.target.value)}
                         placeholder="Nombre de la calle"
                         autoComplete="address-line1"
-                        list="sugerencias-calle"
                         required
                       />
                     </label>
-                    <datalist id="sugerencias-calle">
-                      {sugerencias.map((s, idx) => (
-                        <option key={idx} value={s.calle}>{s.etiqueta}</option>
-                      ))}
-                    </datalist>
+                    {(sugerencias.length > 0 || buscandoDir) && (
+                      <div style={{ marginTop: '-6px', marginBottom: '10px' }}>
+                        {buscandoDir && (
+                          <div style={{ fontSize: '12px', opacity: 0.7, padding: '4px 0' }}>Buscando calles…</div>
+                        )}
+                        {!buscandoDir && sugerencias.map((s, idx) => (
+                          <button
+                            type="button"
+                            key={idx}
+                            onClick={() => alElegirDireccion(s)}
+                            style={{
+                              display: 'block',
+                              width: '100%',
+                              textAlign: 'left',
+                              padding: '8px 10px',
+                              marginBottom: '4px',
+                              background: 'rgba(255,255,255,0.06)',
+                              border: '1px solid rgba(255,255,255,0.15)',
+                              borderRadius: '6px',
+                              color: 'inherit',
+                              fontSize: '13px',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            {s.etiqueta}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                     <label className="cart-field">
                       <span>Número *</span>
                       <input
