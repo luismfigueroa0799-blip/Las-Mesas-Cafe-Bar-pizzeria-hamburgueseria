@@ -126,9 +126,11 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
     const temporizador = window.setTimeout(async () => {
       setBuscandoDir(true);
       try {
+        // No incluir el CP en la búsqueda: una calle puede estar en un CP distinto
+        // al que el cliente escribió. La ciudad + viewbox acotan suficiente.
         const partes = [datos.calle.trim()];
-        if (/^\d{5}$/.test(datos.codigoPostal.trim())) partes.push(datos.codigoPostal.trim());
         if (datos.ciudad.trim()) partes.push(datos.ciudad.trim());
+        else partes.push('Las Palmas de Gran Canaria');
         partes.push('Spain');
         const url = 'https://nominatim.openstreetmap.org/search?q=' +
           encodeURIComponent(partes.join(', ')) +
