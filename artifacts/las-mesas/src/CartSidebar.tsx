@@ -87,9 +87,9 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
     return lista;
   }, [datos]);
 
-  // Al escribir un código postal de 5 dígitos, consultar direcciones sugeridas.
+  // Autocompletado de calles: buscar en Nominatim al escribir en el campo Calle.
   useEffect(() => {
-    if (tipoEntregaActiva !== 'domicilio' || !/^\d{5}$/.test(datos.codigoPostal.trim())) {
+    if (tipoEntregaActiva !== 'domicilio' || datos.calle.trim().length < 3) {
       setSugerencias([]);
       return;
     }
@@ -97,9 +97,13 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
     const temporizador = window.setTimeout(async () => {
       setBuscandoDir(true);
       try {
-        const url = 'https://nominatim.openstreetmap.org/search?postalcode=' +
-          encodeURIComponent(datos.codigoPostal.trim()) +
-          '&country=Spain&format=jsonv2&addressdetails=1&limit=15';
+        const partes = [datos.calle.trim()];
+        if (/^\d{5}$/.test(datos.codigoPostal.trim())) partes.push(datos.codigoPostal.trim());
+        if (datos.ciudad.trim()) partes.push(datos.ciudad.trim());
+        partes.push('Spain');
+        const url = 'https://nominatim.openstreetmap.org/search?q=' +
+          encodeURIComponent(partes.join(', ')) +
+          '&format=jsonv2&addressdetails=1&limit=8';
         const respuesta = await fetch(url, { signal: controlador.signal });
         const crudo = await respuesta.json();
         const vistos = new Set<string>();
@@ -108,10 +112,11 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
           for (const item of crudo) {
             const addr = item.address || {};
             const calle = String(addr.road || addr.pedestrian || addr.footway || '').trim();
+            if (!calle) continue;
             const poblacion = String(addr.city || addr.town || addr.village || addr.municipality || addr.county || '').trim();
-            if (!calle && !poblacion) continue;
-            const etiqueta = [calle, poblacion].filter(Boolean).join(', ');
-            const clave = etiqueta.toLowerCase();
+            const cpItem = String(addr.postcode || '').trim();
+            const etiqueta = [calle, cpItem, poblacion].filter(Boolean).join(', ');
+            const clave = calle.toLowerCase();
             if (vistos.has(clave)) continue;
             vistos.add(clave);
             sugerido.push({ calle, poblacion, etiqueta });
@@ -123,12 +128,12 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
       } finally {
         setBuscandoDir(false);
       }
-    }, 350);
+    }, 400);
     return () => {
       window.clearTimeout(temporizador);
       controlador.abort();
     };
-  }, [datos.codigoPostal, tipoEntregaActiva]);
+  }, [datos.calle, datos.codigoPostal, datos.ciudad, tipoEntregaActiva]);
 
   const alElegirDireccion = (s: SugerenciaDireccion) => {
     setDatos((previo) => ({
@@ -435,6 +440,24 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
                         required
                       />
                     </label>
+                    {(sugerencias.length > 0 || buscandoDir) && (
+                      <label className="cart-field cart-field-wide">
+                        <span>{buscandoDir ? 'Buscando calles…' : 'Selecciona la calle'}</span>
+                        <select
+                          value=""
+                          onChange={(e) => {
+                            const s = sugerencias.find((x) => x.etiqueta === e.target.value);
+                            if (s) alElegirDireccion(s);
+                          }}
+                          disabled={buscandoDir}
+                        >
+                          <option value="">{buscandoDir ? 'Buscando…' : 'Elige una calle'}</option>
+                          {sugerencias.map((s, idx) => (
+                            <option key={idx} value={s.etiqueta}>{s.etiqueta}</option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
                     <label className="cart-field">
                       <span>Número *</span>
                       <input
@@ -466,24 +489,6 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
                         required
                       />
                     </label>
-                    {(sugerencias.length > 0 || buscandoDir) && (
-                      <label className="cart-field cart-field-wide">
-                        <span>{buscandoDir ? 'Buscando direcciones…' : 'Selecciona tu dirección'}</span>
-                        <select
-                          value=""
-                          onChange={(e) => {
-                            const s = sugerencias.find((x) => x.etiqueta === e.target.value);
-                            if (s) alElegirDireccion(s);
-                          }}
-                          disabled={buscandoDir}
-                        >
-                          <option value="">{buscandoDir ? 'Buscando…' : 'Elige una dirección'}</option>
-                          {sugerencias.map((s, idx) => (
-                            <option key={idx} value={s.etiqueta}>{s.etiqueta}</option>
-                          ))}
-                        </select>
-                      </label>
-                    )}
                     <label className="cart-field">
                       <span>Población</span>
                       <input
