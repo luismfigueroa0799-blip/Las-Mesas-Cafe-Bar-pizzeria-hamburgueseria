@@ -1055,6 +1055,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     urlOrigen?: string;
     costoEnvio?: string | number;
     distanciaKm?: string | number;
+    zonaEnvio?: string;
     recargo?: string | number;
     subtotal?: string | number;
   } | null;
@@ -1069,16 +1070,24 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   const email = String(body.customerEmail ?? '').trim();
   const mesa = String(body.mesa ?? '').trim();
   const tipoEntrega = String(body.tipoEntrega ?? '').trim() || (mesa ? 'mesa' : 'recogida');
-  const distanciaKm = Math.max(0, Number(body.distanciaKm ?? 0) || 0);
-  const PRECIO_POR_KM = 1.5;
-  const MAX_KM = 8;
-  if (tipoEntrega === 'domicilio' && distanciaKm > MAX_KM) {
-    responder(res, { error: 'El envío a domicilio solo está disponible hasta 8 km. Elige recogida en local.' }, 400);
+  // Zonas de reparto por CP (el coste lo fija el servidor, no el navegador).
+  const ZONAS: Record<string, { cps: string[]; precio: number }> = {
+    '1': { cps: ['35018'], precio: 4 },
+    '2': { cps: ['35019', '35017'], precio: 7 },
+    '3': { cps: ['35015', '35016'], precio: 10 },
+    '4': { cps: ['35001','35002','35003','35004','35005','35006','35007','35008','35009','35010','35011','35012','35013','35014'], precio: 15 },
+  };
+  const zonaEnvio = String(body.zonaEnvio ?? '').trim();
+  const cpCliente = String((body.direccion as any)?.codigoPostal ?? '').trim();
+  const zona = ZONAS[zonaEnvio];
+  if (
+    tipoEntrega === 'domicilio' &&
+    (!zona || !zona.cps.includes(cpCliente))
+  ) {
+    responder(res, { error: 'Zona de reparto no válida para ese código postal. Elige la recogida en local.' }, 400);
     return;
   }
-  // El coste lo fija el servidor: 1,50 € × km. Se ignora el que envíe el navegador.
-  const costoEnvio =
-    tipoEntrega === 'domicilio' ? Math.round(distanciaKm * PRECIO_POR_KM * 100) / 100 : 0;
+  const costoEnvio = tipoEntrega === 'domicilio' && zona ? zona.precio : 0;
 
   if (!nombre && tipoEntrega !== 'mesa') {
     responder(res, { error: 'Falta el nombre del cliente' }, 400);
@@ -1264,6 +1273,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     total: totalEuros,
     subtotal: subtotalEuros.toFixed(2),
     recargo: recargoEuros.toFixed(2),
+    zona_envio: zonaEnvio,
     costo_envio: costoEnvio.toFixed(2),
     items: lineas,
 

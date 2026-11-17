@@ -7,9 +7,13 @@ import { extraerUrlStripe } from '@/stripe-url';
 
 type TipoEntrega = 'recogida' | 'domicilio' | 'mesa';
 
-// Envío a domicilio: 1,50 € por km, máximo 8 km
-const PRECIO_POR_KM = 1.5;
-const MAX_KM = 8;
+// Zonas de reparto por código postal (tarifa plana por zona)
+const ZONAS_ENVIO: ReadonlyArray<{ id: string; nombre: string; cps: string[]; precio: number }> = [
+  { id: '1', nombre: 'Zona 1 (Las Mesas / Tenoya)', cps: ['35018'], precio: 4 },
+  { id: '2', nombre: 'Zona 2 (San Lorenzo / Tamaraceite)', cps: ['35019', '35017'], precio: 7 },
+  { id: '3', nombre: 'Zona 3 (Las Palmas cercano)', cps: ['35015', '35016'], precio: 10 },
+  { id: '4', nombre: 'Zona 4 (Las Palmas capital)', cps: ['35001','35002','35003','35004','35005','35006','35007','35008','35009','35010','35011','35012','35013','35014'], precio: 15 },
+];
 // Recargo por servicio a domicilio (25% sobre el subtotal de productos)
 const RECARGO_DOMICILIO = 0.25;
 
@@ -26,6 +30,7 @@ interface DatosCliente {
   email: string;
   tipoEntrega: TipoEntrega;
   mesa: string;
+  zonaEnvio: string;
   calle: string;
   numero: string;
   piso: string;
@@ -42,6 +47,7 @@ const vacio: DatosCliente = {
   email: '',
   tipoEntrega: 'recogida',
   mesa: '',
+  zonaEnvio: '',
   calle: '',
   numero: '',
   piso: '',
@@ -57,9 +63,6 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
   const [sugerencias, setSugerencias] = useState<SugerenciaDireccion[]>([]);
   const [buscandoDir, setBuscandoDir] = useState(false);
   const ultimaCalleElegida = useRef('');
-  const [distanciaCalculada, setDistanciaCalculada] = useState<number | null>(null);
-  const [calculandoDistancia, setCalculandoDistancia] = useState(false);
-  const [distanciaError, setDistanciaError] = useState('');
 
   // ?mesa=N indica que el pedido es para esa mesa del local (QR de mesa).
   // Solo se admite entre 1 y 8 (las 8 mesas del local).
@@ -163,65 +166,15 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
     setEstado('');
   };
 
-  // Calcular la distancia por carretera desde la dirección del cliente al local
-  // (Google Maps en el servidor). Se dispara al completar calle, número, CP y ciudad.
-  useEffect(() => {
-    if (tipoEntregaActiva !== 'domicilio') {
-      setDistanciaCalculada(null);
-      setDistanciaError('');
-      return;
-    }
-    const direccionCompleta =
-      datos.calle.trim() && datos.numero.trim() && /^\d{5}$/.test(datos.codigoPostal.trim()) && datos.ciudad.trim();
-    if (!direccionCompleta) {
-      setDistanciaCalculada(null);
-      setDistanciaError('');
-      return;
-    }
-    const controlador = new AbortController();
-    const temporizador = window.setTimeout(async () => {
-      setCalculandoDistancia(true);
-      setDistanciaError('');
-      try {
-        const respuesta = await fetch('/api/distancia', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          signal: controlador.signal,
-          body: JSON.stringify({
-            calle: datos.calle,
-            numero: datos.numero,
-            codigoPostal: datos.codigoPostal,
-            ciudad: datos.ciudad,
-          }),
-        });
-        const datosR = await respuesta.json();
-        if (typeof datosR?.km === 'number') {
-          setDistanciaCalculada(datosR.km);
-          setDistanciaError('');
-        } else {
-          setDistanciaCalculada(null);
-          setDistanciaError(datosR?.error || 'No se pudo calcular la distancia.');
-        }
-      } catch {
-        setDistanciaCalculada(null);
-        setDistanciaError('No se pudo calcular la distancia.');
-      } finally {
-        setCalculandoDistancia(false);
-      }
-    }, 500);
-    return () => {
-      window.clearTimeout(temporizador);
-      controlador.abort();
-    };
-  }, [datos.calle, datos.numero, datos.codigoPostal, datos.ciudad, tipoEntregaActiva]);
 
-  const distanciaNum = distanciaCalculada ?? 0;
-  const distanciaValida = distanciaCalculada !== null && Number.isFinite(distanciaNum) && distanciaNum > 0;
-  const demasiadoLejos = tipoEntregaActiva === 'domicilio' && distanciaValida && distanciaNum > MAX_KM;
-  const costoEnvio =
-    tipoEntregaActiva === 'domicilio' && distanciaValida && !demasiadoLejos
-      ? Math.round(distanciaNum * PRECIO_POR_KM * 100) / 100
-      : 0;
+
+  const zonaSeleccionada = ZONAS_ENVIO.find((z) => z.id === datos.zonaEnvio);
+  const cpCliente = datos.codigoPostal.trim();
+  const zonaValida =
+    tipoEntregaActiva === 'domicilio' && !!zonaSeleccionada &&
+    /^\d{5}$/.test(cpCliente) && zonaSeleccionada.cps.includes(cpCliente);
+  const zonaIncorrecta = tipoEntregaActiva === 'domicilio' && !!zonaSeleccionada && !zonaValida;
+  const costoEnvio = zonaValida && zonaSeleccionada ? zonaSeleccionada.precio : 0;
   const subtotal = cart.reduce((suma, item) => suma + precioANumero(item.price) * item.quantity, 0);
   const recargo =
     tipoEntregaActiva === 'domicilio' ? Math.round(subtotal * RECARGO_DOMICILIO * 100) / 100 : 0;
@@ -229,9 +182,8 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
   const listo =
     cart.length > 0 &&
     errores.length === 0 &&
-    !demasiadoLejos &&
-    !calculandoDistancia &&
-    (tipoEntregaActiva !== 'domicilio' || distanciaValida);
+    !zonaIncorrecta &&
+    (tipoEntregaActiva !== 'domicilio' || zonaValida);
 
   if (!open) return null;
 
@@ -313,7 +265,7 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
         recargo: recargo.toFixed(2),
         costoEnvio: costoEnvio.toFixed(2),
         envio: costoEnvio.toFixed(2),
-        distanciaKm: distanciaValida ? String(distanciaNum) : '',
+        zonaEnvio: zonaValida && zonaSeleccionada ? zonaSeleccionada.id : '',
         direccion: esMesaPorQR
           ? ''
           : {
@@ -455,15 +407,10 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
                     El recargo del 25% se aplica para cubrir los gastos de gestión del servicio a domicilio.
                   </p>
                   <div className="cart-total" style={{ fontWeight: 'normal', fontSize: '0.9em' }}>
-                    <span>Gastos de envío{distanciaValida ? ' (' + distanciaNum + ' km × ' + formatearPrecio(PRECIO_POR_KM) + ')' : ''}</span>
-                    <strong>{demasiadoLejos ? 'No disponible' : costoEnvio > 0 ? formatearPrecio(costoEnvio) : '—'}</strong>
+                    <span>Gastos de envío{zonaValida && zonaSeleccionada ? ' (' + zonaSeleccionada.nombre + ')' : ''}</span>
+                    <strong>{costoEnvio > 0 ? formatearPrecio(costoEnvio) : '—'}</strong>
                   </div>
                 </>
-              )}
-              {demasiadoLejos && (
-                <p className="cart-mesa" style={{ borderLeftColor: '#c0392b' }}>
-                  Lo sentimos, no repartimos a más de {MAX_KM} km. Te sugerimos la recogida en local.
-                </p>
               )}
               <div className="cart-total">
                 <span>Total</span>
@@ -544,18 +491,20 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
 
                 {tipoEntregaActiva === 'domicilio' && (
                   <div className="cart-address">
-                    <div className="cart-field cart-field-wide">
-                      <span>Distancia al local</span>
-                      {calculandoDistancia ? (
-                        <p className="cart-mesa">📍 Calculando distancia desde tu dirección…</p>
-                      ) : distanciaValida ? (
-                        <p className="cart-mesa">📍 Distancia calculada: {distanciaNum} km — envío {formatearPrecio(costoEnvio)} ({distanciaNum} km × {formatearPrecio(PRECIO_POR_KM)})</p>
-                      ) : distanciaError ? (
-                        <p className="cart-mesa" style={{ borderLeftColor: '#c0392b' }}>{distanciaError}</p>
-                      ) : (
-                        <p className="cart-mesa">Completa calle, número, código postal y población para calcular la distancia al local.</p>
-                      )}
-                    </div>
+                    <label className="cart-field cart-field-wide">
+                      <span>Zona de reparto *</span>
+                      <select
+                        value={datos.zonaEnvio}
+                        onChange={(e) => actualizar('zonaEnvio', e.target.value)}
+                        required
+                        style={{ minHeight: '48px', fontSize: '16px', padding: '0 12px', border: '1px solid rgba(90,70,30,.25)', borderRadius: '0', background: '#fff', color: '#2a2620' }}
+                      >
+                        <option value="">Elige tu zona de reparto</option>
+                        {ZONAS_ENVIO.map((z) => (
+                          <option key={z.id} value={z.id}>{z.nombre} — {formatearPrecio(z.precio)}</option>
+                        ))}
+                      </select>
+                    </label>
                     <label className="cart-field cart-field-wide">
                       <span>Calle *</span>
                       <input
