@@ -339,13 +339,13 @@ function App() {
           </div>
           <div className="home-fav-grid">
             {[
-              { nombre: 'Burger Pizza', imagen: '/assets/burger-pizza.jpg', precio: '14,80 €' },
-              { nombre: 'La Encerrona', imagen: '/assets/hamburguesa-pollo-crispy-super.jpg', precio: '12,00 €' },
-              { nombre: 'Costilla a la BBQ', imagen: '/assets/costillas-bbq.webp', precio: '15,95 €' },
-              { nombre: 'La Suprema', imagen: '/assets/platos-compartir.jpg', precio: '6,50 €' },
+              { nombre: 'Burger Pizza', imagen: '/images/Burger-Pizza.jpg', precio: '14,80 €' },
+              { nombre: 'Costilla a la BBQ', imagen: '/images/Costillas-BBQ.jpg', precio: '15,95 €' },
+              { nombre: 'La Suprema', imagen: '/images/La-Suprema.jpg', precio: '6,50 €' },
+              { nombre: 'La tradicional', imagen: '/images/La-tradicional.jpg', precio: '3,60 €' },
             ].map((p) => (
               <article className="home-fav-card" key={p.nombre}>
-                <img src={p.imagen} alt={p.nombre} loading="lazy" decoding="async" />
+                <img src={p.imagen} alt={p.nombre} loading="lazy" decoding="async" onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/images/logo.png'; }} />
                 <div className="home-fav-info"><h3>{p.nombre}</h3><strong>{p.precio}</strong></div>
               </article>
             ))}
@@ -591,7 +591,7 @@ function App() {
       )}
       <div className="topline"><span>Las Mesas Bajas · Gran Canaria</span><span>{t('home.hero.desc')}</span><a href={phoneHref} data-testid="link-call-top">{phone}</a></div>
       <header className={compactHeader ? 'site-header compact' : 'site-header'}>
-        <a href="#inicio" className="brand" aria-label="Las Mesas, inicio"><img src="/assets/logo-las-mesas.jpeg" alt="Logo de Las Mesas Café & Bar" /></a>
+        <a href="/" className="brand" aria-label="Las Mesas, inicio"><img className="logo-3d" src="/images/logo.png" alt="Logo de Las Mesas Café & Bar" /></a>
         <button className="mobile-toggle" aria-label={mobileOpen ? 'Cerrar menú' : 'Abrir menú'} aria-expanded={mobileOpen} onClick={() => setMobileOpen(!mobileOpen)} data-testid="button-mobile-menu">{mobileOpen ? <X /> : <MenuIcon />}</button>
         <nav className={mobileOpen ? 'main-nav open' : 'main-nav'} aria-label="Navegación principal">
           {[[t('nav.casa'), '/'], [t('nav.local'), '/local'], [t('nav.carta'), '/carta'], [t('nav.celebraciones'), '/celebraciones'], [t('nav.visitamos'), '/local']].map(([label, href]) => <Link key={href} href={href} onClick={() => setMobileOpen(false)}>{label}</Link>)}

@@ -1837,3 +1837,26 @@ html.dark .home-fav-card { background: #2A2725 !important; border-color: rgba(21
 .home-fav-grid { grid-template-columns: repeat(4, 1fr) !important; }
 @media (max-width: 900px) { .home-fav-grid { grid-template-columns: repeat(2, 1fr) !important; } }
 @media (max-width: 600px) { .home-fav-grid { grid-template-columns: 1fr !important; } }
+
+/* ===== LOGO 3D: solo el círculo, con relieve ===== */
+.brand img.logo-3d,
+.footer-brand img.logo-3d,
+.admin-logo img.logo-3d {
+  width: 58px !important;
+  height: 58px !important;
+  border-radius: 50% !important;
+  object-fit: cover !important;
+  object-position: center !important;
+  display: block;
+  border: 2px solid rgba(212,175,55,.9);
+  box-shadow:
+    0 4px 0 rgba(0,0,0,.35),
+    0 8px 18px rgba(0,0,0,.45),
+    inset 0 2px 6px rgba(255,255,255,.35),
+    inset 0 -3px 8px rgba(0,0,0,.35),
+    0 0 0 3px rgba(212,175,55,.15);
+  transform: perspective(180px) rotateX(8deg) translateY(-1px);
+  transition: transform .25s ease, box-shadow .25s ease;
+}
+.brand:hover img.logo-3d { transform: perspective(180px) rotateX(0deg) scale(1.06) translateY(-2px); }
+.footer-brand img.logo-3d { width: 46px !important; height: 46px !important; }

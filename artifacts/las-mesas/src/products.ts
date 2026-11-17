@@ -216,6 +216,25 @@ export const PRODUCTS_LOCALES: Product[] = Object.entries(PRESENTACION).map(
  * Descarga el catálogo desde nuestra API (que lee Supabase) y lo enriquece con
  * las fotos, descripciones y la categoría de la carta.
  */
+/**
+ * Devuelve la foto de un producto por su NOMBRE (no por id), para que un
+ * cambio de ids en Neon no rompa las imágenes. Si no hay foto conocida,
+ * se usa la imagen por defecto (el logo de Las Mesas).
+ */
+export function fotoPorNombre(nombre: string): string {
+  const mapa: Record<string, string> = {
+    'burger pizza': '/images/Burger-Pizza.jpg',
+    'burguerpizza': '/images/Burger-Pizza.jpg',
+    'la encerrona': '/images/La-Encerrona.jpg',
+    'costilla a la bbq': '/images/Costillas-BBQ.jpg',
+    'costillas bbq': '/images/Costillas-BBQ.jpg',
+    'la suprema': '/images/La-Suprema.jpg',
+    'la tradicional': '/images/La-tradicional.jpg',
+    'la super': '/images/La-super.jpg',
+  };
+  return mapa[nombre.trim().toLowerCase()] ?? '/images/logo.png';
+}
+
 export async function getProductos(): Promise<Product[]> {
   try {
     const respuesta = await fetch('/api/productos');
@@ -241,7 +260,7 @@ export async function getProductos(): Promise<Product[]> {
             description: p.descripcion ?? presentacion?.description,
             price: formatearPrecio(precio),
             allergens: presentacion?.allergens,
-            image_url: p.imagen ?? presentacion?.image_url ?? null,
+            image_url: p.imagen ?? presentacion?.image_url ?? fotoPorNombre(String(p.nombre)),
             category: categoriaNombre,
             category_slug: slugCategoria(categoriaNombre),
             precio_eur: precio,

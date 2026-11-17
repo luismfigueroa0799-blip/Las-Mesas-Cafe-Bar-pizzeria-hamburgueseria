@@ -274,7 +274,8 @@ const Inventario: React.FC = () => {
   return (
     <div className="admin">
       <header className="admin-head">
-        <div>
+        <div className="admin-logo">
+          <img className="logo-3d" src="/images/logo.png" alt="Las Mesas Café & Bar" />
           <span className="admin-eyebrow">
             <UtensilsCrossed size={16} /> Las Mesas
           </span>

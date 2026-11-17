@@ -766,3 +766,7 @@ html .admin .admin-switch-texto { color: #F5F0E6 !important; }
 html .admin .etiqueta-ok { color: #7BC47F !important; }
 html .admin .etiqueta-agotado { color: #E8877F !important; }
 html .admin .etiqueta-categoria { color: #D4AF37 !important; }
+
+/* Logo en el panel de administración */
+.admin-head .admin-logo { display: flex; align-items: center; gap: 14px; }
+.admin-head .admin-logo img.logo-3d { width: 52px !important; height: 52px !important; }
