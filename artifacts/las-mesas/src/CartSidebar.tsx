@@ -168,12 +168,15 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
 
 
 
-  const zonaSeleccionada = ZONAS_ENVIO.find((z) => z.id === datos.zonaEnvio);
   const cpCliente = datos.codigoPostal.trim();
-  const zonaValida =
-    tipoEntregaActiva === 'domicilio' && !!zonaSeleccionada &&
-    /^\d{5}$/.test(cpCliente) && zonaSeleccionada.cps.includes(cpCliente);
-  const zonaIncorrecta = tipoEntregaActiva === 'domicilio' && !!zonaSeleccionada && !zonaValida;
+  // La zona se detecta automáticamente por el código postal; el cliente no la elige.
+  const zonaSeleccionada = /^\d{5}$/.test(cpCliente)
+    ? ZONAS_ENVIO.find((z) => z.cps.includes(cpCliente))
+    : undefined;
+  const zonaValida = tipoEntregaActiva === 'domicilio' && !!zonaSeleccionada;
+  const cpIncompleto = tipoEntregaActiva === 'domicilio' && !/^\d{5}$/.test(cpCliente);
+  const cpNoReparte =
+    tipoEntregaActiva === 'domicilio' && /^\d{5}$/.test(cpCliente) && !zonaSeleccionada;
   const costoEnvio = zonaValida && zonaSeleccionada ? zonaSeleccionada.precio : 0;
   const subtotal = cart.reduce((suma, item) => suma + precioANumero(item.price) * item.quantity, 0);
   const recargo =
@@ -182,7 +185,7 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
   const listo =
     cart.length > 0 &&
     errores.length === 0 &&
-    !zonaIncorrecta &&
+    !cpNoReparte &&
     (tipoEntregaActiva !== 'domicilio' || zonaValida);
 
   if (!open) return null;
@@ -491,20 +494,18 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
 
                 {tipoEntregaActiva === 'domicilio' && (
                   <div className="cart-address">
-                    <label className="cart-field cart-field-wide">
-                      <span>Zona de reparto *</span>
-                      <select
-                        value={datos.zonaEnvio}
-                        onChange={(e) => actualizar('zonaEnvio', e.target.value)}
-                        required
-                        style={{ minHeight: '48px', fontSize: '16px', padding: '0 12px', border: '1px solid rgba(90,70,30,.25)', borderRadius: '0', background: '#fff', color: '#2a2620' }}
-                      >
-                        <option value="">Elige tu zona de reparto</option>
-                        {ZONAS_ENVIO.map((z) => (
-                          <option key={z.id} value={z.id}>{z.nombre} — {formatearPrecio(z.precio)}</option>
-                        ))}
-                      </select>
-                    </label>
+                    <div className="cart-field cart-field-wide">
+                      <span>Zona de reparto (se detecta por tu código postal)</span>
+                      {zonaValida && zonaSeleccionada ? (
+                        <p className="cart-mesa">📍 {zonaSeleccionada.nombre} — envío {formatearPrecio(zonaSeleccionada.precio)}</p>
+                      ) : cpNoReparte ? (
+                        <p className="cart-mesa" style={{ borderLeftColor: '#c0392b' }}>
+                          No repartimos en el CP {cpCliente}. Te sugerimos la recogida en local.
+                        </p>
+                      ) : (
+                        <p className="cart-mesa">Escribe tu código postal más abajo y la zona se detectará sola.</p>
+                      )}
+                    </div>
                     <label className="cart-field cart-field-wide">
                       <span>Calle *</span>
                       <input
