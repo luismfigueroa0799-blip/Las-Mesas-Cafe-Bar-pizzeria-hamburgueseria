@@ -436,6 +436,7 @@ async function crearSesionStripePropia(
   metadata: Record<string, string>,
   urlExito: string,
   urlCancelacion: string,
+  extras: Array<{ nombre: string; importe: number }> = [],
 ): Promise<{ id: string; url: string } | null> {
   const secretKey = entorno().STRIPE_SECRET_KEY;
   if (!secretKey) {
@@ -462,6 +463,18 @@ async function crearSesionStripePropia(
         },
       })),
     );
+    // Gastos de envío y recargo como conceptos separados (Stripe los cobra).
+    for (const extra of extras) {
+      if (extra.importe <= 0) continue;
+      anadirParametros(partes, 'line_items', {
+        quantity: 1,
+        price_data: {
+          currency: 'eur',
+          unit_amount: Math.round(extra.importe * 100),
+          product_data: { name: extra.nombre },
+        },
+      });
+    }
     anadirParametros(partes, 'success_url', urlExito);
     anadirParametros(partes, 'cancel_url', urlCancelacion);
     anadirParametros(partes, 'metadata', metadata);
@@ -1481,6 +1494,10 @@ export default async function handler(req: Req, res: Res): Promise<void> {
         metadataPlana,
         urlExito,
         urlCancelacion,
+        [
+          ...(costoEnvio > 0 ? [{ nombre: 'Gastos de envío', importe: costoEnvio }] : []),
+          ...(recargoEuros > 0 ? [{ nombre: 'Recargo por servicio a domicilio (25%)', importe: recargoEuros }] : []),
+        ],
       );
       if (propia) {
         urlSesion = propia.url;
