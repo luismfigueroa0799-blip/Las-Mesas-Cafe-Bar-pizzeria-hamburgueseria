@@ -2022,6 +2022,8 @@ html.dark .main-nav { background: #1A1817; color: #F5F0E6; }
    FIX SAFARI iOS: panel de menú FUERA del header
    (el header tiene backdrop-filter que crea containing block)
    ============================================================ */
+/* Solo móvil/tablet: en escritorio .main-nav sigue siendo horizontal */
+@media (max-width: 900px) {
 /* El panel ya no está dentro del header: position:fixed se mide al viewport */
 #menu-principal.main-nav {
   position: fixed !important;
@@ -2055,6 +2057,9 @@ html.dark .main-nav { background: #1A1817; color: #F5F0E6; }
   pointer-events: none !important;
 }
 
+
+}
+
 /* Botón X siempre visible y por encima del panel */
 .site-header .mobile-toggle,
 .mobile-toggle {
@@ -2063,6 +2068,7 @@ html.dark .main-nav { background: #1A1817; color: #F5F0E6; }
 }
 .mobile-toggle.is-open { background: rgba(212,175,55,.14); }
 
+@media (max-width: 900px) {
 /* Enlaces grandes con animación escalonada */
 #menu-principal .nav-lista .nav-link {
   min-height: 56px;
@@ -2079,6 +2085,9 @@ html.dark .main-nav { background: #1A1817; color: #F5F0E6; }
 #menu-principal.open .nav-lista li:nth-child(4) .nav-link { animation-delay: .24s; }
 #menu-principal.open .nav-lista li:nth-child(5) .nav-link { animation-delay: .30s; }
 @keyframes navEntrar { to { opacity: 1; transform: translateX(0); } }
+
+
+}
 
 /* Controles abajo del panel (idiomas + tema) */
 #menu-principal .nav-controles-inferiores {
@@ -2105,4 +2114,42 @@ html:not(.dark) .home-hero { background: #15120f !important; }
 
 @media (prefers-reduced-motion: reduce) {
   #menu-principal .nav-lista .nav-link { animation: none !important; opacity: 1; transform: none; }
+}
+
+/* ===== TOPBAR: contenedor sin backdrop-filter (para que fixed del panel mida al viewport) ===== */
+.site-topbar { position: relative; z-index: 60; }
+.site-topbar .site-header { position: relative; top: auto; z-index: 2; }
+
+/* Escritorio: header + nav en la misma fila */
+@media (min-width: 901px) {
+  .site-topbar {
+    display: flex;
+    align-items: center;
+    gap: clamp(18px, 3vw, 42px);
+    padding: 0 max(24px, calc((100% - 1160px)/2));
+    background: rgba(246,243,233,.96);
+    border-bottom: 1px solid rgba(53,47,36,.12);
+  }
+  html.dark .site-topbar { background: #1A1817; border-bottom-color: rgba(212,175,55,.2); }
+  .site-topbar .site-header {
+    position: relative; top: auto; height: auto; min-height: 72px;
+    padding: 0; border: 0; background: transparent; backdrop-filter: none; flex: none;
+  }
+  .site-topbar #menu-principal.main-nav {
+    position: static !important; display: flex !important;
+    width: auto !important; height: auto !important;
+    inset: auto !important; transform: none !important;
+    opacity: 1 !important; visibility: visible !important;
+    background: transparent !important; color: inherit !important;
+    padding: 0 !important; overflow: visible !important; margin: 0;
+    flex: 1; justify-content: flex-start;
+  }
+  .site-topbar .nav-cabecera-movil,
+  .site-topbar .nav-controles-inferiores { display: none !important; }
+  .site-topbar #menu-principal .nav-lista .nav-link { opacity: 1 !important; transform: none !important; animation: none !important; }
+  .site-topbar .header-controles { margin-left: auto; }
+}
+/* Móvil: el topbar no interfiere con el panel fixed */
+@media (max-width: 900px) {
+  .site-topbar { display: block; }
 }

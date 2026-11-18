@@ -608,6 +608,7 @@ function App() {
         </div>
       )}
       <div className="topline"><span>Pizzeria Las Mesas · Gran Canaria</span><span>{t('home.hero.desc2')}</span><a href={phoneHref} data-testid="link-call-top">{phone}</a></div>
+      <div className="site-topbar">
       <header className={compactHeader ? 'site-header compact' : 'site-header'}>
         <a href="/" className="brand" aria-label="Pizzeria Las Mesas, inicio" onClick={() => setMobileOpen(false)}>
           <img className="logo-3d" src="/images/logo.png" alt="Logo de Pizzeria Las Mesas" />
@@ -671,6 +672,7 @@ function App() {
             </button>
           </div>
         </nav>
+      </div>
 
       <Switch>
         <Route path="/">{paginaInicio}</Route>
