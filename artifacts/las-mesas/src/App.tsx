@@ -273,8 +273,8 @@ function App() {
     if (!form.reportValidity()) return;
     const data = new FormData(form);
     const lines = kind === 'reserva'
-      ? [`Solicitud de reserva — Las Mesas · Café & Bar`, `Nombre: ${data.get('name')}`, `Contacto: ${data.get('contact')}`, `Fecha: ${data.get('date')}`, `Hora: ${data.get('time')}`, `Personas: ${data.get('people')}`, `Comentarios: ${data.get('comments') || 'Sin comentarios'}`]
-      : [`Consulta de evento — Las Mesas · Café & Bar`, `Nombre: ${data.get('eventName')}`, `Contacto: ${data.get('eventContact')}`, `Tipo de evento: ${data.get('type')}`, `Fecha aproximada: ${data.get('eventDate')}`, `Personas: ${data.get('eventPeople')}`, `Detalles: ${data.get('details')}`];
+      ? [`Solicitud de reserva — Pizzeria Las Mesas`, `Nombre: ${data.get('name')}`, `Contacto: ${data.get('contact')}`, `Fecha: ${data.get('date')}`, `Hora: ${data.get('time')}`, `Personas: ${data.get('people')}`, `Comentarios: ${data.get('comments') || 'Sin comentarios'}`]
+      : [`Consulta de evento — Pizzeria Las Mesas`, `Nombre: ${data.get('eventName')}`, `Contacto: ${data.get('eventContact')}`, `Tipo de evento: ${data.get('type')}`, `Fecha aproximada: ${data.get('eventDate')}`, `Personas: ${data.get('eventPeople')}`, `Detalles: ${data.get('details')}`];
     window.open(`https://wa.me/${whatsapp}?text=${encodeURIComponent(lines.join('\n'))}`, '_blank', 'noopener,noreferrer');
     const message = 'Se ha preparado tu mensaje de WhatsApp. Revísalo y pulsa «Enviar» para hacernos llegar la solicitud. No es una reserva confirmada.';
     kind === 'reserva' ? setReservationStatus(message) : setEventStatus(message);
@@ -292,9 +292,9 @@ function App() {
         <div className="home-hero-bg" aria-hidden="true" />
         <div className="home-hero-overlay" aria-hidden="true" />
         <div className="shell home-hero-content">
-          <p className="eyebrow"><span className="gold-dot" /> Las Mesas · Café & Bar</p>
+          <p className="eyebrow"><span className="gold-dot" /> Pizzeria Las Mesas</p>
           <h1 className="home-hero-title">{t('home.hero.titulo1')}<br /><em>{t('home.hero.titulo2')}</em></h1>
-          <p className="home-hero-desc">{t('home.hero.desc')}</p>
+          <p className="home-hero-desc">{t('home.hero.desc2')}</p>
           <Link className="button button-gold home-hero-btn" href="/carta" data-testid="link-ver-carta">
             Ver la carta <ArrowRight size={18} />
           </Link>
@@ -589,7 +589,7 @@ function App() {
           </div>
         </div>
       )}
-      <div className="topline"><span>Las Mesas Bajas · Gran Canaria</span><span>{t('home.hero.desc')}</span><a href={phoneHref} data-testid="link-call-top">{phone}</a></div>
+      <div className="topline"><span>Pizzeria Las Mesas · Gran Canaria</span><span>{t('home.hero.desc2')}</span><a href={phoneHref} data-testid="link-call-top">{phone}</a></div>
       <header className={compactHeader ? 'site-header compact' : 'site-header'}>
         <a href="/" className="brand" aria-label="Las Mesas, inicio"><img className="logo-3d" src="/images/logo.png" alt="Logo de Las Mesas Café & Bar" /></a>
         <button className="mobile-toggle" aria-label={mobileOpen ? 'Cerrar menú' : 'Abrir menú'} aria-expanded={mobileOpen} onClick={() => setMobileOpen(!mobileOpen)} data-testid="button-mobile-menu">{mobileOpen ? <X /> : <MenuIcon />}</button>
@@ -642,13 +642,13 @@ function App() {
       </Switch>
 
       <footer className="site-footer">
-        <div className="shell footer-main"><a href="#inicio" className="footer-brand"><img src="/assets/logo-las-mesas.jpeg" alt="" /><span>Las Mesas · Café & Bar</span></a><p>{t('footer.lema')}</p><nav aria-label="Navegación de pie">{[['La casa','#esencia'],['El local','#local'],['La carta','#carta'],['Celebraciones','#celebraciones'],['Reservas','#reserva']].map(([label,href]) => <a key={href} href={href}>{label}</a>)}</nav></div>
+        <div className="shell footer-main"><a href="#inicio" className="footer-brand"><img src="/assets/logo-las-mesas.jpeg" alt="" /><span>Pizzeria Las Mesas</span></a><p>{t('footer.lema')}</p><nav aria-label="Navegación de pie">{[['La casa','#esencia'],['El local','#local'],['La carta','#carta'],['Celebraciones','#celebraciones'],['Reservas','#reserva']].map(([label,href]) => <a key={href} href={href}>{label}</a>)}</nav></div>
         <div className="shell footer-details">
           <div className="footer-hours"><span className="footer-label">Horario</span>{hours.map(([day, time]) => <p key={day}><span>{day}</span><strong>{time}</strong></p>)}</div>
           <div className="footer-contact"><span className="footer-label">Contacto</span><a href={phoneHref}>{phone}</a><a href={mapsUrl} target="_blank" rel="noreferrer">Pintor Antonio Padrón, 59 · Cómo llegar</a></div>
           <div className="footer-social min-w-0"><span className="footer-label">Redes y reseñas</span><span>Instagram: {instagramUrl ? <a href={instagramUrl} target="_blank" rel="noreferrer">{t('contacto.verPerfil')}</a> : 'enlace pendiente de añadir'}</span><span>Facebook: {facebookUrl ? <a href={facebookUrl} target="_blank" rel="noreferrer">{t('contacto.verPerfil')}</a> : 'enlace pendiente de añadir'}</span><span>Reseñas Google: {reviewsUrl ? <a href={reviewsUrl} target="_blank" rel="noreferrer">{t('contacto.compartir')}</a> : 'enlace pendiente de añadir'}</span></div>
         </div>
-        <div className="shell footer-bottom"><span>© Las Mesas · Café & Bar</span><span>Pintor Antonio Padrón, 59 · Las Mesas Bajas · Las Palmas de Gran Canaria</span></div>
+        <div className="shell footer-bottom"><span>© Pizzeria Las Mesas</span><span>Pintor Antonio Padrón, 59 · Las Mesas Bajas · Las Palmas de Gran Canaria</span></div>
         <div className="shell"><p style={{ fontSize: '.7rem', opacity: .75, lineHeight: 1.6, margin: '10px 0 0' }}>Condiciones de envío: Los precios de la carta son para consumo en local o recogida. Los pedidos a domicilio tienen un recargo del 25% sobre el precio de los productos y un coste de envío de 1,50 €/km (máximo 8 km).</p></div>
       </footer>
       <CartSidebar open={cartOpen} onClose={() => setCartOpen(false)} />
