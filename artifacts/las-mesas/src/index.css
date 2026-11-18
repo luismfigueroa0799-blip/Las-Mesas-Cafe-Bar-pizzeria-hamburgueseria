@@ -2017,3 +2017,92 @@ html.dark .main-nav { background: #1A1817; color: #F5F0E6; }
 @media (prefers-reduced-motion: reduce) {
   .hamb-linea, .main-nav, .nav-subrayado { transition-duration: .01ms !important; }
 }
+
+/* ============================================================
+   FIX SAFARI iOS: panel de menú FUERA del header
+   (el header tiene backdrop-filter que crea containing block)
+   ============================================================ */
+/* El panel ya no está dentro del header: position:fixed se mide al viewport */
+#menu-principal.main-nav {
+  position: fixed !important;
+  top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  max-height: none !important;
+  z-index: 9999 !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  background: #1A1817 !important;
+  color: #F5F0E6 !important;
+  /* sin transform en el estado cerrado que crezca el containing block */
+  padding-top: max(22px, env(safe-area-inset-top)) !important;
+  padding-bottom: max(28px, env(safe-area-inset-bottom)) !important;
+}
+#menu-principal.main-nav.open {
+  transform: translateX(0) !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+#menu-principal.main-nav:not(.open) {
+  transform: translateX(-100%) !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* Botón X siempre visible y por encima del panel */
+.site-header .mobile-toggle,
+.mobile-toggle {
+  position: relative;
+  z-index: 10000;
+}
+.mobile-toggle.is-open { background: rgba(212,175,55,.14); }
+
+/* Enlaces grandes con animación escalonada */
+#menu-principal .nav-lista .nav-link {
+  min-height: 56px;
+  font-size: 1.15rem;
+  opacity: 0;
+  transform: translateX(-16px);
+}
+#menu-principal.open .nav-lista .nav-link {
+  animation: navEntrar .42s cubic-bezier(.2,.8,.2,1) forwards;
+}
+#menu-principal.open .nav-lista li:nth-child(1) .nav-link { animation-delay: .06s; }
+#menu-principal.open .nav-lista li:nth-child(2) .nav-link { animation-delay: .12s; }
+#menu-principal.open .nav-lista li:nth-child(3) .nav-link { animation-delay: .18s; }
+#menu-principal.open .nav-lista li:nth-child(4) .nav-link { animation-delay: .24s; }
+#menu-principal.open .nav-lista li:nth-child(5) .nav-link { animation-delay: .30s; }
+@keyframes navEntrar { to { opacity: 1; transform: translateX(0); } }
+
+/* Controles abajo del panel (idiomas + tema) */
+#menu-principal .nav-controles-inferiores {
+  margin-top: auto;
+  padding-top: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  border-top: 1px solid rgba(212,175,55,.25);
+}
+
+/* Contraste del hero en AMBOS modos: título siempre blanco sobre la foto */
+.home-hero-title,
+html.dark .home-hero-title {
+  color: #FFFFFF !important;
+  text-shadow: 0 3px 22px rgba(0,0,0,.75) !important;
+}
+.home-hero-overlay,
+html.dark .home-hero-overlay {
+  background: linear-gradient(180deg, rgba(12,11,10,.78) 0%, rgba(18,16,14,.62) 45%, rgba(26,24,23,.9) 100%) !important;
+}
+html:not(.dark) .home-hero { background: #15120f !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  #menu-principal .nav-lista .nav-link { animation: none !important; opacity: 1; transform: none; }
+}

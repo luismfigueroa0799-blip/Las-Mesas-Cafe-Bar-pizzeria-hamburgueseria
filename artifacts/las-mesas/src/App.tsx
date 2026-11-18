@@ -625,21 +625,6 @@ function App() {
           <span className="hamb-linea" /><span className="hamb-linea" /><span className="hamb-linea" />
         </button>
 
-        <nav id="menu-principal" ref={menuRef} className={mobileOpen ? 'main-nav open' : 'main-nav'} aria-label="Navegación principal">
-          <div className="nav-cabecera-movil">
-            <img className="logo-3d" src="/images/logo.png" alt="" />
-            <strong>Pizzeria Las Mesas</strong>
-            <button type="button" className="nav-cerrar" aria-label="Cerrar menú" onClick={() => setMobileOpen(false)}>×</button>
-          </div>
-          <ul className="nav-lista">
-            <li><Link href="/" className={location === '/' ? 'nav-link activo' : 'nav-link'} aria-current={location === '/' ? 'page' : 'false'} onClick={() => setMobileOpen(false)} data-testid="nav-inicio">{t('nav.inicio')}<span className="nav-subrayado" /></Link></li>
-            <li><Link href="/carta" className={location === '/carta' ? 'nav-link activo' : 'nav-link'} aria-current={location === '/carta' ? 'page' : 'false'} onClick={() => setMobileOpen(false)} data-testid="nav-carta">{t('nav.carta2')}<span className="nav-subrayado" /></Link></li>
-            <li><Link href="/local" className={location === '/local' ? 'nav-link activo' : 'nav-link'} aria-current={location === '/local' ? 'page' : 'false'} onClick={() => setMobileOpen(false)} data-testid="nav-nosotros">{t('nav.nosotros')}<span className="nav-subrayado" /></Link></li>
-            <li><Link href="/local#horario" className={location === '/local#horario' ? 'nav-link activo' : 'nav-link'} aria-current={location === '/local#horario' ? 'page' : 'false'} onClick={() => setMobileOpen(false)} data-testid="nav-horario">{t('nav.horario')}<span className="nav-subrayado" /></Link></li>
-            <li><Link href="/local#contacto" className={location === '/local#contacto' ? 'nav-link activo' : 'nav-link'} aria-current={location === '/local#contacto' ? 'page' : 'false'} onClick={() => setMobileOpen(false)} data-testid="nav-contacto">{t('nav.contacto')}<span className="nav-subrayado" /></Link></li>
-          </ul>
-          <Link className="nav-cta" href="/reservas" onClick={() => setMobileOpen(false)}>{t('nav.reserva')} <ArrowUpRight size={15} /></Link>
-        </nav>
 
         <div className="header-controles">
           <div className="lang-toggle" role="group" aria-label="Idioma / Language / Langue">
@@ -658,6 +643,34 @@ function App() {
           </button>
         </div>
       </header>
+
+        <nav id="menu-principal" ref={menuRef} className={mobileOpen ? 'main-nav open' : 'main-nav'} aria-label="Navegación principal">
+          <div className="nav-cabecera-movil">
+            <img className="logo-3d" src="/images/logo.png" alt="" />
+            <strong>Pizzeria Las Mesas</strong>
+            <button type="button" className="nav-cerrar" aria-label="Cerrar menú" onClick={() => setMobileOpen(false)}>×</button>
+          </div>
+          <ul className="nav-lista">
+            <li><Link href="/" className={location === '/' ? 'nav-link activo' : 'nav-link'} aria-current={location === '/' ? 'page' : 'false'} onClick={() => setMobileOpen(false)} data-testid="nav-inicio">{t('nav.inicio')}<span className="nav-subrayado" /></Link></li>
+            <li><Link href="/carta" className={location === '/carta' ? 'nav-link activo' : 'nav-link'} aria-current={location === '/carta' ? 'page' : 'false'} onClick={() => setMobileOpen(false)} data-testid="nav-carta">{t('nav.carta2')}<span className="nav-subrayado" /></Link></li>
+            <li><Link href="/local" className={location === '/local' ? 'nav-link activo' : 'nav-link'} aria-current={location === '/local' ? 'page' : 'false'} onClick={() => setMobileOpen(false)} data-testid="nav-nosotros">{t('nav.nosotros')}<span className="nav-subrayado" /></Link></li>
+            <li><Link href="/local#horario" className={location === '/local#horario' ? 'nav-link activo' : 'nav-link'} aria-current={location === '/local#horario' ? 'page' : 'false'} onClick={() => setMobileOpen(false)} data-testid="nav-horario">{t('nav.horario')}<span className="nav-subrayado" /></Link></li>
+            <li><Link href="/local#contacto" className={location === '/local#contacto' ? 'nav-link activo' : 'nav-link'} aria-current={location === '/local#contacto' ? 'page' : 'false'} onClick={() => setMobileOpen(false)} data-testid="nav-contacto">{t('nav.contacto')}<span className="nav-subrayado" /></Link></li>
+          </ul>
+          <Link className="nav-cta" href="/reservas" onClick={() => setMobileOpen(false)}>{t('nav.reserva')} <ArrowUpRight size={15} /></Link>
+          <div className="nav-controles-inferiores">
+            <div className="lang-toggle" role="group" aria-label="Idioma / Language / Langue">
+              {([['es','🇪🇸'],['en','🇬🇧'],['fr','🇫🇷'],['de','🇩🇪']] as Array<[Idioma,string]>).map(([cod, bandera]) => (
+                <button key={'menu-' + cod} type="button" className={idioma === cod ? 'lang-btn is-active' : 'lang-btn'} onClick={() => cambiarIdioma(cod)} aria-label={'Idioma: ' + cod.toUpperCase()} aria-pressed={idioma === cod}>
+                  {bandera}
+                </button>
+              ))}
+            </div>
+            <button className="theme-toggle" onClick={alternarTema} aria-label={tema === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}>
+              {tema === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+            </button>
+          </div>
+        </nav>
 
       <Switch>
         <Route path="/">{paginaInicio}</Route>
