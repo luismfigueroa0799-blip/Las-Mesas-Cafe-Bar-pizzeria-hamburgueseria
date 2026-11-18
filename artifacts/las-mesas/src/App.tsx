@@ -80,6 +80,24 @@ function App() {
   const [eventStatus, setEventStatus] = useState('');
   const [enviandoCelebracion, setEnviandoCelebracion] = useState(false);
   const [compactHeader, setCompactHeader] = useState(false);
+  // Menú móvil: Escape, clic fuera y bloqueo de scroll del fondo.
+  const menuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const anteriorOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMobileOpen(false); };
+    const onClick = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMobileOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    document.addEventListener('mousedown', onClick);
+    return () => {
+      document.body.style.overflow = anteriorOverflow;
+      window.removeEventListener('keydown', onKey);
+      document.removeEventListener('mousedown', onClick);
+    };
+  }, [mobileOpen]);
   const [reservationDate, setReservationDate] = useState('');
   const [reservationTime, setReservationTime] = useState('');
   const [cartOpen, setCartOpen] = useState(false);
@@ -591,45 +609,54 @@ function App() {
       )}
       <div className="topline"><span>Pizzeria Las Mesas · Gran Canaria</span><span>{t('home.hero.desc2')}</span><a href={phoneHref} data-testid="link-call-top">{phone}</a></div>
       <header className={compactHeader ? 'site-header compact' : 'site-header'}>
-        <a href="/" className="brand" aria-label="Las Mesas, inicio"><img className="logo-3d" src="/images/logo.png" alt="Logo de Las Mesas Café & Bar" /></a>
-        <button className="mobile-toggle" aria-label={mobileOpen ? 'Cerrar menú' : 'Abrir menú'} aria-expanded={mobileOpen} onClick={() => setMobileOpen(!mobileOpen)} data-testid="button-mobile-menu">{mobileOpen ? <X /> : <MenuIcon />}</button>
-        <nav className={mobileOpen ? 'main-nav open' : 'main-nav'} aria-label="Navegación principal">
-          {[[t('nav.casa'), '/'], [t('nav.local'), '/local'], [t('nav.carta'), '/carta'], [t('nav.celebraciones'), '/celebraciones'], [t('nav.visitamos'), '/local']].map(([label, href]) => <Link key={href} href={href} onClick={() => setMobileOpen(false)}>{label}</Link>)}
+        <a href="/" className="brand" aria-label="Pizzeria Las Mesas, inicio" onClick={() => setMobileOpen(false)}>
+          <img className="logo-3d" src="/images/logo.png" alt="Logo de Pizzeria Las Mesas" />
+        </a>
+
+        <button
+          type="button"
+          className={mobileOpen ? 'mobile-toggle is-open' : 'mobile-toggle'}
+          aria-label={mobileOpen ? 'Cerrar menú' : 'Abrir menú'}
+          aria-expanded={mobileOpen}
+          aria-controls="menu-principal"
+          onClick={() => setMobileOpen(!mobileOpen)}
+          data-testid="button-mobile-menu"
+        >
+          <span className="hamb-linea" /><span className="hamb-linea" /><span className="hamb-linea" />
+        </button>
+
+        <nav id="menu-principal" ref={menuRef} className={mobileOpen ? 'main-nav open' : 'main-nav'} aria-label="Navegación principal">
+          <div className="nav-cabecera-movil">
+            <img className="logo-3d" src="/images/logo.png" alt="" />
+            <strong>Pizzeria Las Mesas</strong>
+            <button type="button" className="nav-cerrar" aria-label="Cerrar menú" onClick={() => setMobileOpen(false)}>×</button>
+          </div>
+          <ul className="nav-lista">
+            <li><Link href="/" className={location === '/' ? 'nav-link activo' : 'nav-link'} aria-current={location === '/' ? 'page' : 'false'} onClick={() => setMobileOpen(false)} data-testid="nav-inicio">{t('nav.inicio')}<span className="nav-subrayado" /></Link></li>
+            <li><Link href="/carta" className={location === '/carta' ? 'nav-link activo' : 'nav-link'} aria-current={location === '/carta' ? 'page' : 'false'} onClick={() => setMobileOpen(false)} data-testid="nav-carta">{t('nav.carta2')}<span className="nav-subrayado" /></Link></li>
+            <li><Link href="/local" className={location === '/local' ? 'nav-link activo' : 'nav-link'} aria-current={location === '/local' ? 'page' : 'false'} onClick={() => setMobileOpen(false)} data-testid="nav-nosotros">{t('nav.nosotros')}<span className="nav-subrayado" /></Link></li>
+            <li><Link href="/local#horario" className={location === '/local#horario' ? 'nav-link activo' : 'nav-link'} aria-current={location === '/local#horario' ? 'page' : 'false'} onClick={() => setMobileOpen(false)} data-testid="nav-horario">{t('nav.horario')}<span className="nav-subrayado" /></Link></li>
+            <li><Link href="/local#contacto" className={location === '/local#contacto' ? 'nav-link activo' : 'nav-link'} aria-current={location === '/local#contacto' ? 'page' : 'false'} onClick={() => setMobileOpen(false)} data-testid="nav-contacto">{t('nav.contacto')}<span className="nav-subrayado" /></Link></li>
+          </ul>
           <Link className="nav-cta" href="/reservas" onClick={() => setMobileOpen(false)}>{t('nav.reserva')} <ArrowUpRight size={15} /></Link>
         </nav>
-        <div className="lang-toggle" role="group" aria-label="Idioma / Language / Langue">
-          {([['es','🇪🇸'],['en','🇬🇧'],['fr','🇫🇷'],['de','🇩🇪']] as Array<[Idioma,string]>).map(([cod, bandera]) => (
-            <button
-              key={cod}
-              type="button"
-              className={idioma === cod ? 'lang-btn is-active' : 'lang-btn'}
-              onClick={() => cambiarIdioma(cod)}
-              aria-label={cod.toUpperCase()}
-              aria-pressed={idioma === cod}
-              data-testid={'button-lang-' + cod}
-            >
-              {bandera}
-            </button>
-          ))}
+
+        <div className="header-controles">
+          <div className="lang-toggle" role="group" aria-label="Idioma / Language / Langue">
+            {([['es','🇪🇸'],['en','🇬🇧'],['fr','🇫🇷'],['de','🇩🇪']] as Array<[Idioma,string]>).map(([cod, bandera]) => (
+              <button key={cod} type="button" className={idioma === cod ? 'lang-btn is-active' : 'lang-btn'} onClick={() => cambiarIdioma(cod)} aria-label={'Idioma: ' + cod.toUpperCase()} aria-pressed={idioma === cod} data-testid={'button-lang-' + cod}>
+                {bandera}
+              </button>
+            ))}
+          </div>
+          <button className="theme-toggle" onClick={alternarTema} aria-label={tema === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'} title={tema === 'dark' ? 'Modo claro' : 'Modo oscuro'} data-testid="button-theme">
+            {tema === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+          </button>
+          <button className="cart-toggle" onClick={() => setCartOpen(true)} aria-label={`Abrir carrito${cartCount ? `, ${cartCount} artículos` : ''}`} data-testid="button-cart">
+            <ShoppingBag size={20} />
+            {cartCount > 0 && <span className="cart-badge">{cartCount}</span>}
+          </button>
         </div>
-        <button
-          className="theme-toggle"
-          onClick={alternarTema}
-          aria-label={tema === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
-          title={tema === 'dark' ? 'Modo claro' : 'Modo oscuro'}
-          data-testid="button-theme"
-        >
-          {tema === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
-        </button>
-        <button
-          className="cart-toggle"
-          onClick={() => setCartOpen(true)}
-          aria-label={`Abrir carrito${cartCount ? `, ${cartCount} artículos` : ''}`}
-          data-testid="button-cart"
-        >
-          <ShoppingBag size={20} />
-          {cartCount > 0 && <span className="cart-badge">{cartCount}</span>}
-        </button>
       </header>
 
       <Switch>
