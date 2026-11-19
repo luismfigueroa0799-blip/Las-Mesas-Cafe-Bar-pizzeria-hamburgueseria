@@ -3,7 +3,7 @@ import { Gift, LoaderCircle, X } from 'lucide-react';
 import { useCart } from '@/CartContext';
 import { formatearPrecio } from '@/precio';
 
-type Sector = { id: string; name: string; image?: string | null; weight: number; premiable?: boolean; color?: string };
+type Sector = { id: string; name: string; image?: string | null; weight: number; premiable?: boolean; sinPremio?: boolean; color?: string };
 type Premio = { id: string; name: string; price: number; image?: string | null };
 
 const CLIENTE_KEY = 'lm_ruleta_cliente_v1';
@@ -55,7 +55,10 @@ export default function RuletaPremio({ onAbrirCarrito }: { onAbrirCarrito: () =>
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error || 'No se pudo preparar la ruleta.');
       const lista: Sector[] = Array.isArray(data.sectores) ? data.sectores : [];
-      if (!data.sessionId || lista.length < 10 || lista.filter((sector) => sector.premiable).length < 1) {
+      if (!data.sessionId || lista.length !== 10
+        || lista.filter((sector) => sector.premiable).length !== 9
+        || lista.filter((sector) => sector.sinPremio).length !== 1
+        || lista.some((sector) => Math.abs(Number(sector.weight) - 0.1) > 0.000001)) {
         throw new Error('No se pudo preparar la ruleta. Recarga la página.');
       }
       if (!cancelado) {
@@ -145,7 +148,7 @@ export default function RuletaPremio({ onAbrirCarrito }: { onAbrirCarrito: () =>
     return { ...sector, inicio, fin: acumulado, centro: (inicio + acumulado) / 2, indice: i };
   });
   const colores = sectores.length
-    ? `conic-gradient(${sectoresVisibles.map((sector) => `${sector.premiable ? sector.color || '#d5ad36' : '#fffdf7'} ${sector.inicio}deg ${sector.fin}deg`).join(',')})`
+    ? `repeating-conic-gradient(from -0.5deg,rgba(55,43,20,.88) 0deg .7deg,transparent .7deg 36deg),conic-gradient(${sectoresVisibles.map((sector) => `${sector.color || (sector.premiable ? '#d5ad36' : '#26231d')} ${sector.inicio}deg ${sector.fin}deg`).join(',')})`
     : 'conic-gradient(#d5ad36, #f2ead8, #d5ad36)';
 
   return (
@@ -159,8 +162,8 @@ export default function RuletaPremio({ onAbrirCarrito }: { onAbrirCarrito: () =>
           <span className="ruleta-puntero" aria-hidden="true" />
           <div className="ruleta-rueda" style={{ background: colores, transform: `rotate(${rotacion}deg)` }}>
             {sectoresVisibles.map((sector, i) => (
-              <span key={`${sector.id}-${i}`} className={`ruleta-sector-label${sector.premiable ? ' ruleta-sector-premio' : ''}`} style={{ transform: `rotate(${sector.centro}deg) translateY(-88px) rotate(90deg)` }}>
-                {sector.premiable && sector.name}
+              <span key={`${sector.id}-${i}`} className={`ruleta-sector-label${sector.premiable ? ' ruleta-sector-premio' : sector.sinPremio ? ' ruleta-sector-perdedor' : ''}`} style={{ transform: `rotate(${sector.centro}deg) translateY(-88px) rotate(90deg)` }}>
+                {(sector.premiable || sector.sinPremio) && sector.name}
               </span>
             ))}
             <span className="ruleta-centro"><Gift size={24} /></span>

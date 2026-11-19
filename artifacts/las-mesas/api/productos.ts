@@ -311,38 +311,30 @@ export default async function handler(req: Req, res: Res): Promise<void> {
         } while (valor >= maximo);
         return valor % limite;
       };
-      // Cada apertura muestra hasta cinco refrescos o tragos al azar. Sus
-      // sectores comparten el 10 % total de la rueda; los nueve espacios
-      // vacíos ocupan el 90 % restante.
+      // La rueda tiene diez sectores iguales: nueve productos y un único
+      // sector de "Sin premio". Si hay menos de nueve bebidas distintas,
+      // se repiten algunas para que todos los sectores sigan teniendo producto.
       const mezclados = [...elegibles];
       for (let i = mezclados.length - 1; i > 0; i -= 1) {
         const j = aleatorioMenorQue(i + 1);
         [mezclados[i], mezclados[j]] = [mezclados[j], mezclados[i]];
       }
-      const productosPremio = mezclados.slice(0, Math.min(5, mezclados.length));
-      const posicionesPremio = productosPremio.map((_, i) => Math.round(((i + 1) * 9) / (productosPremio.length + 1)));
-      const coloresPremio = ['#e2b633', '#d35b45', '#31a092'];
-      const sectores: any[] = [];
-      let indiceVacio = 0;
-      for (let huecosAntes = 0; huecosAntes <= 9; huecosAntes += 1) {
-        posicionesPremio.forEach((posicion, i) => {
-          if (posicion === huecosAntes) {
-            const producto = productosPremio[i];
-            sectores.push({
-              id: producto.id,
-              name: producto.name,
-              image: producto.image,
-              weight: 0.1 / productosPremio.length,
-              premiable: true,
-              color: coloresPremio[i % coloresPremio.length],
-            });
-          }
-        });
-        if (huecosAntes < 9) {
-          sectores.push({ id: `vacio-${indiceVacio}`, name: '', image: null, weight: 0.1, premiable: false });
-          indiceVacio += 1;
-        }
+      const productosPremio = mezclados.slice(0, 9);
+      while (productosPremio.length < 9) {
+        productosPremio.push(elegibles[aleatorioMenorQue(elegibles.length)]);
       }
+      const indiceSinPremio = aleatorioMenorQue(10);
+      const coloresPremio = ['#e2b633', '#d35b45', '#31a092'];
+      let indiceProducto = 0;
+      const sectores = Array.from({ length: 10 }, (_, indice) => {
+        if (indice === indiceSinPremio) {
+          return { id: 'sin-premio', name: 'SIN PREMIO', image: null, weight: 0.1, premiable: false, sinPremio: true, color: '#26231d' };
+        }
+        const producto = productosPremio[indiceProducto];
+        const color = coloresPremio[indiceProducto % coloresPremio.length];
+        indiceProducto += 1;
+        return { id: producto.id, name: producto.name, image: producto.image, weight: 0.1, premiable: true, color };
+      });
       if (accionRuleta === 'preparar-ruleta') {
         const sessionBytes = new Uint8Array(24);
         crypto.getRandomValues(sessionBytes);
@@ -389,9 +381,9 @@ export default async function handler(req: Req, res: Res): Promise<void> {
         producto: elegibles.find((p: any) => Number(p.id) === Number(sector.id)),
       }));
       const sectoresVacios = Array.isArray(sectoresSesion)
-        ? sectoresSesion.map((sector: any, indice: number) => ({ sector, indice })).filter(({ sector }: any) => sector.premiable !== true)
+        ? sectoresSesion.map((sector: any, indice: number) => ({ sector, indice })).filter(({ sector }: any) => sector.sinPremio === true)
         : [];
-      if (!premiosDisponibles.length || premiosDisponibles.some((item: any) => !item.producto) || sectoresVacios.length !== 9 || !Number.isInteger(Number(sesion.prize_index))) {
+      if (sectoresSesion.length !== 10 || premiosDisponibles.length !== 9 || premiosDisponibles.some((item: any) => !item.producto) || sectoresVacios.length !== 1 || sectoresSesion.some((sector: any) => Math.abs(Number(sector.weight) - 0.1) > 0.000001) || !Number.isInteger(Number(sesion.prize_index))) {
         responder(res, { error: 'No se pudo preparar esta ruleta. Recarga la página.' }, 409);
         return;
       }
@@ -407,7 +399,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
       // giros son siempre sin premio. El resultado original y su token siguen
       // intactos, por si el premio anterior aún está en el carrito.
       if (filaAnterior?.cooldown_activo) {
-        const indiceResultado = sectoresVacios[aleatorioMenorQue(sectoresVacios.length)].indice;
+        const indiceResultado = sectoresVacios[0].indice;
         responder(res, {
           ganador: false,
           motivo: filaAnterior.is_winner === true ? 'ya-premiado' : 'periodo-espera',
@@ -420,17 +412,15 @@ export default async function handler(req: Req, res: Res): Promise<void> {
         return;
       }
 
-      const boleto = aleatorioMenorQue(premiosDisponibles.length * 10);
-      const ganador = boleto < premiosDisponibles.length;
-      const indiceResultado = ganador
-        ? premiosDisponibles[boleto].indice
-        : sectoresVacios[aleatorioMenorQue(sectoresVacios.length)].indice;
+      const indiceResultado = aleatorioMenorQue(sectoresSesion.length);
+      const premioElegido = premiosDisponibles.find((item: any) => item.indice === indiceResultado);
+      const ganador = premioElegido !== undefined;
       let premio: any = null;
       let token: string | null = null;
       let tokenHash: string | null = null;
       let productId: number | null = null;
-      if (ganador) {
-        premio = premiosDisponibles[boleto].producto;
+      if (ganador && premioElegido) {
+        premio = premioElegido.producto;
         const tokenBytes = new Uint8Array(32);
         crypto.getRandomValues(tokenBytes);
         token = Array.from(tokenBytes).map((b) => b.toString(16).padStart(2, '0')).join('');
