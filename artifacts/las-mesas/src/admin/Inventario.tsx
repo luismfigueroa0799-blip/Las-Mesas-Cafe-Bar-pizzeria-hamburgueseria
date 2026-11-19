@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { LogOut, Pencil, RefreshCw, Settings, UtensilsCrossed } from 'lucide-react';
+import { LogOut, Moon, Pencil, RefreshCw, Settings, Sun, UtensilsCrossed } from 'lucide-react';
 import { Link } from 'wouter';
 import { notificarMenuActualizado } from '@/products';
 import Login, { borrarToken, leerToken } from '@/admin/Login';
 import ProductoEditorForm, { type ProductoEditor } from '@/admin/ProductoEditor';
 import { supabaseNavegador } from '@/lib/supabase';
+import { useTheme } from '@/ThemeContext';
 
 /**
  * Panel de inventario (/admin/inventario).
@@ -37,6 +38,7 @@ function precioTexto(valor: number): string {
 }
 
 const Inventario: React.FC = () => {
+  const { tema, alternarTema } = useTheme();
   const [token, setToken] = useState<string>(() => leerToken());
   const [error, setError] = useState('');
   const [aviso, setAviso] = useState('');
@@ -314,6 +316,17 @@ const Inventario: React.FC = () => {
           <Link className="admin-boton admin-boton-claro" href={'/admin/opciones?token=' + encodeURIComponent(token)}>
             <Settings size={16} /> Opciones
           </Link>
+          <button
+            type="button"
+            className="admin-theme-toggle"
+            onClick={alternarTema}
+            aria-label={tema === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+            aria-pressed={tema === 'dark'}
+            title={tema === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+          >
+            {tema === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+            <span>{tema === 'dark' ? 'Modo claro' : 'Modo oscuro'}</span>
+          </button>
           <button
             type="button"
             className="admin-boton admin-boton-claro"

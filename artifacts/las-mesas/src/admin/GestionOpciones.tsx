@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Plus, Trash2, Pencil } from 'lucide-react';
+import { ArrowLeft, Moon, Plus, Sun, Trash2, Pencil } from 'lucide-react';
 import { Link } from 'wouter';
+import { useTheme } from '@/ThemeContext';
 
 interface OptionItem {
   id: string;
@@ -20,6 +21,7 @@ interface Group {
 
 /** Gestión de grupos de opciones y sus opciones. */
 export default function GestionOpciones() {
+  const { tema, alternarTema } = useTheme();
   const [token, setToken] = useState('');
   const [grupos, setGrupos] = useState<Group[]>([]);
   const [error, setError] = useState('');
@@ -37,6 +39,10 @@ export default function GestionOpciones() {
   useEffect(() => {
     const t = new URLSearchParams(window.location.search).get('token') ?? window.localStorage.getItem('lm_admin_token') ?? '';
     setToken(t);
+    if (!t) {
+      setError('Tu sesión de administrador ha caducado. Vuelve al inventario e inicia sesión otra vez.');
+      setCargando(false);
+    }
   }, []);
 
   async function cargar(t: string) {
@@ -78,7 +84,7 @@ export default function GestionOpciones() {
   }
 
   return (
-    <div className="admin">
+    <div className="admin admin-opciones-page">
       <header className="admin-head">
         <div>
           <span className="admin-eyebrow"><Pencil size={16} /> Las Mesas</span>
@@ -86,37 +92,67 @@ export default function GestionOpciones() {
           <p className="admin-sub">Grupos reutilizables y sus opciones</p>
         </div>
         <div className="admin-acciones">
+          <button
+            type="button"
+            className="admin-theme-toggle"
+            onClick={alternarTema}
+            aria-label={tema === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+            aria-pressed={tema === 'dark'}
+            title={tema === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+          >
+            {tema === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+            <span>{tema === 'dark' ? 'Modo claro' : 'Modo oscuro'}</span>
+          </button>
           <Link className="admin-boton admin-boton-claro" href="/admin/inventario"><ArrowLeft size={16} /> Volver</Link>
         </div>
       </header>
       {error && <p className="admin-error">{error}</p>}
 
-      <form className="admin-card admin-nuevo-grupo" onSubmit={crearGrupo}>
-        <h2>Crear grupo</h2>
-        <div className="admin-form-grid">
-          <label>Nombre <input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Ej. Extras de hamburguesa" /></label>
-          <label>Tipo
-            <select value={tipo} onChange={(e) => setTipo(e.target.value as typeof tipo)}>
-              <option value="extra">Añadir extra</option>
-              <option value="quitar">Quitar ingrediente</option>
-              <option value="elegir">Elegir una opción</option>
-            </select>
-          </label>
-          <label>Mínimo <input type="number" min={0} value={min} onChange={(e) => setMin(Number(e.target.value))} /></label>
-          <label>Máximo <input type="number" min={1} value={max} onChange={(e) => setMax(Number(e.target.value))} /></label>
-          <label className="admin-check"><input type="checkbox" checked={obligatorio} onChange={(e) => setObligatorio(e.target.checked)} /> Obligatorio</label>
-        </div>
-        <button className="admin-boton" type="submit"><Plus size={16} /> Crear grupo</button>
-      </form>
+      <main className="admin-opciones-layout">
+        <form className="admin-card admin-nuevo-grupo" onSubmit={crearGrupo}>
+          <div className="admin-opciones-form-head">
+            <span className="admin-opciones-kicker">Personaliza la carta</span>
+            <h2>Crear grupo</h2>
+            <p>Define ingredientes, extras o elecciones para reutilizarlos en tus productos.</p>
+          </div>
+          <div className="admin-form-grid">
+            <label className="admin-opciones-campo admin-opciones-nombre">Nombre del grupo
+              <input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Ej. Extras de hamburguesa" />
+            </label>
+            <label className="admin-opciones-campo">Tipo de opciones
+              <select value={tipo} onChange={(e) => setTipo(e.target.value as typeof tipo)}>
+                <option value="extra">Añadir extra</option>
+                <option value="quitar">Quitar ingrediente</option>
+                <option value="elegir">Elegir una opción</option>
+              </select>
+            </label>
+            <label className="admin-opciones-campo">Mínimo de elecciones
+              <input type="number" min={0} value={min} onChange={(e) => setMin(Number(e.target.value))} />
+            </label>
+            <label className="admin-opciones-campo">Máximo de elecciones
+              <input type="number" min={1} value={max} onChange={(e) => setMax(Number(e.target.value))} />
+            </label>
+            <label className="admin-check admin-opciones-obligatorio">
+              <input type="checkbox" checked={obligatorio} onChange={(e) => setObligatorio(e.target.checked)} />
+              <span><strong>Elección obligatoria</strong><small>El cliente debe completar este grupo</small></span>
+            </label>
+          </div>
+          <button className="admin-boton admin-opciones-crear" type="submit"><Plus size={16} /> Crear grupo</button>
+        </form>
 
-      {cargando ? <p className="admin-vacio">Cargando…</p> : (
-        <div className="admin-grupos-lista">
+        <section className="admin-opciones-contenido" aria-label="Grupos de opciones">
+          <div className="admin-opciones-lista-head">
+            <div><span className="admin-opciones-kicker">Tu catálogo</span><h2>Grupos creados</h2></div>
+            {!cargando && <span className="admin-opciones-contador">{grupos.length} {grupos.length === 1 ? 'grupo' : 'grupos'}</span>}
+          </div>
+          {cargando ? <p className="admin-vacio">Cargando tus grupos…</p> : (
+            <div className="admin-grupos-lista">
           {grupos.map((g) => (
             <section className="admin-card admin-grupo" key={g.id}>
               <header>
                 <div>
                   <h3>{g.name}</h3>
-                  <p>{g.type} · mín. {g.min} · máx. {g.max} {g.required ? '· obligatorio' : ''}</p>
+                  <p>{g.type === 'extra' ? 'Extras' : g.type === 'quitar' ? 'Ingredientes' : 'Elección'} · mín. {g.min} · máx. {g.max} {g.required ? '· obligatorio' : ''}</p>
                 </div>
                 <button className="admin-boton admin-boton-claro" onClick={() => void enviar({ accion: 'borrar_grupo', id: g.id })} aria-label={'Borrar ' + g.name}>
                   <Trash2 size={16} />
@@ -156,8 +192,10 @@ export default function GestionOpciones() {
             </section>
           ))}
           {!grupos.length && <p className="admin-vacio">Todavía no hay grupos. Crea el primero arriba.</p>}
-        </div>
-      )}
+            </div>
+          )}
+        </section>
+      </main>
     </div>
   );
 }
