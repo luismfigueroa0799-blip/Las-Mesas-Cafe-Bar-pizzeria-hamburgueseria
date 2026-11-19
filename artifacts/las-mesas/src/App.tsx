@@ -6,6 +6,7 @@ import { useCart } from '@/CartContext';
 import { useTheme } from '@/ThemeContext';
 import { useI18n, type Idioma } from '@/I18nContext';
 import CartSidebar from '@/CartSidebar';
+import RuletaPremio from '@/RuletaPremio';
 import ProductCard from '@/ProductCard';
 import Inventario from '@/admin/Inventario';
 import GestionOpciones from '@/admin/GestionOpciones';
@@ -695,6 +696,7 @@ function App() {
         <div className="shell"><p style={{ fontSize: '.7rem', opacity: .75, lineHeight: 1.6, margin: '10px 0 0' }}>Condiciones de envío: Los precios de la carta son para consumo en local o recogida. Los pedidos a domicilio tienen un recargo del 25% sobre el precio de los productos y un coste de envío de 1,50 €/km (máximo 8 km).</p></div>
       </footer>
       <CartSidebar open={cartOpen} onClose={() => setCartOpen(false)} />
+      <RuletaPremio onAbrirCarrito={() => setCartOpen(true)} />
     </main>
   );
 }

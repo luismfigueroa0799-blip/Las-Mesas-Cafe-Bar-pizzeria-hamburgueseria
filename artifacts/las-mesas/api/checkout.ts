@@ -60,6 +60,9 @@ interface ItemCarrito {
   name?: string;
   price?: string;
   quantity: number;
+  isPrize?: boolean;
+  prizeToken?: string;
+  optionIds?: string[];
 }
 
 interface Direccion {
@@ -72,6 +75,13 @@ interface Direccion {
 
 function entorno(): Record<string, string | undefined> {
   return (g.process?.env ?? {}) as Record<string, string | undefined>;
+}
+
+async function hashPremio(token: string): Promise<string> {
+  const crypto = g.crypto;
+  if (!crypto?.subtle) throw new Error('No se puede validar el premio ahora.');
+  const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token));
+  return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 // ── Configuracion comun (inline: Vercel no empaqueta imports fuera de api/) ──
@@ -587,7 +597,7 @@ function lineasComoTexto(
  * sigue funcionando creando el pedido y la sesion de pago por su cuenta.
  */
 async function crearPedido(datos: {
-  lineas: Array<{ id: number; qty: number; nombre: string; precio: number }>;
+  lineas: Array<{ id: number; qty: number; nombre: string; precio: number; premio_ruleta?: boolean }>;
   total: number;
   nombre: string;
   telefono: string;
@@ -599,6 +609,7 @@ async function crearPedido(datos: {
     id: l.id,
     qty: l.qty,
     nombre: l.nombre,
+    premio_ruleta: l.premio_ruleta === true,
     subtotal: Math.round(l.precio * l.qty * 100) / 100,
     precio_unitario: l.precio,
   }));
@@ -1146,9 +1157,11 @@ export default async function handler(req: Req, res: Res): Promise<void> {
 
   // El id de cada articulo es el de la tabla `productos` de Supabase.
   // n8n los usa para recalcular los precios.
-  const crudos = (body.items ?? []).filter(
-    (item) => item && Number(item.quantity) > 0,
-  );
+  const crudos = (body.items ?? []).filter((item) => item && Number(item.quantity) > 0);
+  if (crudos.length !== (body.items ?? []).length) {
+    responder(res, { error: 'La cantidad de un artículo no es válida.' }, 400);
+    return;
+  }
   if (!crudos.length) {
     responder(res, { error: 'El carrito está vacío' }, 400);
     return;
@@ -1193,8 +1206,12 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   const optionIdsDelBody = (body.optionIds ?? {}) as Record<string, string[]>;
   let extraOpcionesEuros = 0;
   const nombresOpcionesPorItem: string[] = [];
-  for (const it of items) {
-    const ids = Array.isArray(optionIdsDelBody[String(it.id)]) ? optionIdsDelBody[String(it.id)] : [];
+  for (let indice = 0; indice < items.length; indice += 1) {
+    const it = items[indice];
+    const bruto = body.items?.[indice] as ItemCarrito | undefined;
+    const ids = Array.isArray(bruto?.optionIds) ? bruto.optionIds.map(String) :
+      (Array.isArray(optionIdsDelBody[String(it.id)]) ? optionIdsDelBody[String(it.id)] : []);
+    if (bruto?.isPrize && ids.length) throw new Error('El premio de la ruleta no admite extras.');
     for (const idOpc of ids) {
       const op = opcionesPorId.get(Number(idOpc));
       if (!op || !op.available) throw new Error('Opción no válida o agotada (' + idOpc + ')');
@@ -1221,7 +1238,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
 
   // Total que declara el cliente: solo para compararlo con el de n8n.
   const totalDeclarado = (body.items ?? []).reduce(
-    (suma, item) => suma + aCentavos(item.price ?? '') * (Number(item.quantity) || 0),
+    (suma, item) => suma + (item.isPrize ? 0 : aCentavos(item.price ?? '')) * (Number(item.quantity) || 0),
     0,
   );
 
@@ -1243,6 +1260,31 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   // Catalogo con los nombres y los precios reales de los articulos (los
   // precios de la tabla `productos`, los mismos que usa n8n para el total).
   const catalogo = await catalogoProductos(items.map((item) => item.id));
+
+  // Un premio nunca se decide ni se valora desde el navegador: validamos su
+  // token contra Neon y usamos el producto/precio actuales del catálogo.
+  const premios = (body.items ?? []).map((item, indice) => ({ item, indice })).filter(({ item }) => item?.isPrize === true);
+  let hashTokenPremio = '';
+  if (premios.length > 1) throw new Error('Solo se permite un premio de ruleta por pedido.');
+  if (premios.length === 1) {
+    const { item, indice } = premios[0];
+    const producto = catalogo.get(items[indice]?.id);
+    const token = String(item.prizeToken ?? '');
+    if (Number(item.quantity) !== 1 || !/^[a-f0-9]{64}$/.test(token) || !producto || !producto.disponible || producto.precio < 0 || producto.precio > 2) {
+      responder(res, { error: 'El premio ya no es válido o el producto dejó de estar disponible.' }, 409);
+      return;
+    }
+    hashTokenPremio = await hashPremio(token);
+    const filasPremio = await consultarNeon(
+      `select product_id from public.ruleta_premios
+       where token_hash = $1 and product_id = $2 and redeemed_at is null`,
+      [hashTokenPremio, items[indice].id],
+    );
+    if (!filasPremio.length) {
+      responder(res, { error: 'El premio ya se utilizó o no es válido.' }, 409);
+      return;
+    }
+  }
 
   // Producto agotado: el flujo de n8n tambien lo rechaza.
   for (const item of items) {
@@ -1268,15 +1310,17 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   //  - `id` y `qty`      -> los necesita el flujo para crear el pedido.
   //  - `nombre`, `cantidad` y `precio` -> los necesita el flujo para pintar el
   //    detalle del pedido en el mensaje de Telegram y en la tablet.
-  const lineas = items.map((item) => {
+  const lineas = items.map((item, indice) => {
+    const regalo = body.items?.[indice]?.isPrize === true;
     const producto = catalogo.get(item.id);
     const precio = producto?.precio ?? precioDeclarado.get(String(item.id)) ?? 0;
     const nombreProducto = producto?.nombre ?? '';
     const precioRedondeado = Math.round(precio * 100) / 100;
 
     // Validar opciones elegidas: ids reales, disponibles y mínimos/máximos.
-    const idsElegidos: string[] = Array.isArray(body.optionIds?.[String(item.id)])
-      ? body.optionIds![String(item.id)].map(String)
+    const idsRaw = body.items?.[indice]?.optionIds ?? body.optionIds?.[String(item.id)];
+    const idsElegidos: string[] = Array.isArray(idsRaw)
+      ? idsRaw.map(String)
       : [];
     const porGrupo = new Map<number, typeof opcionesPorId extends Map<number, infer V> ? V[] : never>();
     let extra = 0;
@@ -1307,13 +1351,14 @@ export default async function handler(req: Req, res: Res): Promise<void> {
       void groupId;
     }
 
-    const unitario = Math.round((precioRedondeado + extra) * 100) / 100;
+    const unitario = regalo ? 0 : Math.round((precioRedondeado + extra) * 100) / 100;
+    const nombreLinea = regalo ? nombreProducto + ' (Premio de la ruleta)' : nombreProducto;
     return {
       id: item.id,
       qty: item.qty,
       cantidad: item.qty,
-      nombre: nombreProducto,
-      name: nombreProducto,
+      nombre: nombreLinea,
+      name: nombreLinea,
       precio: unitario,
       price: unitario,
       subtotal: Math.round(unitario * item.qty * 100) / 100,
@@ -1321,6 +1366,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
       unit_cents: Math.round(unitario * 100),
       subtotal_cents: Math.round(unitario * item.qty * 100),
       opciones: nombresOpciones,
+      premio_ruleta: regalo,
     };
   });
 
@@ -1335,6 +1381,10 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   const recargoEuros =
     tipoEntrega === 'domicilio' ? Math.round(subtotalEuros * 0.25 * 100) / 100 : 0;
   const totalEuros = Math.round((subtotalEuros + recargoEuros + costoEnvio) * 100) / 100;
+  if (premios.length && !lineas.some((linea) => !linea.premio_ruleta && linea.subtotal > 0)) {
+    responder(res, { error: 'Añade al carrito al menos un producto de pago para usar el premio.' }, 400);
+    return;
+  }
   const codigoPedido = generarCodigoPedido();
   const direccionFinal = direccionCompleta || 'Recogida en el local';
   const telefonoFinal = telefono || 'Sin teléfono';
@@ -1447,8 +1497,9 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     let respuesta: any = null;
     let texto = '';
     let datos: any = null;
-    let falloN8n = '';
+    let falloN8n = hashTokenPremio ? 'Pedido con premio: se crea directamente para respetar el precio gratuito.' : '';
     try {
+      if (!hashTokenPremio) {
       respuesta = await g.fetch(limpiarUrl(webhook), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1460,6 +1511,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
         datos = texto ? JSON.parse(texto) : null;
       } catch {
         datos = null;
+      }
       }
     } catch (error) {
       // n8n caido, colgado o timeout: lo tratamos como fallo y usamos el plan B.
@@ -1485,7 +1537,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
         falloN8n ||
         `El servidor de pedidos respondió con el código ${respuesta?.status}.`;
       log('[checkout] N8N NO PUDO CREAR EL PEDIDO (plan B: lo creamos aqui)', {
-        estado: respuesta.status,
+        estado: respuesta?.status,
         cuerpo: texto,
         datos,
       });
@@ -1581,6 +1633,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
       total_texto: totalEuros.toFixed(2),
       total_euros: totalEuros.toFixed(2),
       origen: 'las-mesas-web',
+      ...(hashTokenPremio ? { ruleta_token_hash: hashTokenPremio } : {}),
     };
 
     // Stripe no admite valores de mas de 500 caracteres en el metadata: si

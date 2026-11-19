@@ -20,6 +20,8 @@ export interface CartProduct {
   quantity: number;
   opciones: CartOpcion[];
   nota: string;
+  isPrize?: boolean;
+  prizeToken?: string;
 }
 
 // Clave de almacenamiento en el navegador (sobrevive a recargas).
@@ -32,6 +34,8 @@ const CartContext = createContext<{
     id?: string;
     opciones?: CartOpcion[];
     nota?: string;
+    isPrize?: boolean;
+    prizeToken?: string;
   }) => void;
   removeFromCart: (key: string) => void;
   updateQuantity: (key: string, quantity: number) => void;
@@ -93,16 +97,20 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       id?: string;
       opciones?: CartOpcion[];
       nota?: string;
+      isPrize?: boolean;
+      prizeToken?: string;
     }) => {
       const id = String(product.id || product.name);
       const opciones = product.opciones ?? [];
       const nota = String(product.nota ?? '').slice(0, 140);
-      const key = id + '|' + JSON.stringify(opciones) + '|' + nota;
+      const key = id + '|' + JSON.stringify(opciones) + '|' + nota + (product.isPrize ? '|premio' : '');
       setCart((previo) => {
         const existente = previo.find((item) => item.key === key);
         if (existente) {
           return previo.map((item) =>
-            item.key === key ? { ...item, quantity: item.quantity + 1 } : item,
+            item.key === key
+              ? { ...item, quantity: product.isPrize ? 1 : item.quantity + 1, ...(product.isPrize ? { prizeToken: product.prizeToken } : {}) }
+              : item,
           );
         }
         return [
@@ -145,7 +153,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   const total = cart.reduce(
     (sum, item) =>
       sum +
-      (precioANumero(item.price) + (item.opciones ?? []).reduce((s, o) => s + o.extraPrice, 0)) *
+      (item.isPrize ? 0 : precioANumero(item.price) + (item.opciones ?? []).reduce((s, o) => s + o.extraPrice, 0)) *
         item.quantity,
     0,
   );

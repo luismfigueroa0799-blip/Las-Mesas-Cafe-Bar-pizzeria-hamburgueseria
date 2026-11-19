@@ -814,6 +814,22 @@ html:not(.dark) .admin .admin-item-precio { color: #896d1f !important; }
 html:not(.dark) .admin .admin-switch-off .admin-switch-texto { color: #746f64 !important; }
 html:not(.dark) .admin .admin-switch-pista { background: #e4dfd4 !important; border-color: #c9c2b4 !important; }
 html:not(.dark) .admin .admin-vacio { color: #716b60 !important; }
+html:not(.dark) .admin .admin-lista {
+  gap: 0;
+  overflow: hidden;
+  background: #fff !important;
+  border: 1px solid #e5dfd2;
+  border-radius: 12px;
+}
+html:not(.dark) .admin .admin-lista .admin-item {
+  margin: 0;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+html:not(.dark) .admin .admin-lista .admin-item + .admin-item {
+  border-top: 1px solid #e5dfd2 !important;
+}
 
 /* Pantalla de gestión de opciones: jerarquía clara, controles cómodos y dos temas. */
 .admin-opciones-page {

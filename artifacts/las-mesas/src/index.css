@@ -326,6 +326,38 @@ h2 { font-family: var(--app-font-serif); font-size: clamp(2.6rem, 5vw, 4.35rem);
 .cart-clear { margin: 12px 24px 26px; border: 0; background: transparent; color: #9d9da6; font-size: .74rem; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; transition: color .2s ease; }
 .cart-clear:hover { color: var(--oro); }
 
+/* Ruleta de bienvenida y etiqueta del premio en el carrito */
+.ruleta-overlay { position: fixed; inset: 0; z-index: 300; display: grid; place-items: center; padding: 18px; background: rgba(8,7,5,.78); backdrop-filter: blur(7px); animation: ruleta-aparecer .2s ease-out; }
+.ruleta-modal { position: relative; width: min(100%, 460px); max-height: min(92vh, 760px); overflow: auto; padding: 30px 28px 24px; text-align: center; color: #f8f2e5; background: linear-gradient(150deg,#24211b,#11100e 72%); border: 1px solid rgba(213,173,54,.52); border-radius: 18px; box-shadow: 0 24px 90px rgba(0,0,0,.55); }
+.ruleta-cerrar { position: absolute; top: 13px; right: 13px; display: grid; place-items: center; width: 36px; height: 36px; border: 1px solid rgba(255,255,255,.2); border-radius: 50%; background: transparent; color: inherit; cursor: pointer; }
+.ruleta-cerrar:disabled { opacity: .45; cursor: default; }
+.ruleta-eyebrow { display: inline-flex; align-items: center; gap: 7px; color: #e3c45e; font-size: .7rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+.ruleta-modal h2 { margin: 8px 0 5px; color: #fff8e9; font-family: var(--app-font-serif); font-size: clamp(2rem,8vw,3rem); line-height: 1.05; }
+.ruleta-intro { max-width: 340px; margin: 0 auto 19px; color: #c4bda9; font-size: .86rem; line-height: 1.55; }
+.ruleta-rueda-wrap { position: relative; width: min(280px,72vw); aspect-ratio: 1; margin: 10px auto 18px; }
+.ruleta-puntero { position: absolute; z-index: 2; top: -5px; left: 50%; width: 0; height: 0; transform: translateX(-50%); border-left: 13px solid transparent; border-right: 13px solid transparent; border-top: 28px solid #fff3c5; filter: drop-shadow(0 2px 3px #000); }
+.ruleta-rueda { position: absolute; inset: 5px; overflow: hidden; border: 7px solid #f4d66d; border-radius: 50%; box-shadow: inset 0 0 0 2px rgba(38,28,7,.5),0 8px 25px rgba(0,0,0,.45); transition: transform 5s cubic-bezier(.12,.72,.12,1); }
+.ruleta-sector-label { position: absolute; top: 50%; left: 50%; width: 90px; margin-left: -45px; margin-top: -8px; overflow: hidden; color: #2c2516; font-size: clamp(8px,2.5vw,10px); font-weight: 800; line-height: 1.1; text-align: center; text-overflow: ellipsis; white-space: nowrap; transform-origin: 50% 8px; }
+.ruleta-centro { position: absolute; top: 50%; left: 50%; display: grid; place-items: center; width: 46px; height: 46px; transform: translate(-50%,-50%); border: 4px solid #f2d572; border-radius: 50%; color: #f5d66e; background: #17140e; box-shadow: 0 2px 8px rgba(0,0,0,.45); }
+.ruleta-condiciones { margin: 0 0 13px; color: #aaa28f; font-size: .72rem; }
+.ruleta-boton { display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-width: 210px; min-height: 50px; padding: 0 22px; border: 0; border-radius: 999px; color: #1a160a; background: #d7b33c; font-size: .8rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; cursor: pointer; box-shadow: 0 6px 22px rgba(215,179,60,.22); }
+.ruleta-boton:disabled { opacity: .8; cursor: wait; }
+.ruleta-despues { display: block; margin: 12px auto 0; border: 0; background: none; color: #b6af9e; font-size: .75rem; text-decoration: underline; cursor: pointer; }
+.ruleta-error { margin: 14px 0 0; color: #ffb9ab; font-size: .8rem; }
+.ruleta-ganador { padding: 12px; border: 1px solid rgba(215,179,60,.4); border-radius: 10px; color: #ffedaa; background: rgba(215,179,60,.1); font-size: .9rem; line-height: 1.5; }
+.ruleta-cargando { animation: ruleta-girar .8s linear infinite; }
+.cart-item-prize { margin-inline: -8px; padding: 10px 8px 14px; border: 1px solid rgba(215,179,60,.48); border-radius: 10px; background: rgba(215,179,60,.08); }
+.cart-prize-label { display: inline-flex; width: fit-content; padding: 3px 7px; border-radius: 99px; color: #f1d36b !important; background: rgba(215,179,60,.15); font-size: .65rem !important; font-weight: 700; }
+html:not(.dark) .ruleta-modal { color: #342d1f; background: linear-gradient(150deg,#fffdf7,#f1ebdc 72%); box-shadow: 0 24px 90px rgba(45,35,14,.28); }
+html:not(.dark) .ruleta-modal h2 { color: #29251c; }
+html:not(.dark) .ruleta-intro, html:not(.dark) .ruleta-condiciones { color: #6e6657; }
+html:not(.dark) .ruleta-cerrar { color: #3a3428; border-color: rgba(50,44,33,.25); }
+html:not(.dark) .ruleta-despues { color: #716957; }
+html:not(.dark) .ruleta-ganador { color: #5a4712; background: rgba(215,179,60,.15); }
+@keyframes ruleta-aparecer { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ruleta-girar { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .ruleta-rueda { transition-duration: .01ms; } }
+
 @media (max-width: 1100px) { .dish-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 900px) {
   .dish-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }

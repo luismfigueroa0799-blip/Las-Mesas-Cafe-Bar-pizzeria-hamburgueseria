@@ -107,6 +107,14 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     return responder(res, { error: 'El carrito está vacío' }, 400);
   }
 
+  // El flujo de mesa de n8n vuelve a cobrar los precios completos. Si hay un
+  // premio, usamos el checkout propio que valida el token y fija su línea a 0 €.
+  if (items.some((item: any) => item?.isPrize === true)) {
+    const checkout = await import('./checkout');
+    await checkout.default(req, res);
+    return;
+  }
+
   const webhook = urlWebhookN8n(true);
   if (!webhook) {
     log('N8N_WEBHOOK_MESA_URL no está configurada');

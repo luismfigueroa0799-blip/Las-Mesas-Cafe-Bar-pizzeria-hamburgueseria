@@ -556,6 +556,23 @@ export default async function handler(req: Req, res: Res): Promise<void> {
 
   const pedidoId = String(metadata.pedido_id ?? metadata.pedido_codigo ?? '');
 
+  // El premio solo se consume cuando Stripe confirma un pago completado.
+  // Si el cliente cancela el pago, puede volver a intentarlo con su carrito.
+  const tokenRuleta = String(metadata.ruleta_token_hash ?? '');
+  if (
+    tokenRuleta &&
+    /^[a-f0-9]{64}$/.test(tokenRuleta) &&
+    evento?.type === 'checkout.session.completed' &&
+    objeto?.payment_status === 'paid'
+  ) {
+    const consumido = await consultarNeon(
+      `update public.ruleta_premios set redeemed_at = now()
+       where token_hash = $1 and redeemed_at is null returning product_id`,
+      [tokenRuleta],
+    );
+    if (consumido.length) log('[webhook] Premio de ruleta consumido tras el pago', { pedido_id: pedidoId });
+  }
+
   // ── 1) Leer el pedido de Supabase (fuente de verdad de los datos) ──
   let pedido: any = null;
   if (/^\d+$/.test(pedidoId)) {

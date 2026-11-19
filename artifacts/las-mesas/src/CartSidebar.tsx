@@ -216,7 +216,7 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
 
   const cpCliente = datos.codigoPostal.trim();
 
-  const subtotal = cart.reduce((suma, item) => suma + precioANumero(item.price) * item.quantity, 0);
+  const subtotal = cart.reduce((suma, item) => suma + (item.isPrize ? 0 : precioANumero(item.price)) * item.quantity, 0);
   const recargo =
     tipoEntregaActiva === 'domicilio' ? Math.round(subtotal * RECARGO_DOMICILIO * 100) / 100 : 0;
 
@@ -269,6 +269,8 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
       price: item.price,
       quantity: item.quantity,
       optionIds: (item.opciones ?? []).map((o) => o.optionId),
+      isPrize: item.isPrize === true,
+      prizeToken: item.prizeToken,
       nota: item.nota ?? '',
     }));
 
@@ -280,7 +282,7 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
     const notaCocina = cart.map((i) => i.nota).filter(Boolean).join(' | ').slice(0, 500);
 
     const total = articulos.reduce(
-      (suma, item) => suma + precioANumero(item.price) * item.quantity,
+      (suma, item) => suma + (item.isPrize ? 0 : precioANumero(item.price)) * item.quantity,
       0,
     );
 
@@ -427,7 +429,7 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
             <div className="cart-drawer-body flex-1 min-h-0 overflow-y-auto">
               <ul className="cart-items">
                 {cart.map((item) => (
-                  <li key={item.id} className="cart-item">
+                  <li key={item.key} className={item.isPrize ? 'cart-item cart-item-prize' : 'cart-item'}>
                     {item.image ? (
                       <img src={item.image} alt={item.name} className="cart-item-img" width="56" height="56" loading="lazy" />
                     ) : (
@@ -437,13 +439,14 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
                     )}
                     <div className="cart-item-info">
                       <strong>{item.name}</strong>
+                      {item.isPrize && <span className="cart-prize-label">🎁 Premio de la ruleta</span>}
                       {(item.opciones ?? []).length > 0 && (
                         <span className="cart-item-opciones">
                           {item.opciones!.map((o) => o.optionName).join(' · ')}
                         </span>
                       )}
                       {item.nota && <span className="cart-item-nota">“{item.nota}”</span>}
-                      <span>{item.quantity} × {item.price}</span>
+                      <span>{item.isPrize ? 'Gratis · 0,00 €' : `${item.quantity} × ${item.price}`}</span>
                     </div>
                     <button type="button" className="cart-item-remove" onClick={() => removeFromCart(item.key)} aria-label={`Quitar ${item.name}`}>
                       <X size={14} />

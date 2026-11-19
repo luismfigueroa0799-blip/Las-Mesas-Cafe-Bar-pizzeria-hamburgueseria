@@ -19,6 +19,7 @@ interface Req {
   method?: string;
   headers?: { get?: (nombre: string) => string | null };
   query?: Record<string, string | string[] | undefined>;
+  body?: any;
 }
 
 interface Res {
@@ -216,6 +217,99 @@ async function gruposConOpciones(): Promise<any[]> {
 }
 
 export default async function handler(req: Req, res: Res): Promise<void> {
+  if (req?.method === 'POST') {
+    if (req.body?.action !== 'ruleta') {
+      responder(res, { error: 'Acción no válida' }, 400);
+      return;
+    }
+    const clientId = String(req.body?.clientId ?? '').trim();
+    if (!/^[a-zA-Z0-9_-]{16,100}$/.test(clientId)) {
+      responder(res, { error: 'Identificador de cliente no válido' }, 400);
+      return;
+    }
+    const pool = await poolDeNeon();
+    if (!pool) {
+      responder(res, { error: 'La ruleta no está disponible ahora. Inténtalo más tarde.' }, 503);
+      return;
+    }
+    try {
+      await rellenarSiEstaVacia();
+      const crypto = g.crypto;
+      if (!crypto?.subtle || !crypto?.getRandomValues) throw new Error('Generador seguro no disponible');
+      const digest = async (value: string) => {
+        const bytes = new TextEncoder().encode(value);
+        const hash = await crypto.subtle.digest('SHA-256', bytes);
+        return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, '0')).join('');
+      };
+      const clientHash = await digest(clientId);
+      await pool.query(`create table if not exists public.ruleta_premios (
+        client_hash text primary key,
+        token_hash text not null,
+        product_id bigint not null,
+        created_at timestamptz not null default now(),
+        redeemed_at timestamptz
+      )`);
+      const candidatos = await pool.query(
+        `select id, name, price, image_url from public.products
+         where is_available = true and price >= 0 and price <= 2
+         order by id`,
+      );
+      const elegibles = (candidatos.rows ?? []).map((p: any) => ({
+        id: String(p.id), name: String(p.name ?? ''), price: Number(p.price ?? 0), image: fotoUtil(p.image_url),
+      })).filter((p: any) => p.name && Number.isFinite(p.price));
+      if (!elegibles.length) {
+        responder(res, { error: 'No hay productos disponibles para la ruleta en este momento.' }, 409);
+        return;
+      }
+      const anterior = await pool.query(
+        'select product_id, redeemed_at, expires_at from public.ruleta_premios where client_hash = $1',
+        [clientHash],
+      );
+      if (anterior.rows?.[0]?.redeemed_at) {
+        responder(res, { error: 'Este cliente ya utilizó su premio de la ruleta.' }, 409);
+        return;
+      }
+      const disponibles = anterior.rows?.[0]
+        ? elegibles.filter((p: any) => p.id === String(anterior.rows[0].product_id))
+        : elegibles;
+      if (!disponibles.length) {
+        responder(res, { error: 'El producto del premio ya no está disponible.' }, 409);
+        return;
+      }
+      const bytes = new Uint8Array(32);
+      crypto.getRandomValues(bytes);
+      const token = Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
+      let indicePremio = 0;
+      if (!anterior.rows?.[0]) {
+        const limite = Math.floor(0x100000000 / disponibles.length) * disponibles.length;
+        let aleatorio = 0;
+        do {
+          const muestra = new Uint32Array(1);
+          crypto.getRandomValues(muestra);
+          aleatorio = muestra[0];
+        } while (aleatorio >= limite);
+        indicePremio = aleatorio % disponibles.length;
+      }
+      const premio = anterior.rows?.[0]
+        ? disponibles[0]
+        : disponibles[indicePremio];
+      const tokenHash = await digest(token);
+      await pool.query(
+        `insert into public.ruleta_premios (client_hash, token_hash, product_id)
+         values ($1, $2, $3)
+         on conflict (client_hash) do update set token_hash = excluded.token_hash,
+           product_id = excluded.product_id where public.ruleta_premios.redeemed_at is null`,
+        [clientHash, tokenHash, Number(premio.id)],
+      );
+      responder(res, { premio, token, sectores: elegibles.map(({ id, name, image }: any) => ({ id, name, image })) });
+      return;
+    } catch (error) {
+      g.console?.error?.('[productos] no se pudo procesar la ruleta:', error);
+      responder(res, { error: 'No se pudo iniciar la ruleta. Inténtalo de nuevo.' }, 503);
+      return;
+    }
+  }
+
   if (req?.method && req.method !== 'GET') {
     responder(res, { error: 'Método no permitido' }, 405);
     return;

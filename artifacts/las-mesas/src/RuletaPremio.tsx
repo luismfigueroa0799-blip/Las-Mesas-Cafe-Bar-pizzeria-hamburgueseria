@@ -1,0 +1,132 @@
+import { useEffect, useRef, useState } from 'react';
+import { Gift, LoaderCircle, X } from 'lucide-react';
+import { useCart } from '@/CartContext';
+import { formatearPrecio } from '@/precio';
+
+type Sector = { id: string; name: string; image?: string | null };
+type Premio = { id: string; name: string; price: number; image?: string | null };
+
+const CLIENTE_KEY = 'lm_ruleta_cliente_v1';
+const JUGADA_KEY = 'lm_ruleta_jugada_v1';
+
+function idCliente(): string {
+  let id = window.localStorage.getItem(CLIENTE_KEY);
+  if (!id) {
+    id = typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
+    window.localStorage.setItem(CLIENTE_KEY, id);
+  }
+  return id;
+}
+
+export default function RuletaPremio({ onAbrirCarrito }: { onAbrirCarrito: () => void }) {
+  const { addToCart } = useCart();
+  const [abierta, setAbierta] = useState(false);
+  const [girando, setGirando] = useState(false);
+  const [sectores, setSectores] = useState<Sector[]>([]);
+  const [premio, setPremio] = useState<Premio | null>(null);
+  const [error, setError] = useState('');
+  const [rotacion, setRotacion] = useState(0);
+  const [resultado, setResultado] = useState(false);
+  const temporizador = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (window.localStorage.getItem(JUGADA_KEY) || window.sessionStorage.getItem('lm_ruleta_oculta_v1')) return;
+    const id = window.setTimeout(() => setAbierta(true), 700);
+    return () => window.clearTimeout(id);
+  }, []);
+
+  useEffect(() => () => { if (temporizador.current) window.clearTimeout(temporizador.current); }, []);
+
+  function cerrar() {
+    if (girando) return;
+    window.sessionStorage.setItem('lm_ruleta_oculta_v1', '1');
+    setAbierta(false);
+  }
+
+  async function girar() {
+    if (girando) return;
+    setGirando(true);
+    setError('');
+    try {
+      const response = await fetch('/api/productos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'ruleta', clientId: idCliente() }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error || 'No se pudo iniciar la ruleta.');
+      const lista: Sector[] = Array.isArray(data.sectores) ? data.sectores : [];
+      const regalo: Premio = data.premio;
+      if (!lista.length || !regalo?.id || !data.token) throw new Error('La ruleta no devolvió un premio válido.');
+      setSectores(lista);
+      setPremio(regalo);
+      const indice = Math.max(0, lista.findIndex((s) => String(s.id) === String(regalo.id)));
+      const paso = 360 / lista.length;
+      const centro = indice * paso + paso / 2;
+      const destino = 360 - centro;
+      setRotacion((prev) => prev + 360 * 6 + ((destino - (prev % 360) + 360) % 360));
+      temporizador.current = window.setTimeout(() => {
+        addToCart({
+          id: regalo.id,
+          name: regalo.name,
+          price: formatearPrecio(regalo.price),
+          image: regalo.image || '',
+          opciones: [],
+          nota: '',
+          isPrize: true,
+          prizeToken: data.token,
+        });
+        window.localStorage.setItem(JUGADA_KEY, '1');
+        setGirando(false);
+        setResultado(true);
+        temporizador.current = window.setTimeout(() => {
+          setAbierta(false);
+          onAbrirCarrito();
+        }, 1400);
+      }, 5200);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo iniciar la ruleta. Inténtalo de nuevo.');
+      setGirando(false);
+    }
+  }
+
+  if (!abierta) return null;
+  const paso = sectores.length ? 360 / sectores.length : 0;
+  const colores = sectores.length
+    ? `conic-gradient(${sectores.map((_, i) => `${i % 2 ? '#f2ead8' : '#d5ad36'} ${i * paso}deg ${(i + 1) * paso}deg`).join(',')})`
+    : 'conic-gradient(#d5ad36, #f2ead8, #d5ad36)';
+
+  return (
+    <div className="ruleta-overlay" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget && !girando) cerrar(); }}>
+      <section className="ruleta-modal" role="dialog" aria-modal="true" aria-labelledby="ruleta-titulo">
+        <button className="ruleta-cerrar" type="button" onClick={cerrar} aria-label="Cerrar ruleta" disabled={girando}><X size={20} /></button>
+        <span className="ruleta-eyebrow"><Gift size={16} /> Un regalo para ti</span>
+        <h2 id="ruleta-titulo">¡Gira y gana!</h2>
+        <p className="ruleta-intro">Prueba suerte y llévate gratis uno de nuestros productos seleccionados.</p>
+        <div className="ruleta-rueda-wrap">
+          <span className="ruleta-puntero" aria-hidden="true" />
+          <div className="ruleta-rueda" style={{ background: colores, transform: `rotate(${rotacion}deg)` }}>
+            {sectores.map((sector, i) => (
+              <span key={`${sector.id}-${i}`} className="ruleta-sector-label" style={{ transform: `rotate(${i * paso + paso / 2}deg) translateY(-92px) rotate(90deg)` }}>{sector.name}</span>
+            ))}
+            <span className="ruleta-centro"><Gift size={24} /></span>
+          </div>
+        </div>
+        {resultado && premio ? (
+          <div className="ruleta-ganador" role="status">🎉 ¡Has ganado {premio.name}! Ya está en tu carrito gratis.</div>
+        ) : (
+          <>
+            <p className="ruleta-condiciones">Premios entre los productos disponibles de hasta 2 €.</p>
+            <button type="button" className="ruleta-boton" onClick={girar} disabled={girando}>
+              {girando ? <><LoaderCircle size={18} className="ruleta-cargando" /> Girando…</> : 'Girar la ruleta'}
+            </button>
+            {error && <p className="ruleta-error" role="alert">{error}</p>}
+            {!girando && <button type="button" className="ruleta-despues" onClick={cerrar}>Ahora no</button>}
+          </>
+        )}
+      </section>
+    </div>
+  );
+}
