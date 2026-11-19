@@ -311,7 +311,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
         } while (valor >= maximo);
         return valor % limite;
       };
-      // Cada apertura muestra hasta tres refrescos o tragos al azar. Sus
+      // Cada apertura muestra hasta cinco refrescos o tragos al azar. Sus
       // sectores comparten el 10 % total de la rueda; los nueve espacios
       // vacíos ocupan el 90 % restante.
       const mezclados = [...elegibles];
@@ -319,7 +319,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
         const j = aleatorioMenorQue(i + 1);
         [mezclados[i], mezclados[j]] = [mezclados[j], mezclados[i]];
       }
-      const productosPremio = mezclados.slice(0, Math.min(3, mezclados.length));
+      const productosPremio = mezclados.slice(0, Math.min(5, mezclados.length));
       const posicionesPremio = productosPremio.map((_, i) => Math.round(((i + 1) * 9) / (productosPremio.length + 1)));
       const coloresPremio = ['#e2b633', '#d35b45', '#31a092'];
       const sectores: any[] = [];
