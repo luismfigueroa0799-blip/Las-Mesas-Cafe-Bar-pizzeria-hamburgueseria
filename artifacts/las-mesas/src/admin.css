@@ -795,6 +795,25 @@ html:not(.dark) .admin textarea { background: #fff !important; color: #302c25 !i
 html:not(.dark) .admin .admin-boton-claro,
 html:not(.dark) .admin-theme-toggle { background: #fff !important; color: #4d4433 !important; border-color: #d8c797 !important; }
 html.dark .admin-theme-toggle { background: #2a2725 !important; color: #f5f0e6 !important; border-color: rgba(212,175,55,.35) !important; }
+html:not(.dark) .admin .admin-theme-toggle,
+html:not(.dark) .admin .admin-eyebrow { color: #756025 !important; }
+html:not(.dark) .admin .admin-pestanas,
+html:not(.dark) .admin .admin-filtros { background: #eeeae0 !important; border-color: #ded7c8 !important; }
+html:not(.dark) .admin .admin-pestana,
+html:not(.dark) .admin .admin-ficha { background: #fbfaf7 !important; color: #625c50 !important; border-color: #ded7c8 !important; }
+html:not(.dark) .admin .admin-pestana-activa,
+html:not(.dark) .admin .admin-ficha-activa { background: #d4af37 !important; color: #28251f !important; border-color: #c49c23 !important; }
+html:not(.dark) .admin .admin-pestana:hover,
+html:not(.dark) .admin .admin-ficha:hover { color: #302c25 !important; }
+html:not(.dark) .admin .admin-item { background: #fff !important; border-color: #e5dfd2 !important; box-shadow: 0 3px 12px rgba(57,47,27,.045) !important; }
+html:not(.dark) .admin .admin-item-info strong,
+html:not(.dark) .admin .admin-item-info p,
+html:not(.dark) .admin .admin-item-precio,
+html:not(.dark) .admin .admin-switch-texto { color: #302c25 !important; }
+html:not(.dark) .admin .admin-item-precio { color: #896d1f !important; }
+html:not(.dark) .admin .admin-switch-off .admin-switch-texto { color: #746f64 !important; }
+html:not(.dark) .admin .admin-switch-pista { background: #e4dfd4 !important; border-color: #c9c2b4 !important; }
+html:not(.dark) .admin .admin-vacio { color: #716b60 !important; }
 
 /* Pantalla de gestión de opciones: jerarquía clara, controles cómodos y dos temas. */
 .admin-opciones-page {
