@@ -255,6 +255,21 @@ export default async function handler(req: Req, res: Res): Promise<void> {
       await pool.query('alter table public.ruleta_premios add column if not exists is_winner boolean not null default true');
       await pool.query('alter table public.ruleta_premios alter column token_hash drop not null');
       await pool.query('alter table public.ruleta_premios alter column product_id drop not null');
+      await pool.query(`create table if not exists public.ruleta_vales (
+        token_hash text primary key,
+        client_hash text not null,
+        product_id bigint not null,
+        created_at timestamptz not null default now(),
+        redeemed_at timestamptz
+      )`);
+      // Conserva premios creados por versiones anteriores en la nueva tabla
+      // de vales, que permite tener más de un premio pendiente por dispositivo.
+      await pool.query(
+        `insert into public.ruleta_vales (token_hash, client_hash, product_id, created_at, redeemed_at)
+         select token_hash, client_hash, product_id, created_at, redeemed_at
+         from public.ruleta_premios where token_hash is not null and product_id is not null
+         on conflict (token_hash) do nothing`,
+      );
       const candidatos = await pool.query(
         `select id, name, price, image_url from public.products
          where is_available = true and price >= 0 and price <= 2
@@ -328,6 +343,11 @@ export default async function handler(req: Req, res: Res): Promise<void> {
         token = Array.from(tokenBytes).map((b) => b.toString(16).padStart(2, '0')).join('');
         tokenHash = await digest(token);
         productId = Number(premio.id);
+        await pool.query(
+          `insert into public.ruleta_vales (token_hash, client_hash, product_id)
+           values ($1, $2, $3) on conflict (token_hash) do nothing`,
+          [tokenHash, clientHash, productId],
+        );
       }
       await pool.query(
         `insert into public.ruleta_premios (client_hash, token_hash, product_id, created_at, redeemed_at, is_winner)

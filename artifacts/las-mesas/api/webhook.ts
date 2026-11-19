@@ -558,17 +558,18 @@ export default async function handler(req: Req, res: Res): Promise<void> {
 
   // El premio solo se consume cuando Stripe confirma un pago completado.
   // Si el cliente cancela el pago, puede volver a intentarlo con su carrito.
-  const tokenRuleta = String(metadata.ruleta_token_hash ?? '');
+  const tokensRuleta = String(metadata.ruleta_token_hashes ?? metadata.ruleta_token_hash ?? '')
+    .split(',')
+    .filter((token: string) => /^[a-f0-9]{64}$/.test(token));
   if (
-    tokenRuleta &&
-    /^[a-f0-9]{64}$/.test(tokenRuleta) &&
+    tokensRuleta.length > 0 &&
     evento?.type === 'checkout.session.completed' &&
     objeto?.payment_status === 'paid'
   ) {
     const consumido = await consultarNeon(
-      `update public.ruleta_premios set redeemed_at = now()
-       where token_hash = $1 and redeemed_at is null returning product_id`,
-      [tokenRuleta],
+      `update public.ruleta_vales set redeemed_at = now()
+       where token_hash = any($1::text[]) and redeemed_at is null returning product_id`,
+      [tokensRuleta],
     );
     if (consumido.length) log('[webhook] Premio de ruleta consumido tras el pago', { pedido_id: pedidoId });
   }

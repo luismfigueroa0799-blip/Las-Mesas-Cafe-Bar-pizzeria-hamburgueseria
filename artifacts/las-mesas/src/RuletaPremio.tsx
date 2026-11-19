@@ -7,9 +7,6 @@ type Sector = { id: string; name: string; image?: string | null; weight: number 
 type Premio = { id: string; name: string; price: number; image?: string | null };
 
 const CLIENTE_KEY = 'lm_ruleta_cliente_v1';
-const JUGADA_KEY = 'lm_ruleta_jugada_v1';
-const INTERVALO_SORTEO = 7 * 24 * 60 * 60 * 1000;
-
 function idCliente(): string {
   let id = window.localStorage.getItem(CLIENTE_KEY);
   if (!id) {
@@ -22,7 +19,7 @@ function idCliente(): string {
 }
 
 export default function RuletaPremio({ onAbrirCarrito }: { onAbrirCarrito: () => void }) {
-  const { addToCart, cart, removeFromCart } = useCart();
+  const { addToCart } = useCart();
   const [abierta, setAbierta] = useState(false);
   const [girando, setGirando] = useState(false);
   const [sectores, setSectores] = useState<Sector[]>([]);
@@ -34,17 +31,6 @@ export default function RuletaPremio({ onAbrirCarrito }: { onAbrirCarrito: () =>
   const temporizador = useRef<number | null>(null);
 
   useEffect(() => {
-    const jugadaGuardada = window.localStorage.getItem(JUGADA_KEY);
-    // La versión anterior guardaba el valor fijo "1"; se migra sin quitar
-    // un posible premio que ya estuviera esperando en el carrito.
-    const ultimaJugada = jugadaGuardada === '1' ? 0 : Number(jugadaGuardada ?? 0);
-    if (jugadaGuardada === '1') window.localStorage.setItem(JUGADA_KEY, String(Date.now()));
-    if (ultimaJugada && Date.now() - ultimaJugada >= INTERVALO_SORTEO) {
-      window.localStorage.removeItem(JUGADA_KEY);
-      // El premio pendiente de la semana anterior caduca al comenzar un
-      // nuevo sorteo; así no queda una línea antigua en el carrito.
-      cart.filter((item) => item.isPrize).forEach((item) => removeFromCart(item.key));
-    }
     const id = window.setTimeout(() => setAbierta(true), 700);
     return () => window.clearTimeout(id);
   }, []);
@@ -75,11 +61,6 @@ export default function RuletaPremio({ onAbrirCarrito }: { onAbrirCarrito: () =>
       if (!lista.length || !Number.isInteger(Number(data.indiceResultado)) || (gano && (!regalo?.id || !data.token))) {
         throw new Error('La ruleta no devolvió un resultado válido.');
       }
-      if (data.nuevoSorteo === true) {
-        // Al comenzar una nueva semana, invalida cualquier premio anterior
-        // que el navegador aún conserve en el carrito.
-        cart.filter((item) => item.isPrize).forEach((item) => removeFromCart(item.key));
-      }
       setSectores(lista);
       setPremio(regalo);
       const indice = Math.min(lista.length - 1, Math.max(0, Number(data.indiceResultado)));
@@ -103,7 +84,6 @@ export default function RuletaPremio({ onAbrirCarrito }: { onAbrirCarrito: () =>
             prizeToken: data.token,
           });
         }
-        if (data.nuevoSorteo === true) window.localStorage.setItem(JUGADA_KEY, String(Date.now()));
         if (!gano) {
           setMensajeResultado(
             data.motivo === 'ya-premiado'

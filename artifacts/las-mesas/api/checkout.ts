@@ -1264,19 +1264,38 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   // Un premio nunca se decide ni se valora desde el navegador: validamos su
   // token contra Neon y usamos el producto/precio actuales del catálogo.
   const premios = (body.items ?? []).map((item, indice) => ({ item, indice })).filter(({ item }) => item?.isPrize === true);
-  let hashTokenPremio = '';
-  if (premios.length > 1) throw new Error('Solo se permite un premio de ruleta por pedido.');
-  if (premios.length === 1) {
-    const { item, indice } = premios[0];
+  const hashesTokensPremio: string[] = [];
+  if (premios.length > 7) throw new Error('Puedes usar hasta 7 premios de ruleta por pedido.');
+  if (premios.length) {
+    const pool = await poolDeNeon();
+    if (!pool) {
+      responder(res, { error: 'No se pudo validar el premio de la ruleta.' }, 503);
+      return;
+    }
+    await pool.query(`create table if not exists public.ruleta_vales (
+      token_hash text primary key,
+      client_hash text not null,
+      product_id bigint not null,
+      created_at timestamptz not null default now(),
+      redeemed_at timestamptz
+    )`);
+    await pool.query(
+      `insert into public.ruleta_vales (token_hash, client_hash, product_id, created_at, redeemed_at)
+       select token_hash, client_hash, product_id, created_at, redeemed_at
+       from public.ruleta_premios where token_hash is not null and product_id is not null
+       on conflict (token_hash) do nothing`,
+    );
+  }
+  for (const { item, indice } of premios) {
     const producto = catalogo.get(items[indice]?.id);
     const token = String(item.prizeToken ?? '');
     if (Number(item.quantity) !== 1 || !/^[a-f0-9]{64}$/.test(token) || !producto || !producto.disponible || producto.precio < 0 || producto.precio > 2) {
       responder(res, { error: 'El premio ya no es válido o el producto dejó de estar disponible.' }, 409);
       return;
     }
-    hashTokenPremio = await hashPremio(token);
+    const hashTokenPremio = await hashPremio(token);
     const filasPremio = await consultarNeon(
-      `select product_id from public.ruleta_premios
+      `select product_id from public.ruleta_vales
        where token_hash = $1 and product_id = $2 and redeemed_at is null`,
       [hashTokenPremio, items[indice].id],
     );
@@ -1284,6 +1303,11 @@ export default async function handler(req: Req, res: Res): Promise<void> {
       responder(res, { error: 'El premio ya se utilizó o no es válido.' }, 409);
       return;
     }
+    if (hashesTokensPremio.includes(hashTokenPremio)) {
+      responder(res, { error: 'No se puede repetir el mismo premio en el carrito.' }, 400);
+      return;
+    }
+    hashesTokensPremio.push(hashTokenPremio);
   }
 
   // Producto agotado: el flujo de n8n tambien lo rechaza.
@@ -1497,9 +1521,9 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     let respuesta: any = null;
     let texto = '';
     let datos: any = null;
-    let falloN8n = hashTokenPremio ? 'Pedido con premio: se crea directamente para respetar el precio gratuito.' : '';
+    let falloN8n = hashesTokensPremio.length ? 'Pedido con premio: se crea directamente para respetar el precio gratuito.' : '';
     try {
-      if (!hashTokenPremio) {
+      if (!hashesTokensPremio.length) {
       respuesta = await g.fetch(limpiarUrl(webhook), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1633,7 +1657,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
       total_texto: totalEuros.toFixed(2),
       total_euros: totalEuros.toFixed(2),
       origen: 'las-mesas-web',
-      ...(hashTokenPremio ? { ruleta_token_hash: hashTokenPremio } : {}),
+      ...(hashesTokensPremio.length ? { ruleta_token_hashes: hashesTokensPremio.join(',') } : {}),
     };
 
     // Stripe no admite valores de mas de 500 caracteres en el metadata: si

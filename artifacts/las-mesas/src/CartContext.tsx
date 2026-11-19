@@ -103,7 +103,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       const id = String(product.id || product.name);
       const opciones = product.opciones ?? [];
       const nota = String(product.nota ?? '').slice(0, 140);
-      const key = id + '|' + JSON.stringify(opciones) + '|' + nota + (product.isPrize ? '|premio' : '');
+      const key = id + '|' + JSON.stringify(opciones) + '|' + nota + (product.isPrize ? '|premio|' + String(product.prizeToken ?? '') : '');
       setCart((previo) => {
         const existente = previo.find((item) => item.key === key);
         if (existente) {
