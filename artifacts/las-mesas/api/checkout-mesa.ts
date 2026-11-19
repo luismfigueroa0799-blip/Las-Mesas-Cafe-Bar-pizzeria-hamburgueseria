@@ -110,7 +110,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   // El flujo de mesa de n8n vuelve a cobrar los precios completos. Si hay un
   // premio, usamos el checkout propio que valida el token y fija su línea a 0 €.
   if (items.some((item: any) => item?.isPrize === true)) {
-    const checkout = await import('./checkout');
+    const checkout = await import('./checkout.js');
     await checkout.default(req, res);
     return;
   }
