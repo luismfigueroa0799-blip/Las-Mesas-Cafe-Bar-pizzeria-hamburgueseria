@@ -3,11 +3,12 @@ import { Gift, LoaderCircle, X } from 'lucide-react';
 import { useCart } from '@/CartContext';
 import { formatearPrecio } from '@/precio';
 
-type Sector = { id: string; name: string; image?: string | null };
+type Sector = { id: string; name: string; image?: string | null; weight: number };
 type Premio = { id: string; name: string; price: number; image?: string | null };
 
 const CLIENTE_KEY = 'lm_ruleta_cliente_v1';
 const JUGADA_KEY = 'lm_ruleta_jugada_v1';
+const INTERVALO_SORTEO = 7 * 24 * 60 * 60 * 1000;
 
 function idCliente(): string {
   let id = window.localStorage.getItem(CLIENTE_KEY);
@@ -21,18 +22,29 @@ function idCliente(): string {
 }
 
 export default function RuletaPremio({ onAbrirCarrito }: { onAbrirCarrito: () => void }) {
-  const { addToCart } = useCart();
+  const { addToCart, cart, removeFromCart } = useCart();
   const [abierta, setAbierta] = useState(false);
   const [girando, setGirando] = useState(false);
   const [sectores, setSectores] = useState<Sector[]>([]);
   const [premio, setPremio] = useState<Premio | null>(null);
   const [error, setError] = useState('');
+  const [mensajeResultado, setMensajeResultado] = useState('');
   const [rotacion, setRotacion] = useState(0);
-  const [resultado, setResultado] = useState(false);
+  const [resultado, setResultado] = useState<'ganador' | 'sin-premio' | null>(null);
   const temporizador = useRef<number | null>(null);
 
   useEffect(() => {
-    if (window.localStorage.getItem(JUGADA_KEY) || window.sessionStorage.getItem('lm_ruleta_oculta_v1')) return;
+    const jugadaGuardada = window.localStorage.getItem(JUGADA_KEY);
+    // La versión anterior guardaba el valor fijo "1"; se migra sin quitar
+    // un posible premio que ya estuviera esperando en el carrito.
+    const ultimaJugada = jugadaGuardada === '1' ? 0 : Number(jugadaGuardada ?? 0);
+    if (jugadaGuardada === '1') window.localStorage.setItem(JUGADA_KEY, String(Date.now()));
+    if (ultimaJugada && Date.now() - ultimaJugada >= INTERVALO_SORTEO) {
+      window.localStorage.removeItem(JUGADA_KEY);
+      // El premio pendiente de la semana anterior caduca al comenzar un
+      // nuevo sorteo; así no queda una línea antigua en el carrito.
+      cart.filter((item) => item.isPrize).forEach((item) => removeFromCart(item.key));
+    }
     const id = window.setTimeout(() => setAbierta(true), 700);
     return () => window.clearTimeout(id);
   }, []);
@@ -41,7 +53,6 @@ export default function RuletaPremio({ onAbrirCarrito }: { onAbrirCarrito: () =>
 
   function cerrar() {
     if (girando) return;
-    window.sessionStorage.setItem('lm_ruleta_oculta_v1', '1');
     setAbierta(false);
   }
 
@@ -49,6 +60,7 @@ export default function RuletaPremio({ onAbrirCarrito }: { onAbrirCarrito: () =>
     if (girando) return;
     setGirando(true);
     setError('');
+    setMensajeResultado('');
     try {
       const response = await fetch('/api/productos', {
         method: 'POST',
@@ -58,33 +70,55 @@ export default function RuletaPremio({ onAbrirCarrito }: { onAbrirCarrito: () =>
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error || 'No se pudo iniciar la ruleta.');
       const lista: Sector[] = Array.isArray(data.sectores) ? data.sectores : [];
-      const regalo: Premio = data.premio;
-      if (!lista.length || !regalo?.id || !data.token) throw new Error('La ruleta no devolvió un premio válido.');
+      const gano = data.ganador === true;
+      const regalo: Premio | null = gano ? data.premio : null;
+      if (!lista.length || !Number.isInteger(Number(data.indiceResultado)) || (gano && (!regalo?.id || !data.token))) {
+        throw new Error('La ruleta no devolvió un resultado válido.');
+      }
+      if (data.nuevoSorteo === true) {
+        // Al comenzar una nueva semana, invalida cualquier premio anterior
+        // que el navegador aún conserve en el carrito.
+        cart.filter((item) => item.isPrize).forEach((item) => removeFromCart(item.key));
+      }
       setSectores(lista);
       setPremio(regalo);
-      const indice = Math.max(0, lista.findIndex((s) => String(s.id) === String(regalo.id)));
-      const paso = 360 / lista.length;
-      const centro = indice * paso + paso / 2;
+      const indice = Math.min(lista.length - 1, Math.max(0, Number(data.indiceResultado)));
+      const totalPeso = lista.reduce((sum, sector) => sum + Math.max(0, Number(sector.weight) || 0), 0) || lista.length;
+      let pesoAntes = 0;
+      for (let i = 0; i < indice; i += 1) pesoAntes += Math.max(0, Number(lista[i].weight) || 1);
+      const pesoSector = Math.max(0, Number(lista[indice].weight) || 1);
+      const centro = ((pesoAntes + pesoSector / 2) / totalPeso) * 360;
       const destino = 360 - centro;
       setRotacion((prev) => prev + 360 * 6 + ((destino - (prev % 360) + 360) % 360));
       temporizador.current = window.setTimeout(() => {
-        addToCart({
-          id: regalo.id,
-          name: regalo.name,
-          price: formatearPrecio(regalo.price),
-          image: regalo.image || '',
-          opciones: [],
-          nota: '',
-          isPrize: true,
-          prizeToken: data.token,
-        });
-        window.localStorage.setItem(JUGADA_KEY, '1');
+        if (gano && regalo) {
+          addToCart({
+            id: regalo.id,
+            name: regalo.name,
+            price: formatearPrecio(regalo.price),
+            image: regalo.image || '',
+            opciones: [],
+            nota: '',
+            isPrize: true,
+            prizeToken: data.token,
+          });
+        }
+        if (data.nuevoSorteo === true) window.localStorage.setItem(JUGADA_KEY, String(Date.now()));
+        if (!gano) {
+          setMensajeResultado(
+            data.motivo === 'ya-premiado'
+              ? 'Ya ganaste esta semana. Esta tirada no añade otro premio; podrás volver a optar dentro de 7 días.'
+              : data.motivo === 'periodo-espera'
+                ? 'Ya participaste esta semana. Podrás volver a intentarlo dentro de 7 días.'
+                : 'Esta vez no hubo premio. Podrás volver a intentarlo dentro de 7 días.',
+          );
+        }
         setGirando(false);
-        setResultado(true);
+        setResultado(gano ? 'ganador' : 'sin-premio');
         temporizador.current = window.setTimeout(() => {
           setAbierta(false);
-          onAbrirCarrito();
-        }, 1400);
+          if (gano) onAbrirCarrito();
+        }, gano ? 1400 : 2300);
       }, 5200);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo iniciar la ruleta. Inténtalo de nuevo.');
@@ -93,9 +127,18 @@ export default function RuletaPremio({ onAbrirCarrito }: { onAbrirCarrito: () =>
   }
 
   if (!abierta) return null;
-  const paso = sectores.length ? 360 / sectores.length : 0;
+  let acumulado = 0;
+  const totalPesoRuleta = sectores.reduce((sum, sector) => sum + (Number(sector.weight) || 0), 0);
+  const sectoresVisibles = sectores.map((sector, i) => {
+    const peso = Math.max(0, Number(sector.weight) || 0);
+    const inicio = acumulado;
+    acumulado += totalPesoRuleta
+      ? peso / totalPesoRuleta * 360
+      : 360 / sectores.length;
+    return { ...sector, inicio, fin: acumulado, centro: (inicio + acumulado) / 2, indice: i };
+  });
   const colores = sectores.length
-    ? `conic-gradient(${sectores.map((_, i) => `${i % 2 ? '#f2ead8' : '#d5ad36'} ${i * paso}deg ${(i + 1) * paso}deg`).join(',')})`
+    ? `conic-gradient(${sectoresVisibles.map((sector) => `${sector.indice % 2 ? '#f2ead8' : '#d5ad36'} ${sector.inicio}deg ${sector.fin}deg`).join(',')})`
     : 'conic-gradient(#d5ad36, #f2ead8, #d5ad36)';
 
   return (
@@ -108,14 +151,16 @@ export default function RuletaPremio({ onAbrirCarrito }: { onAbrirCarrito: () =>
         <div className="ruleta-rueda-wrap">
           <span className="ruleta-puntero" aria-hidden="true" />
           <div className="ruleta-rueda" style={{ background: colores, transform: `rotate(${rotacion}deg)` }}>
-            {sectores.map((sector, i) => (
-              <span key={`${sector.id}-${i}`} className="ruleta-sector-label" style={{ transform: `rotate(${i * paso + paso / 2}deg) translateY(-92px) rotate(90deg)` }}>{sector.name}</span>
+            {sectoresVisibles.map((sector, i) => (
+              <span key={`${sector.id}-${i}`} className="ruleta-sector-label" style={{ transform: `rotate(${sector.centro}deg) translateY(-92px) rotate(90deg)` }}>{sector.name}</span>
             ))}
             <span className="ruleta-centro"><Gift size={24} /></span>
           </div>
         </div>
-        {resultado && premio ? (
+        {resultado === 'ganador' && premio ? (
           <div className="ruleta-ganador" role="status">🎉 ¡Has ganado {premio.name}! Ya está en tu carrito gratis.</div>
+        ) : resultado === 'sin-premio' ? (
+          <div className="ruleta-ganador" role="status">{mensajeResultado}</div>
         ) : (
           <>
             <p className="ruleta-condiciones">Premios entre los productos disponibles de hasta 2 €.</p>

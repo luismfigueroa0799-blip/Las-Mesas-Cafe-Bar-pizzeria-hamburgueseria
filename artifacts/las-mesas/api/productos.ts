@@ -247,8 +247,14 @@ export default async function handler(req: Req, res: Res): Promise<void> {
         token_hash text not null,
         product_id bigint not null,
         created_at timestamptz not null default now(),
-        redeemed_at timestamptz
+        redeemed_at timestamptz,
+        is_winner boolean not null default true
       )`);
+      // Adaptación automática para instalaciones que ya tenían la tabla de
+      // premios de la primera versión de la ruleta.
+      await pool.query('alter table public.ruleta_premios add column if not exists is_winner boolean not null default true');
+      await pool.query('alter table public.ruleta_premios alter column token_hash drop not null');
+      await pool.query('alter table public.ruleta_premios alter column product_id drop not null');
       const candidatos = await pool.query(
         `select id, name, price, image_url from public.products
          where is_available = true and price >= 0 and price <= 2
@@ -262,46 +268,76 @@ export default async function handler(req: Req, res: Res): Promise<void> {
         return;
       }
       const anterior = await pool.query(
-        'select product_id, redeemed_at from public.ruleta_premios where client_hash = $1',
+        `select product_id, token_hash, redeemed_at, is_winner,
+                created_at > now() - interval '7 days' as cooldown_activo
+         from public.ruleta_premios where client_hash = $1`,
         [clientHash],
       );
-      if (anterior.rows?.[0]?.redeemed_at) {
-        responder(res, { error: 'Este cliente ya utilizó su premio de la ruleta.' }, 409);
+      const filaAnterior = anterior.rows?.[0];
+      const sectores = [
+        { id: 'sin-premio', name: 'Sin premio', weight: 0.9 },
+        ...elegibles.map((producto: any) => ({
+          id: producto.id,
+          name: producto.name,
+          image: producto.image,
+          weight: 0.1 / elegibles.length,
+        })),
+      ];
+
+      // La ruleta vuelve a mostrarse durante el periodo de espera, pero esos
+      // giros son siempre sin premio. El resultado original y su token siguen
+      // intactos, por si el premio anterior aún está en el carrito.
+      if (filaAnterior?.cooldown_activo) {
+        responder(res, {
+          ganador: false,
+          motivo: filaAnterior.is_winner === true ? 'ya-premiado' : 'periodo-espera',
+          indiceResultado: 0,
+          premio: null,
+          token: null,
+          nuevoSorteo: false,
+          sectores,
+        });
         return;
       }
-      const disponibles = anterior.rows?.[0]
-        ? elegibles.filter((p: any) => p.id === String(anterior.rows[0].product_id))
-        : elegibles;
-      if (!disponibles.length) {
-        responder(res, { error: 'El producto del premio ya no está disponible.' }, 409);
-        return;
-      }
-      const bytes = new Uint8Array(32);
-      crypto.getRandomValues(bytes);
-      const token = Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
-      let indicePremio = 0;
-      if (!anterior.rows?.[0]) {
-        const limite = Math.floor(0x100000000 / disponibles.length) * disponibles.length;
+
+      const limiteSorteo = Math.floor(0x100000000 / 10000) * 10000;
+      let sorteo = 0;
+      do {
+        const muestra = new Uint32Array(1);
+        crypto.getRandomValues(muestra);
+        sorteo = muestra[0];
+      } while (sorteo >= limiteSorteo);
+      const ganador = sorteo % 10000 < 1000;
+      let premio: any = null;
+      let token: string | null = null;
+      let tokenHash: string | null = null;
+      let productId: number | null = null;
+      let indiceResultado = 0;
+      if (ganador) {
+        const limite = Math.floor(0x100000000 / elegibles.length) * elegibles.length;
         let aleatorio = 0;
         do {
-          const muestra = new Uint32Array(1);
-          crypto.getRandomValues(muestra);
-          aleatorio = muestra[0];
+          const indice = new Uint32Array(1);
+          crypto.getRandomValues(indice);
+          aleatorio = indice[0];
         } while (aleatorio >= limite);
-        indicePremio = aleatorio % disponibles.length;
+        premio = elegibles[aleatorio % elegibles.length];
+        indiceResultado = sectores.findIndex((sector: any) => sector.id === premio.id);
+        const tokenBytes = new Uint8Array(32);
+        crypto.getRandomValues(tokenBytes);
+        token = Array.from(tokenBytes).map((b) => b.toString(16).padStart(2, '0')).join('');
+        tokenHash = await digest(token);
+        productId = Number(premio.id);
       }
-      const premio = anterior.rows?.[0]
-        ? disponibles[0]
-        : disponibles[indicePremio];
-      const tokenHash = await digest(token);
       await pool.query(
-        `insert into public.ruleta_premios (client_hash, token_hash, product_id)
-         values ($1, $2, $3)
+        `insert into public.ruleta_premios (client_hash, token_hash, product_id, created_at, redeemed_at, is_winner)
+         values ($1, $2, $3, now(), null, $4)
          on conflict (client_hash) do update set token_hash = excluded.token_hash,
-           product_id = excluded.product_id where public.ruleta_premios.redeemed_at is null`,
-        [clientHash, tokenHash, Number(premio.id)],
+           product_id = excluded.product_id, created_at = now(), redeemed_at = null,
+           is_winner = excluded.is_winner`,
+        [clientHash, tokenHash, productId, ganador],
       );
-      responder(res, { premio, token, sectores: elegibles.map(({ id, name, image }: any) => ({ id, name, image })) });
+      responder(res, { ganador, premio, token, indiceResultado, nuevoSorteo: true, sectores });
       return;
     } catch (error) {
       g.console?.error?.('[productos] no se pudo procesar la ruleta:', error);
