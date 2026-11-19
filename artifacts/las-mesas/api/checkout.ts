@@ -1166,6 +1166,28 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     return;
   }
 
+  // Opciones y grupos reales (Neon). Tabla product_options (options es reservada).
+  // Se cargan ANTES de validar para que estén disponibles en el bloque de abajo.
+  const opcionesPorId = new Map<number, { id: number; groupId: number; name: string; extraPrice: number; available: boolean }>();
+  const gruposPorId = new Map<number, { id: number; name: string; type: string; required: boolean; min: number; max: number }>();
+  try {
+    const filasOpc = await consultarNeon(
+      'select o.id, o.group_id, o.name, o.extra_price, o.available, g.type, g.required, g.min_choices, g.max_choices, g.name as group_name from public.product_options o join public.option_groups g on g.id = o.group_id',
+    );
+    for (const f of filasOpc) {
+      opcionesPorId.set(Number(f.id), {
+        id: Number(f.id), groupId: Number(f.group_id), name: String(f.name),
+        extraPrice: Number(f.extra_price ?? 0), available: f.available !== false,
+      });
+      if (!gruposPorId.has(Number(f.group_id))) {
+        gruposPorId.set(Number(f.group_id), {
+          id: Number(f.group_id), name: String(f.group_name ?? ''), type: String(f.type ?? 'extra'),
+          required: f.required === true, min: Number(f.min_choices ?? 0), max: Number(f.max_choices ?? 1),
+        });
+      }
+    }
+  } catch (e) { log('[checkout] no se pudieron leer opciones', e); }
+
   // Validar opciones elegidas: ids reales, disponibles, pertenecen a grupos,
   // y respetan mínimos/máximos de cada grupo. Recalcular el precio extra.
   const optionIdsDelBody = (body.optionIds ?? {}) as Record<string, string[]>;
@@ -1179,11 +1201,11 @@ export default async function handler(req: Req, res: Res): Promise<void> {
       const grp = gruposPorId.get(op.groupId);
       if (!grp) throw new Error('Grupo no válido');
       if (grp.max > 0) {
-        const elegidas = ids.filter((x) => {
+        const elegida = ids.filter((x) => {
           const o = opcionesPorId.get(Number(x));
           return o && o.groupId === grp.id;
         });
-        if (elegidas.length > grp.max) throw new Error('Demasiadas opciones en ' + grp.name);
+        if (elegida.length > grp.max) throw new Error('Demasiadas opciones en ' + grp.name);
       }
       extraOpcionesEuros += op.extraPrice;
       nombresOpcionesPorItem.push(op.name);
@@ -1241,27 +1263,6 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   for (const item of body.items ?? []) {
     precioDeclarado.set(String(item.id ?? ''), aCentavos(item.price ?? '') / 100);
   }
-
-  // Opciones y grupos reales (Neon). Tabla product_options (options es reservada).
-  const opcionesPorId = new Map<number, { id: number; groupId: number; name: string; extraPrice: number; available: boolean }>();
-  const gruposPorId = new Map<number, { id: number; name: string; type: string; required: boolean; min: number; max: number }>();
-  try {
-    const filasOpc = await consultarNeon(
-      'select o.id, o.group_id, o.name, o.extra_price, o.available, g.type, g.required, g.min_choices, g.max_choices, g.name as group_name from public.product_options o join public.option_groups g on g.id = o.group_id',
-    );
-    for (const f of filasOpc) {
-      opcionesPorId.set(Number(f.id), {
-        id: Number(f.id), groupId: Number(f.group_id), name: String(f.name),
-        extraPrice: Number(f.extra_price ?? 0), available: f.available !== false,
-      });
-      if (!gruposPorId.has(Number(f.group_id))) {
-        gruposPorId.set(Number(f.group_id), {
-          id: Number(f.group_id), name: String(f.group_name ?? ''), type: String(f.type ?? 'extra'),
-          required: f.required === true, min: Number(f.min_choices ?? 0), max: Number(f.max_choices ?? 1),
-        });
-      }
-    }
-  } catch (e) { log('[checkout] no se pudieron leer opciones', e); }
 
   // Lineas del pedido. Se mandan con TODOS los nombres que usa el flujo:
   //  - `id` y `qty`      -> los necesita el flujo para crear el pedido.
