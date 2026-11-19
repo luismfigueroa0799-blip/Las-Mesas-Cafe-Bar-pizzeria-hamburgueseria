@@ -399,14 +399,17 @@ function App() {
                   <ProductCard
                     key={producto.id}
                     product={producto}
-                    onAddToCart={(product) => addToCart({
-                      id: String(product.id || product.name),
-                      name: product.name,
-                      price: product.price,
-                      image: product.image,
-                      opciones: product.opciones ?? [],
-                      nota: product.nota ?? '',
-                    })}
+                    onAddToCart={(product) => {
+                      addToCart({
+                        id: String(product.id || product.name),
+                        name: product.name,
+                        price: product.price,
+                        image: product.image,
+                        opciones: product.opciones ?? [],
+                        nota: product.nota ?? '',
+                      });
+                      setCartOpen(true);
+                    }}
                     showSizeSelector={false}
                   />
                 ))}
