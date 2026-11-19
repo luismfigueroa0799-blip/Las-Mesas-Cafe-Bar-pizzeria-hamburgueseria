@@ -85,13 +85,7 @@ export default function RuletaPremio({ onAbrirCarrito }: { onAbrirCarrito: () =>
           });
         }
         if (!gano) {
-          setMensajeResultado(
-            data.motivo === 'ya-premiado'
-              ? 'Ya ganaste esta semana. Esta tirada no añade otro premio; podrás volver a optar dentro de 7 días.'
-              : data.motivo === 'periodo-espera'
-                ? 'Ya participaste esta semana. Podrás volver a intentarlo dentro de 7 días.'
-                : 'Esta vez no hubo premio. Podrás volver a intentarlo dentro de 7 días.',
-          );
+          setMensajeResultado('Esta vez no te ha tocado. ¡Gracias por jugar!');
         }
         setGirando(false);
         setResultado(gano ? 'ganador' : 'sin-premio');
@@ -143,7 +137,6 @@ export default function RuletaPremio({ onAbrirCarrito }: { onAbrirCarrito: () =>
           <div className="ruleta-ganador" role="status">{mensajeResultado}</div>
         ) : (
           <>
-            <p className="ruleta-condiciones">Premios entre los productos disponibles de hasta 2 €.</p>
             <button type="button" className="ruleta-boton" onClick={girar} disabled={girando}>
               {girando ? <><LoaderCircle size={18} className="ruleta-cargando" /> Girando…</> : 'Girar la ruleta'}
             </button>
