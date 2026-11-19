@@ -5,6 +5,10 @@
     {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
+    },
+    {
+      "source": "/api/debug-pedido",
+      "destination": "/api/diagnostico?__endpoint=debug-pedido"
     }
   ],
   "headers": [
