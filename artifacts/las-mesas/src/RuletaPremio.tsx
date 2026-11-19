@@ -157,7 +157,10 @@ export default function RuletaPremio({ onAbrirCarrito }: { onAbrirCarrito: () =>
           <span className="ruleta-puntero" aria-hidden="true" />
           <div className="ruleta-rueda" style={{ background: colores, transform: `rotate(${rotacion}deg)` }}>
             {sectoresVisibles.map((sector, i) => (
-              <span key={`${sector.id}-${i}`} className={`ruleta-sector-label${sector.premiable ? ' ruleta-sector-premio' : ''}`} style={{ transform: `rotate(${sector.centro}deg) translateY(-92px) rotate(90deg)` }}>{sector.name}</span>
+              <span key={`${sector.id}-${i}`} className={`ruleta-sector-label${sector.premiable ? ' ruleta-sector-premio' : ''}`} style={{ transform: `rotate(${sector.centro}deg) translateY(-78px) rotate(${-sector.centro}deg)` }}>
+                {sector.premiable && sector.image && <img src={sector.image} alt="" />}
+                {sector.premiable && <span>{sector.name}</span>}
+              </span>
             ))}
             <span className="ruleta-centro"><Gift size={24} /></span>
           </div>
