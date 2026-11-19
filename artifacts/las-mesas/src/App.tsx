@@ -62,16 +62,6 @@ type AvisoPedido =
   | { tipo: 'error'; mensaje: string }
   | null;
 
-// El panel de inventario vive en su propia ruta (/admin/inventario). El
-// rewrite de Vercel manda esa URL al index.html, asi que la SPA la muestra
-// sin necesidad de un router.
-const rutaActual =
-  typeof window !== 'undefined'
-    ? window.location.pathname.replace(/\/+$/, '').toLowerCase()
-    : '';
-const esRutaLogin = rutaActual === '/login';
-const esRutaAdmin = rutaActual.startsWith('/admin');
-
 function App() {
   const [activeSlug, setActiveSlug] = useState(CATEGORIES[0].slug);
   const [productos, setProductos] = useState<Product[]>([]);
@@ -104,6 +94,10 @@ function App() {
   const [cartOpen, setCartOpen] = useState(false);
   const [avisoPedido, setAvisoPedido] = useState<AvisoPedido>(null);
   const [location, navegar] = useLocation();
+  const rutaActual = location.replace(/\/+$/, '').toLowerCase();
+  const esRutaLogin = rutaActual === '/login';
+  const esRutaOpciones = rutaActual === '/admin/opciones';
+  const esRutaAdmin = rutaActual.startsWith('/admin');
   const [productosVisibles, setProductosVisibles] = useState(12);
   const { cart, addToCart, clearCart } = useCart();
   const { tema, alternarTema } = useTheme();
@@ -300,9 +294,8 @@ function App() {
   }
 
   if (esRutaLogin) return <Login />;
-  if (esRutaAdmin) return <Inventario />;
-  const esRutaOpciones = window.location.pathname === '/admin/opciones';
   if (esRutaOpciones) return <GestionOpciones />;
+  if (esRutaAdmin) return <Inventario />;
 
 
   // ===== Páginas (contenido por ruta) =====
