@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useI18n } from '@/I18nContext';
 import { iniciales } from '@/products';
+import ProductOptionsModal from '@/ProductOptionsModal';
+import type { CartOpcion } from '@/CartContext';
 import { AvailabilityBadge } from '@/AvailabilityBadge';
 
 // Tipo de producto (compatible con la tabla de Neon).
@@ -16,11 +18,13 @@ export interface Product {
   category_slug?: string;
   /** false = producto agotado (lo marca el panel /admin/inventario). */
   disponible?: boolean;
+  optionGroups?: import('@/products').OptionGroup[];
+  optionGroupIds?: string[];
 }
 
 interface ProductCardProps {
   product: Product;
-  onAddToCart: (product: { id?: string; name: string; price: string; image: string }) => void;
+  onAddToCart: (product: { id?: string; name: string; price: string; image: string; opciones?: CartOpcion[]; nota?: string }) => void;
   selectedSize?: 'mini' | 'normal';
   showSizeSelector?: boolean;
 }
@@ -33,11 +37,13 @@ const ProductCard: React.FC<ProductCardProps> = ({
 }) => {
   const { t } = useI18n();
   const [size, setSize] = useState(selectedSize);
+  const [modalAbierto, setModalAbierto] = useState(false);
   const foto = product.image_url ?? null;
   // Agotado: el panel de inventario (/admin/inventario) lo marca.
   const disponible = product.disponible !== false;
 
   return (
+    <>
     <article className="product-card">
       {/* Foto del producto. Si no hay image_url se muestra un monograma elegante
           en lugar de una imagen que no corresponde al plato. */}
@@ -101,14 +107,16 @@ const ProductCard: React.FC<ProductCardProps> = ({
             type="button"
             className="product-card-add"
             disabled={!disponible}
-            onClick={() =>
-              onAddToCart({
+            onClick={() => {
+              const grupos = (product.optionGroups ?? []).filter((g) => g.options.some((o) => o.available));
+              if (grupos.length) setModalAbierto(true);
+              else onAddToCart({
                 id: product.id,
                 name: product.name,
                 price: product.price,
                 image: foto ?? '',
-              })
-            }
+              });
+            }}
             data-testid={`button-add-${product.id}`}
           >
             {disponible ? (
@@ -122,6 +130,26 @@ const ProductCard: React.FC<ProductCardProps> = ({
         </div>
       </div>
     </article>
+    {modalAbierto && (
+      <ProductOptionsModal
+        product={product}
+        onClose={() => setModalAbierto(false)}
+        onAdd={(opciones, nota, quantity) => {
+          for (let i = 0; i < quantity; i++) {
+            onAddToCart({
+              id: product.id,
+              name: product.name,
+              price: product.price,
+              image: foto ?? '',
+              opciones,
+              nota,
+            });
+          }
+          setModalAbierto(false);
+        }}
+      />
+    )}
+    </>
   );
 };
 

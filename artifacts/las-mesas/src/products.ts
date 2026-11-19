@@ -14,6 +14,23 @@
  * catálogo local con los ids guardados en productos-supabase.json.
  */
 
+export interface ProductOption {
+  id: string;
+  name: string;
+  extraPrice: number;
+  available: boolean;
+}
+
+export interface OptionGroup {
+  id: string;
+  name: string;
+  type: 'quitar' | 'extra' | 'elegir';
+  required: boolean;
+  min: number;
+  max: number;
+  options: ProductOption[];
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -30,6 +47,9 @@ export interface Product {
   disponible?: boolean;
   /** Id numerico de la categoria (columna category_id de Neon). */
   categoria_id?: number | null;
+  /** Grupos de opciones disponibles para este producto. */
+  optionGroups?: OptionGroup[];
+  optionGroupIds?: string[];
 }
 
 export interface Category {
@@ -267,6 +287,8 @@ export async function getProductos(): Promise<Product[]> {
             // Agotado: el panel de inventario lo cambia en la base de datos.
             disponible: p.disponible !== false,
             categoria_id: p.categoria_id ?? null,
+            optionGroups: Array.isArray(p.optionGroups) ? p.optionGroups : [],
+            optionGroupIds: Array.isArray(p.optionGroupIds) ? p.optionGroupIds.map(String) : [],
           };
         });
       }

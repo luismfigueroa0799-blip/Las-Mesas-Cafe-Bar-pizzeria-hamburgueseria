@@ -268,7 +268,16 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
       name: item.name,
       price: item.price,
       quantity: item.quantity,
+      optionIds: (item.opciones ?? []).map((o) => o.optionId),
+      nota: item.nota ?? '',
     }));
+
+    // Al servidor van SOLO ids de opciones y la nota (nunca precios).
+    const optionIds: Record<string, string[]> = {};
+    for (const item of cart) {
+      optionIds[item.id] = (item.opciones ?? []).map((o) => o.optionId);
+    }
+    const notaCocina = cart.map((i) => i.nota).filter(Boolean).join(' | ').slice(0, 500);
 
     const total = articulos.reduce(
       (suma, item) => suma + precioANumero(item.price) * item.quantity,
@@ -298,6 +307,8 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
       url: esMesaPorQR ? '/api/checkout-mesa' : '/api/checkout',
       body: {
         items: articulos,
+        optionIds,
+        nota: notaCocina,
         customerEmail: datos.email.trim(),
         customerName: datos.nombre.trim(),
         telefono: normalizarTelefono(datos.telefono.trim()),
@@ -426,9 +437,15 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
                     )}
                     <div className="cart-item-info">
                       <strong>{item.name}</strong>
+                      {(item.opciones ?? []).length > 0 && (
+                        <span className="cart-item-opciones">
+                          {item.opciones!.map((o) => o.optionName).join(' · ')}
+                        </span>
+                      )}
+                      {item.nota && <span className="cart-item-nota">“{item.nota}”</span>}
                       <span>{item.quantity} × {item.price}</span>
                     </div>
-                    <button type="button" className="cart-item-remove" onClick={() => removeFromCart(item.id)} aria-label={`Quitar ${item.name}`}>
+                    <button type="button" className="cart-item-remove" onClick={() => removeFromCart(item.key)} aria-label={`Quitar ${item.name}`}>
                       <X size={14} />
                     </button>
                   </li>

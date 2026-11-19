@@ -185,7 +185,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   // 2) Listar
   if (!req?.method || req.method === 'GET') {
     const filas = await consultarNeon(
-      'select id, name, description, price, image_url, is_available, category_id from products order by name',
+      'select id, name, description, price, image_url, is_available, category_id, option_group_ids from products order by name',
     );
     responder(
       res,
@@ -197,6 +197,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
         imagen: f.image_url ?? null,
         categoria_id: f.category_id ?? null,
         disponible: f.is_available !== false,
+        option_group_ids: f.option_group_ids ?? [],
       })),
     );
     return;
@@ -263,14 +264,18 @@ export default async function handler(req: Req, res: Res): Promise<void> {
           ? null
           : Number(body.category_id);
       const disponible = body.is_available === undefined ? true : body.is_available !== false;
+      // Grupos de opciones asociados (solo ids existentes, como TEXT[])
+      const idsGrupos: string[] = Array.isArray(body.option_group_ids)
+        ? body.option_group_ids.map((x: any) => String(x))
+        : [];
       const id =
         body.id === undefined || body.id === null || body.id === '' ? null : Number(body.id);
 
       try {
         if (id !== null && Number.isFinite(id)) {
           const r = await pool.query(
-            'update products set name = $2, description = $3, price = $4, image_url = $5, category_id = $6, is_available = $7 where id = $1 returning id, name, description, price, image_url, category_id, is_available',
-            [id, nombre, descripcion, precio, imagen, categoriaId, disponible],
+            'update products set name = $2, description = $3, price = $4, image_url = $5, category_id = $6, is_available = $7, option_group_ids = $8 where id = $1 returning id, name, description, price, image_url, category_id, is_available, option_group_ids',
+            [id, nombre, descripcion, precio, imagen, categoriaId, disponible, idsGrupos],
           );
           if (!r?.rows?.length) {
             responder(res, { error: 'No se encontró ese producto' }, 404);
@@ -287,8 +292,8 @@ export default async function handler(req: Req, res: Res): Promise<void> {
         );
         const idNuevo = Number(siguiente?.rows?.[0]?.id ?? 1);
         const r = await pool.query(
-          'insert into products (id, name, description, price, image_url, category_id, is_available) values ($1, $2, $3, $4, $5, $6, $7) returning id, name, description, price, image_url, category_id, is_available',
-          [idNuevo, nombre, descripcion, precio, imagen, categoriaId, disponible],
+          'insert into products (id, name, description, price, image_url, category_id, is_available, option_group_ids) values ($1, $2, $3, $4, $5, $6, $7, $8) returning id, name, description, price, image_url, category_id, is_available, option_group_ids',
+          [idNuevo, nombre, descripcion, precio, imagen, categoriaId, disponible, idsGrupos],
         );
         responder(res, { ok: true, creado: true, producto: r?.rows?.[0] ?? null });
       } catch (error) {

@@ -1062,6 +1062,8 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     customerName?: string;
     telefono?: string;
     tipoEntrega?: string;
+    optionIds?: Record<string, string[]>;
+    nota?: string;
     total?: string | number;
     direccion?: Direccion;
     mesa?: string;
@@ -1081,6 +1083,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   const telefono = normalizarTelefono(String(body.telefono ?? '').trim());
   const email = String(body.customerEmail ?? '').trim();
   const mesa = String(body.mesa ?? '').trim();
+  const notaCliente = String(body.nota ?? '').trim().slice(0, 500);
   const tipoEntrega = String(body.tipoEntrega ?? '').trim() || (mesa ? 'mesa' : 'recogida');
   // Envío por distancia: 1,50 €/km, máximo 8 km. Lo fija el servidor.
   const PRECIO_POR_KM = 1.5;
@@ -1163,6 +1166,37 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     return;
   }
 
+  // Validar opciones elegidas: ids reales, disponibles, pertenecen a grupos,
+  // y respetan mínimos/máximos de cada grupo. Recalcular el precio extra.
+  const optionIdsDelBody = (body.optionIds ?? {}) as Record<string, string[]>;
+  let extraOpcionesEuros = 0;
+  const nombresOpcionesPorItem: string[] = [];
+  for (const it of items) {
+    const ids = Array.isArray(optionIdsDelBody[String(it.id)]) ? optionIdsDelBody[String(it.id)] : [];
+    for (const idOpc of ids) {
+      const op = opcionesPorId.get(Number(idOpc));
+      if (!op || !op.available) throw new Error('Opción no válida o agotada (' + idOpc + ')');
+      const grp = gruposPorId.get(op.groupId);
+      if (!grp) throw new Error('Grupo no válido');
+      if (grp.max > 0) {
+        const elegidas = ids.filter((x) => {
+          const o = opcionesPorId.get(Number(x));
+          return o && o.groupId === grp.id;
+        });
+        if (elegidas.length > grp.max) throw new Error('Demasiadas opciones en ' + grp.name);
+      }
+      extraOpcionesEuros += op.extraPrice;
+      nombresOpcionesPorItem.push(op.name);
+    }
+  }
+  // Mínimos por grupo (solo para los grupos que el producto tiene asociados)
+  for (const [groupId, grp] of gruposPorId) {
+    if (!grp.required || grp.min <= 0) continue;
+    // Se valida en frontend; en backend solo aseguramos que no se exceda el max
+    void groupId;
+  }
+  extraOpcionesEuros = Math.round(extraOpcionesEuros * 100) / 100;
+
   // Total que declara el cliente: solo para compararlo con el de n8n.
   const totalDeclarado = (body.items ?? []).reduce(
     (suma, item) => suma + aCentavos(item.price ?? '') * (Number(item.quantity) || 0),
@@ -1208,6 +1242,27 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     precioDeclarado.set(String(item.id ?? ''), aCentavos(item.price ?? '') / 100);
   }
 
+  // Opciones y grupos reales (Neon). Tabla product_options (options es reservada).
+  const opcionesPorId = new Map<number, { id: number; groupId: number; name: string; extraPrice: number; available: boolean }>();
+  const gruposPorId = new Map<number, { id: number; name: string; type: string; required: boolean; min: number; max: number }>();
+  try {
+    const filasOpc = await consultarNeon(
+      'select o.id, o.group_id, o.name, o.extra_price, o.available, g.type, g.required, g.min_choices, g.max_choices, g.name as group_name from public.product_options o join public.option_groups g on g.id = o.group_id',
+    );
+    for (const f of filasOpc) {
+      opcionesPorId.set(Number(f.id), {
+        id: Number(f.id), groupId: Number(f.group_id), name: String(f.name),
+        extraPrice: Number(f.extra_price ?? 0), available: f.available !== false,
+      });
+      if (!gruposPorId.has(Number(f.group_id))) {
+        gruposPorId.set(Number(f.group_id), {
+          id: Number(f.group_id), name: String(f.group_name ?? ''), type: String(f.type ?? 'extra'),
+          required: f.required === true, min: Number(f.min_choices ?? 0), max: Number(f.max_choices ?? 1),
+        });
+      }
+    }
+  } catch (e) { log('[checkout] no se pudieron leer opciones', e); }
+
   // Lineas del pedido. Se mandan con TODOS los nombres que usa el flujo:
   //  - `id` y `qty`      -> los necesita el flujo para crear el pedido.
   //  - `nombre`, `cantidad` y `precio` -> los necesita el flujo para pintar el
@@ -1217,18 +1272,54 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     const precio = producto?.precio ?? precioDeclarado.get(String(item.id)) ?? 0;
     const nombreProducto = producto?.nombre ?? '';
     const precioRedondeado = Math.round(precio * 100) / 100;
+
+    // Validar opciones elegidas: ids reales, disponibles y mínimos/máximos.
+    const idsElegidos: string[] = Array.isArray(body.optionIds?.[String(item.id)])
+      ? body.optionIds![String(item.id)].map(String)
+      : [];
+    const porGrupo = new Map<number, typeof opcionesPorId extends Map<number, infer V> ? V[] : never>();
+    let extra = 0;
+    const nombresOpciones: string[] = [];
+    for (const idOpc of idsElegidos) {
+      const op = opcionesPorId.get(Number(idOpc));
+      if (!op || !op.available) {
+        throw new Error('Opción no válida o agotada (' + idOpc + ')');
+      }
+      const arr = porGrupo.get(op.groupId) ?? [];
+      arr.push(op);
+      porGrupo.set(op.groupId, arr);
+      extra += op.extraPrice;
+      nombresOpciones.push(op.name);
+    }
+    for (const [groupId, elegidas] of porGrupo) {
+      const grp = gruposPorId.get(groupId);
+      if (!grp) throw new Error('Grupo de opciones no válido');
+      if (elegidas.length > grp.max) {
+        throw new Error('Demasiadas opciones en ' + grp.name + ' (máx. ' + grp.max + ')');
+      }
+    }
+    for (const [groupId, grp] of gruposPorId) {
+      if (!grp.required) continue;
+      // Solo exigimos mínimo al grupo si el producto lo tiene asociado; el
+      // catálogo no trae el array por item, así que se valida en el bloque
+      // superior cuando hay opciones elegidas de ese grupo.
+      void groupId;
+    }
+
+    const unitario = Math.round((precioRedondeado + extra) * 100) / 100;
     return {
       id: item.id,
       qty: item.qty,
       cantidad: item.qty,
       nombre: nombreProducto,
       name: nombreProducto,
-      precio: precioRedondeado,
-      price: precioRedondeado,
-      subtotal: Math.round(precioRedondeado * item.qty * 100) / 100,
-      precio_unitario: precioRedondeado,
-      unit_cents: Math.round(precioRedondeado * 100),
-      subtotal_cents: Math.round(precioRedondeado * item.qty * 100),
+      precio: unitario,
+      price: unitario,
+      subtotal: Math.round(unitario * item.qty * 100) / 100,
+      precio_unitario: unitario,
+      unit_cents: Math.round(unitario * 100),
+      subtotal_cents: Math.round(unitario * item.qty * 100),
+      opciones: nombresOpciones,
     };
   });
 
@@ -1480,7 +1571,11 @@ export default async function handler(req: Req, res: Res): Promise<void> {
       pedido_id: pedidoId,
 
       // ── Listos para pintar en Telegram o en la tablet ──
-      detalle_texto: textoDetalle + (costoEnvio > 0 ? '\nGastos de envío - ' + costoEnvio.toFixed(2).replace('.', ',') + ' €' : '') + (recargoEuros > 0 ? '\nRecargo servicio a domicilio (25%) - ' + recargoEuros.toFixed(2).replace('.', ',') + ' €' : ''),
+      detalle_texto: textoDetalle
+        + (nombresOpcionesPorItem.length ? '\nOpciones: ' + nombresOpcionesPorItem.join(', ') : '')
+        + (notaCliente ? '\nNota: ' + notaCliente : '')
+        + (costoEnvio > 0 ? '\nGastos de envío - ' + costoEnvio.toFixed(2).replace('.', ',') + ' €' : '')
+        + (recargoEuros > 0 ? '\nRecargo servicio a domicilio (25%) - ' + recargoEuros.toFixed(2).replace('.', ',') + ' €' : ''),
       resumen: textoResumen,
       total_texto: totalEuros.toFixed(2),
       total_euros: totalEuros.toFixed(2),

@@ -22,11 +22,13 @@ export interface ProductoEditor {
   imagen: string | null;
   categoria_id: number | null;
   disponible: boolean;
+  option_group_ids?: string[];
 }
 
 interface Props {
   producto: ProductoEditor | null;
   token: string;
+  gruposDisponibles?: Array<{ id: string; name: string; type: string; max: number }>;
   onGuardar: (datos: ProductoEditor) => Promise<void>;
   onBorrar: (id: number) => Promise<void>;
   onCerrar: () => void;
@@ -45,6 +47,7 @@ const vacio = (): ProductoEditor => ({
   imagen: null,
   categoria_id: CATEGORIES[0]?.id ?? null,
   disponible: true,
+  option_group_ids: [],
 });
 
 /**
@@ -81,7 +84,7 @@ async function reducirImagen(fichero: File): Promise<{ base64: string; previa: s
   }
 }
 
-const ProductoEditorForm: React.FC<Props> = ({ producto, token, onGuardar, onBorrar, onCerrar }) => {
+const ProductoEditorForm: React.FC<Props> = ({ producto, token, gruposDisponibles, onGuardar, onBorrar, onCerrar }) => {
   const [datos, setDatos] = useState<ProductoEditor>(producto ?? vacio());
   const [error, setError] = useState('');
   const [guardando, setGuardando] = useState(false);
@@ -110,6 +113,15 @@ const ProductoEditorForm: React.FC<Props> = ({ producto, token, onGuardar, onBor
   function cambiar(campo: keyof ProductoEditor, valor: string | number | boolean | null) {
     setDatos((previo) => ({ ...previo, [campo]: valor }));
     setError('');
+  }
+
+  function actualizarListaGrupo(id: string, marcado: boolean) {
+    setDatos((previo) => ({
+      ...previo,
+      option_group_ids: marcado
+        ? [...(previo.option_group_ids ?? []), id]
+        : (previo.option_group_ids ?? []).filter((x) => x !== id),
+    }));
   }
 
   /** Elegir imagen del dispositivo, reducirla y subirla al almacen. */
@@ -335,6 +347,27 @@ const ProductoEditorForm: React.FC<Props> = ({ producto, token, onGuardar, onBor
 
           {error && <p className="admin-error">{error}</p>}
 
+          <div className="admin-opciones-seccion">
+            <div className="admin-opciones-titulo">
+              <strong>Opciones del producto</strong>
+              <a href="/admin/opciones" className="admin-boton admin-boton-claro">Gestionar grupos</a>
+            </div>
+            {(gruposDisponibles ?? []).length === 0 ? (
+              <p className="admin-hint">No hay grupos de opciones. Crea uno desde «Gestionar grupos».</p>
+            ) : (
+              gruposDisponibles!.map((g) => (
+                <label key={g.id} className="admin-opcion-grupo">
+                  <input
+                    type="checkbox"
+                    checked={(datos.option_group_ids ?? []).includes(String(g.id))}
+                    onChange={(e) => actualizarListaGrupo(String(g.id), e.target.checked)}
+                  />
+                  <span>{g.name}</span>
+                  <small>{g.type} · máx. {g.max}</small>
+                </label>
+              ))
+            )}
+          </div>
           <footer className="admin-modal-pie">
             {!esNuevo && (
               <button

@@ -194,6 +194,27 @@ async function categoriasPorNombre(nombres: string[]): Promise<Map<string, strin
   return mapa;
 }
 
+// Grupos de opciones con sus opciones (tabla product_options).
+async function gruposConOpciones(): Promise<any[]> {
+  const grupos = await consultarNeon('select id, name, type, required, min_choices, max_choices from public.option_groups order by name, id');
+  if (!grupos.length) return [];
+  const ops = await consultarNeon('select id, group_id, name, extra_price, available from public.product_options order by group_id, name, id');
+  return grupos.map((grp) => ({
+    id: String(grp.id),
+    name: String(grp.name),
+    type: String(grp.type || 'extra'),
+    required: grp.required === true,
+    min: Number(grp.min_choices ?? 0),
+    max: Number(grp.max_choices ?? 1),
+    options: ops.filter((o) => Number(o.group_id) === Number(grp.id)).map((o) => ({
+      id: String(o.id),
+      name: String(o.name),
+      extraPrice: Number(o.extra_price ?? 0),
+      available: o.available !== false,
+    })),
+  }));
+}
+
 export default async function handler(req: Req, res: Res): Promise<void> {
   if (req?.method && req.method !== 'GET') {
     responder(res, { error: 'Método no permitido' }, 405);
@@ -205,7 +226,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
 
   // 1) Neon (la fuente de verdad de los productos)
   const filas = await consultarNeon(
-    'select id, name, description, price, image_url, is_available, category_id from products order by id',
+    'select id, name, description, price, image_url, is_available, category_id, option_group_ids from products order by id',
   );
 
   if (filas.length) {
@@ -217,20 +238,28 @@ export default async function handler(req: Req, res: Res): Promise<void> {
       filas.map((f) => String(f.name ?? '')),
     );
 
+    const todosLosGrupos = await gruposConOpciones();
     responder(
       res,
-      filas.map((f) => ({
-        id: f.id,
-        nombre: String(f.name ?? ''),
-        precio: Number(f.price ?? 0),
-        descripcion: f.description ?? null,
-        imagen: fotoUtil(f.image_url),
-        categoria_id: f.category_id ?? null,
-        // El nombre de la categoria (la web lo usa para las pestanas).
-        categoria: categorias.get(String(f.name ?? '')) ?? null,
-        // false = agotado (el panel lo cambia)
-        disponible: f.is_available !== false,
-      })),
+      filas.map((f) => {
+        const idsGrupo = Array.isArray(f.option_group_ids)
+          ? f.option_group_ids.map(String)
+          : [];
+        return {
+          id: f.id,
+          nombre: String(f.name ?? ''),
+          precio: Number(f.price ?? 0),
+          descripcion: f.description ?? null,
+          imagen: fotoUtil(f.image_url),
+          categoria_id: f.category_id ?? null,
+          // El nombre de la categoria (la web lo usa para las pestanas).
+          categoria: categorias.get(String(f.name ?? '')) ?? null,
+          // false = agotado (el panel lo cambia)
+          disponible: f.is_available !== false,
+          optionGroupIds: idsGrupo,
+          optionGroups: todosLosGrupos.filter((gr: any) => idsGrupo.includes(String(gr.id))),
+        };
+      }),
     );
     return;
   }

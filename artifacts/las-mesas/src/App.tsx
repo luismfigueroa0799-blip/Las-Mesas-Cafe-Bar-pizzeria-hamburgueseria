@@ -8,6 +8,7 @@ import { useI18n, type Idioma } from '@/I18nContext';
 import CartSidebar from '@/CartSidebar';
 import ProductCard from '@/ProductCard';
 import Inventario from '@/admin/Inventario';
+import GestionOpciones from '@/admin/GestionOpciones';
 import Login from '@/admin/Login';
 import {
   alCambiarMenu,
@@ -300,6 +301,8 @@ function App() {
 
   if (esRutaLogin) return <Login />;
   if (esRutaAdmin) return <Inventario />;
+  const esRutaOpciones = window.location.pathname === '/admin/opciones';
+  if (esRutaOpciones) return <GestionOpciones />;
 
 
   // ===== Páginas (contenido por ruta) =====
@@ -408,6 +411,8 @@ function App() {
                       name: product.name,
                       price: product.price,
                       image: product.image,
+                      opciones: product.opciones ?? [],
+                      nota: product.nota ?? '',
                     })}
                     showSizeSelector={false}
                   />

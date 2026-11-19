@@ -2,12 +2,24 @@ import { createContext, useContext, useState, useEffect, useCallback, PropsWithC
 import { precioANumero } from '@/precio';
 
 // Definir el tipo para un producto del carrito
-interface CartProduct {
+export interface CartOpcion {
+  groupId: string;
+  groupName: string;
+  optionId: string;
+  optionName: string;
+  extraPrice: number;
+}
+
+export interface CartProduct {
+  /** Clave única de esta configuración (producto + opciones + nota). */
+  key: string;
   id: string;
   name: string;
   price: string;
   image: string;
   quantity: number;
+  opciones: CartOpcion[];
+  nota: string;
 }
 
 // Clave de almacenamiento en el navegador (sobrevive a recargas).
@@ -16,8 +28,13 @@ const CLAVE_ALMACEN = 'lm_carrito_lasmesas';
 // Contexto del carrito
 const CartContext = createContext<{
   cart: CartProduct[];
-  addToCart: (product: Omit<CartProduct, 'id' | 'quantity'> & { id?: string }) => void;
-  removeFromCart: (productId: string) => void;
+  addToCart: (product: Omit<CartProduct, 'id' | 'quantity' | 'key' | 'opciones' | 'nota'> & {
+    id?: string;
+    opciones?: CartOpcion[];
+    nota?: string;
+  }) => void;
+  removeFromCart: (key: string) => void;
+  updateQuantity: (key: string, quantity: number) => void;
   total: number;
   clearCart: () => void;
 }>({} as any);
@@ -40,9 +57,16 @@ function leerAlmacen(): CartProduct[] {
     if (!bruto) return [];
     const datos = JSON.parse(bruto);
     if (!Array.isArray(datos)) return [];
-    return datos.filter(
-      (item: CartProduct) => item && item.name && idValido(item.id) && Number(item.quantity) > 0,
-    );
+    return datos
+      .filter(
+        (item: CartProduct) => item && item.name && idValido(item.id) && Number(item.quantity) > 0,
+      )
+      .map((item: CartProduct) => ({
+        ...item,
+        key: item.key || String(item.id) + '|' + JSON.stringify(item.opciones ?? []) + '|' + (item.nota ?? ''),
+        opciones: Array.isArray(item.opciones) ? item.opciones : [],
+        nota: String(item.nota ?? '').slice(0, 140),
+      }));
   } catch {
     return [];
   }
@@ -65,48 +89,69 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   // Updater funcional: evita perder articulos si se anaden varios seguidos
   // (si se usara [...cart, ...] el closure estaria desactualizado).
   const addToCart = useCallback(
-    (product: Omit<CartProduct, 'id' | 'quantity'> & { id?: string }) => {
+    (product: Omit<CartProduct, 'id' | 'quantity' | 'key' | 'opciones' | 'nota'> & {
+      id?: string;
+      opciones?: CartOpcion[];
+      nota?: string;
+    }) => {
+      const id = String(product.id || product.name);
+      const opciones = product.opciones ?? [];
+      const nota = String(product.nota ?? '').slice(0, 140);
+      const key = id + '|' + JSON.stringify(opciones) + '|' + nota;
       setCart((previo) => {
-        const existente = previo.find(
-          (item) => item.name === product.name && item.image === product.image,
-        );
+        const existente = previo.find((item) => item.key === key);
         if (existente) {
           return previo.map((item) =>
-            item.name === product.name && item.image === product.image
-              ? { ...item, quantity: item.quantity + 1 }
-              : item,
+            item.key === key ? { ...item, quantity: item.quantity + 1 } : item,
           );
         }
-        // El id del carrito es el id de la tabla `productos` (numero como string),
-        // el mismo que manda el checkout al validar contra Neon. Con el slug ni
-        // timestamp no se puede resolver el producto y el pedido se rechaza con
-        // "El carrito tiene articulos no validos".
-        const id = String(product.id || product.name);
-        return [...previo, { ...product, id, quantity: 1 }];
+        return [
+          ...previo,
+          {
+            ...product,
+            id,
+            key,
+            opciones,
+            nota,
+            quantity: 1,
+          } as CartProduct,
+        ];
       });
     },
     [],
   );
 
-  const removeFromCart = useCallback((productId: string) => {
-    setCart((previo) => previo.filter((item) => item.id !== productId));
+  const removeFromCart = useCallback((key: string) => {
+    setCart((previo) => previo.filter((item) => item.key !== key));
+  }, []);
+
+  const updateQuantity = useCallback((key: string, quantity: number) => {
+    setCart((previo) =>
+      quantity <= 0
+        ? previo.filter((item) => item.key !== key)
+        : previo.map((item) => (item.key === key ? { ...item, quantity } : item)),
+    );
   }, []);
 
   const clearCart = useCallback(() => {
     setCart([]);
     try {
       window.localStorage.removeItem(CLAVE_ALMACEN);
-    } catch {
-      /* nada que borrar */
-    }
+    } catch { /* nada que borrar */ }
   }, []);
 
   // OJO: se usa precioANumero (no parseFloat) porque los precios estan en
   // formato espanol ('9,50 EUR') y parseFloat descartaria los centimos.
-  const total = cart.reduce((sum, item) => sum + precioANumero(item.price) * item.quantity, 0);
+  const total = cart.reduce(
+    (sum, item) =>
+      sum +
+      (precioANumero(item.price) + (item.opciones ?? []).reduce((s, o) => s + o.extraPrice, 0)) *
+        item.quantity,
+    0,
+  );
 
   return (
-    <CartContext.Provider value={{ cart, addToCart, removeFromCart, total, clearCart }}>
+    <CartContext.Provider value={{ cart, addToCart, removeFromCart, updateQuantity, total, clearCart }}>
       {children}
     </CartContext.Provider>
   );

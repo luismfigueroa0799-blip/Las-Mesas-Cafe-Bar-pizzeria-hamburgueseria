@@ -2153,3 +2153,57 @@ html:not(.dark) .home-hero { background: #15120f !important; }
 @media (max-width: 900px) {
   .site-topbar { display: block; }
 }
+
+/* ===== MODAL DE OPCIONES (estilo Glovo) ===== */
+.opt-overlay { position: fixed; inset: 0; z-index: 900; background: rgba(0,0,0,.55); backdrop-filter: blur(2px); }
+.opt-sheet {
+  position: fixed; z-index: 901;
+  left: 50%; top: 50%; transform: translate(-50%,-50%);
+  width: min(520px, calc(100vw - 32px)); max-height: min(88vh, 820px);
+  display: flex; flex-direction: column;
+  background: #fff; color: #2C2C2C; border-radius: 16px;
+  box-shadow: 0 24px 70px rgba(0,0,0,.4); overflow: hidden;
+}
+html.dark .opt-sheet { background: #22201F; color: #F5F0E6; border: 1px solid rgba(212,175,55,.25); }
+.opt-cabecera { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px; border-bottom: 1px solid #E5E7EB; }
+html.dark .opt-cabecera { border-color: rgba(212,175,55,.2); }
+.opt-cabecera h2 { font-family: var(--app-font-serif); font-size: 1.5rem; margin: 0; }
+.opt-cerrar { width: 44px; height: 44px; border: 0; border-radius: 50%; background: #F5F5F5; color: #2C2C2C; cursor: pointer; display: grid; place-items: center; }
+html.dark .opt-cerrar { background: #2A2725; color: #F5F0E6; }
+.opt-cuerpo { padding: 18px 20px; overflow-y: auto; flex: 1; }
+.opt-foto { width: 100%; height: 180px; object-fit: cover; border-radius: 10px; }
+.opt-desc { color: #666; font-size: .9rem; margin: 12px 0; }
+html.dark .opt-desc { color: #D1D5DB; }
+.opt-base { font-size: .95rem; }
+.opt-grupo { margin-top: 22px; }
+.opt-grupo-titulo { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin-bottom: 10px; }
+.opt-grupo-titulo h3 { font-family: var(--app-font-serif); font-size: 1.15rem; margin: 0; }
+.opt-grupo-badge { font-size: .68rem; color: #8a6a1f; text-transform: uppercase; letter-spacing: .05em; }
+html.dark .opt-grupo-badge { color: #D4AF37; }
+.opt-lista { display: grid; gap: 6px; }
+.opt-opcion { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 8px 12px; border: 1px solid #E5E7EB; border-radius: 8px; cursor: pointer; }
+.opt-opcion.is-on { border-color: #D4AF37; background: rgba(212,175,55,.08); }
+html.dark .opt-opcion { border-color: rgba(212,175,55,.2); }
+.opt-opcion input { width: 20px; height: 20px; accent-color: #D4AF37; }
+.opt-nombre { flex: 1; }
+.opt-precio { color: #8a6a1f; font-weight: 600; font-size: .85rem; }
+html.dark .opt-precio { color: #E8C65A; }
+.opt-nota { display: grid; gap: 5px; margin-top: 22px; }
+.opt-nota span { font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: #666; }
+.opt-nota input { width: 100%; min-height: 46px; padding: 0 12px; border: 1px solid #DDD; border-radius: 6px; background: #F9F9F9; color: #2C2C2C; }
+html.dark .opt-nota input { background: #2A2725; color: #F5F0E6; border-color: rgba(212,175,55,.25); }
+.opt-nota small { text-align: right; color: #999; }
+.opt-error { color: #c0392b; font-size: .85rem; margin: 12px 0 0; }
+.opt-pie { display: flex; align-items: center; gap: 12px; padding: 14px 20px; border-top: 1px solid #E5E7EB; }
+html.dark .opt-pie { border-color: rgba(212,175,55,.2); }
+.opt-cantidad { display: flex; align-items: center; gap: 8px; }
+.opt-cantidad button { width: 44px; height: 44px; border: 1px solid #DDD; border-radius: 8px; background: #fff; cursor: pointer; display: grid; place-items: center; }
+html.dark .opt-cantidad button { background: #2A2725; color: #F5F0E6; border-color: rgba(212,175,55,.3); }
+.opt-cantidad span { min-width: 24px; text-align: center; font-weight: 700; }
+.opt-anadir { flex: 1; min-height: 50px; border: 0; border-radius: 8px; background: #D4AF37; color: #fff; font-weight: 700; cursor: pointer; }
+.cart-item-opciones { display: block; font-size: .72rem; color: #8a6a1f; }
+.cart-item-nota { display: block; font-size: .72rem; font-style: italic; opacity: .8; }
+html.dark .cart-item-opciones { color: #D4AF37; }
+@media (max-width: 600px) {
+  .opt-sheet { top: auto; bottom: 0; left: 0; transform: none; width: 100vw; max-height: 92dvh; border-radius: 16px 16px 0 0; }
+}

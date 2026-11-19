@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { LogOut, Pencil, RefreshCw, UtensilsCrossed } from 'lucide-react';
+import { LogOut, Pencil, RefreshCw, Settings, UtensilsCrossed } from 'lucide-react';
+import { Link } from 'wouter';
 import { notificarMenuActualizado } from '@/products';
 import Login, { borrarToken, leerToken } from '@/admin/Login';
 import ProductoEditorForm, { type ProductoEditor } from '@/admin/ProductoEditor';
@@ -28,6 +29,7 @@ interface ProductoInventario {
   /** Nombre de la categoria (lo resuelve la API). */
   categoria?: string | null;
   disponible: boolean;
+  option_group_ids?: string[];
 }
 
 function precioTexto(valor: number): string {
@@ -47,6 +49,9 @@ const Inventario: React.FC = () => {
   const [seccion, setSeccion] = useState<'disponibilidad' | 'carta'>('disponibilidad');
   const [editor, setEditor] = useState<ProductoEditor | null>(null);
   const [busqueda, setBusqueda] = useState('');
+  const [gruposDisponibles, setGruposDisponibles] = useState<
+    Array<{ id: string; name: string; type: string; max: number }>
+  >([]);
 
   const cargar = async (tokenActivo: string) => {
     if (!tokenActivo) return;
@@ -96,6 +101,17 @@ const Inventario: React.FC = () => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Cargar grupos de opciones disponibles desde Neon
+  useEffect(() => {
+    if (!token) return;
+    const r = fetch('/api/admin-opciones', {
+      headers: { Authorization: 'Bearer ' + token },
+    });
+    r.then((res) => res.json()).then((data) => {
+      setGruposDisponibles(data.grupos ?? []);
+    }).catch(() => setGruposDisponibles([]));
+  }, [token]);
 
   const visibles = useMemo(() => {
     if (filtro === 'agotados') return productos.filter((p) => !p.disponible);
@@ -251,6 +267,7 @@ const Inventario: React.FC = () => {
       imagen: producto.imagen ?? null,
       categoria_id: producto.categoria_id ?? null,
       disponible: producto.disponible !== false,
+      option_group_ids: producto.option_group_ids ?? [],
     });
   }
 
@@ -264,6 +281,7 @@ const Inventario: React.FC = () => {
       imagen: null,
       categoria_id: null,
       disponible: true,
+      option_group_ids: [],
     });
   }
 
@@ -293,6 +311,9 @@ const Inventario: React.FC = () => {
           >
             <UtensilsCrossed size={16} /> {importando ? 'Importando…' : 'Importar carta'}
           </button>
+          <Link className="admin-boton admin-boton-claro" href={'/admin/opciones?token=' + encodeURIComponent(token)}>
+            <Settings size={16} /> Opciones
+          </Link>
           <button
             type="button"
             className="admin-boton admin-boton-claro"
@@ -453,6 +474,7 @@ const Inventario: React.FC = () => {
         <ProductoEditorForm
           producto={editor}
           token={token}
+          gruposDisponibles={gruposDisponibles}
           onGuardar={(datos) => guardarProducto(datos)}
           onBorrar={(id) => borrarProducto(id)}
           onCerrar={() => setEditor(null)}
