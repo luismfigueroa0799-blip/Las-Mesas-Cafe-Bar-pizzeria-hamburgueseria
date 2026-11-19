@@ -3,7 +3,7 @@ import { Gift, LoaderCircle, X } from 'lucide-react';
 import { useCart } from '@/CartContext';
 import { formatearPrecio } from '@/precio';
 
-type Sector = { id: string; name: string; image?: string | null; weight: number; premiable?: boolean };
+type Sector = { id: string; name: string; image?: string | null; weight: number; premiable?: boolean; color?: string };
 type Premio = { id: string; name: string; price: number; image?: string | null };
 
 const CLIENTE_KEY = 'lm_ruleta_cliente_v1';
@@ -55,7 +55,9 @@ export default function RuletaPremio({ onAbrirCarrito }: { onAbrirCarrito: () =>
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error || 'No se pudo preparar la ruleta.');
       const lista: Sector[] = Array.isArray(data.sectores) ? data.sectores : [];
-      if (!data.sessionId || lista.length !== 10) throw new Error('No se pudo preparar la ruleta. Recarga la página.');
+      if (!data.sessionId || lista.length < 10 || lista.filter((sector) => sector.premiable).length < 1) {
+        throw new Error('No se pudo preparar la ruleta. Recarga la página.');
+      }
       if (!cancelado) {
         setSectores(lista);
         setSessionId(data.sessionId);
@@ -143,7 +145,7 @@ export default function RuletaPremio({ onAbrirCarrito }: { onAbrirCarrito: () =>
     return { ...sector, inicio, fin: acumulado, centro: (inicio + acumulado) / 2, indice: i };
   });
   const colores = sectores.length
-    ? `conic-gradient(${sectoresVisibles.map((sector) => `${sector.premiable ? '#d5ad36' : '#fffdf7'} ${sector.inicio}deg ${sector.fin}deg`).join(',')})`
+    ? `conic-gradient(${sectoresVisibles.map((sector) => `${sector.premiable ? sector.color || '#d5ad36' : '#fffdf7'} ${sector.inicio}deg ${sector.fin}deg`).join(',')})`
     : 'conic-gradient(#d5ad36, #f2ead8, #d5ad36)';
 
   return (
@@ -152,7 +154,7 @@ export default function RuletaPremio({ onAbrirCarrito }: { onAbrirCarrito: () =>
         <button className="ruleta-cerrar" type="button" onClick={cerrar} aria-label="Cerrar ruleta" disabled={girando}><X size={20} /></button>
         <span className="ruleta-eyebrow"><Gift size={16} /> Un regalo para ti</span>
         <h2 id="ruleta-titulo">¡Gira y gana!</h2>
-        <p className="ruleta-intro">Prueba suerte y llévate gratis uno de nuestros productos seleccionados.</p>
+        <p className="ruleta-intro">Prueba suerte con refrescos y tragos de nuestra carta.</p>
         <div className="ruleta-rueda-wrap">
           <span className="ruleta-puntero" aria-hidden="true" />
           <div className="ruleta-rueda" style={{ background: colores, transform: `rotate(${rotacion}deg)` }}>

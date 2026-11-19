@@ -285,9 +285,18 @@ export default async function handler(req: Req, res: Res): Promise<void> {
          where is_available = true and price >= 0 and price <= 2
          order by id`,
       );
-      const elegibles = (candidatos.rows ?? []).map((p: any) => ({
+      const productosPrecioValido = (candidatos.rows ?? []).map((p: any) => ({
         id: String(p.id), name: String(p.name ?? ''), price: Number(p.price ?? 0), image: fotoUtil(p.image_url),
       })).filter((p: any) => p.name && Number.isFinite(p.price));
+      const categorias = await categoriasPorNombre(productosPrecioValido.map((p: any) => p.name));
+      const excluirAguaOTe = /\b(?:agua|aguas|té|te|tea|nestea|infusión|infusion)\b/i;
+      const bebidasPermitidas = /\b(?:refresco|gaseosa|cola|coca(?:-cola)?|pepsi|fanta|sprite|7\s?up|seven\s?up|tropical|aquarius|schweppes|tónica|tonica|soda|cerveza|cervezas|beer|caña|cana|botellín|botellin|ron|whisky|whiskey|vodka|ginebra|gin|tequila|vino|sangría|sangria|licor|vermut|vermú|aperol|mojito|cocktail|cóctel|coctel|cubata|combinado|chupito|shot|brandy|malib[uú])\b/i;
+      const elegibles = productosPrecioValido.filter((producto: any) => {
+        const categoria = categorias.get(producto.name) ?? '';
+        const texto = `${producto.name} ${categoria}`;
+        if (excluirAguaOTe.test(texto)) return false;
+        return bebidasPermitidas.test(texto);
+      });
       if (!elegibles.length) {
         responder(res, { error: 'No hay productos disponibles para la ruleta en este momento.' }, 409);
         return;
@@ -302,15 +311,38 @@ export default async function handler(req: Req, res: Res): Promise<void> {
         } while (valor >= maximo);
         return valor % limite;
       };
-      // En cada apertura se prepara una rueda nueva: un producto aleatorio y
-      // nueve espacios vacíos conservan la probabilidad visual del 10 %.
-      const productoPreparado = elegibles[aleatorioMenorQue(elegibles.length)];
-      const indicePreparado = aleatorioMenorQue(10);
-      const sectores = Array.from({ length: 10 }, (_, indice) =>
-        indice === indicePreparado
-          ? { id: productoPreparado.id, name: productoPreparado.name, image: productoPreparado.image, weight: 0.1, premiable: true }
-          : { id: `vacio-${indice}`, name: '', image: null, weight: 0.1, premiable: false },
-      );
+      // Cada apertura muestra hasta tres refrescos o tragos al azar. Sus
+      // sectores comparten el 10 % total de la rueda; los nueve espacios
+      // vacíos ocupan el 90 % restante.
+      const mezclados = [...elegibles];
+      for (let i = mezclados.length - 1; i > 0; i -= 1) {
+        const j = aleatorioMenorQue(i + 1);
+        [mezclados[i], mezclados[j]] = [mezclados[j], mezclados[i]];
+      }
+      const productosPremio = mezclados.slice(0, Math.min(3, mezclados.length));
+      const posicionesPremio = productosPremio.map((_, i) => Math.round(((i + 1) * 9) / (productosPremio.length + 1)));
+      const coloresPremio = ['#e2b633', '#d35b45', '#31a092'];
+      const sectores: any[] = [];
+      let indiceVacio = 0;
+      for (let huecosAntes = 0; huecosAntes <= 9; huecosAntes += 1) {
+        posicionesPremio.forEach((posicion, i) => {
+          if (posicion === huecosAntes) {
+            const producto = productosPremio[i];
+            sectores.push({
+              id: producto.id,
+              name: producto.name,
+              image: producto.image,
+              weight: 0.1 / productosPremio.length,
+              premiable: true,
+              color: coloresPremio[i % coloresPremio.length],
+            });
+          }
+        });
+        if (huecosAntes < 9) {
+          sectores.push({ id: `vacio-${indiceVacio}`, name: '', image: null, weight: 0.1, premiable: false });
+          indiceVacio += 1;
+        }
+      }
       if (accionRuleta === 'preparar-ruleta') {
         const sessionBytes = new Uint8Array(24);
         crypto.getRandomValues(sessionBytes);
@@ -319,7 +351,13 @@ export default async function handler(req: Req, res: Res): Promise<void> {
         await pool.query(
           `insert into public.ruleta_sesiones (session_id, client_hash, sectors, prize_product_id, prize_index)
            values ($1, $2, $3::jsonb, $4, $5)`,
-          [sessionId, clientHash, JSON.stringify(sectores), Number(productoPreparado.id), indicePreparado],
+          [
+            sessionId,
+            clientHash,
+            JSON.stringify(sectores),
+            Number(productosPremio[0].id),
+            sectores.findIndex((sector) => sector.premiable),
+          ],
         );
         responder(res, { sessionId, sectores });
         return;
@@ -343,9 +381,17 @@ export default async function handler(req: Req, res: Res): Promise<void> {
         return;
       }
       const sectoresSesion = Array.isArray(sesion.sectors) ? sesion.sectors : JSON.parse(String(sesion.sectors));
-      const indiceProducto = Number(sesion.prize_index);
-      const productoVisible = elegibles.find((p: any) => Number(p.id) === Number(sesion.prize_product_id));
-      if (!productoVisible || !Array.isArray(sectoresSesion) || sectoresSesion.length !== 10 || !Number.isInteger(indiceProducto)) {
+      const sectoresPremio = Array.isArray(sectoresSesion)
+        ? sectoresSesion.map((sector: any, indice: number) => ({ sector, indice })).filter(({ sector }: any) => sector.premiable === true)
+        : [];
+      const premiosDisponibles = sectoresPremio.map(({ sector, indice }: any) => ({
+        indice,
+        producto: elegibles.find((p: any) => Number(p.id) === Number(sector.id)),
+      }));
+      const sectoresVacios = Array.isArray(sectoresSesion)
+        ? sectoresSesion.map((sector: any, indice: number) => ({ sector, indice })).filter(({ sector }: any) => sector.premiable !== true)
+        : [];
+      if (!premiosDisponibles.length || premiosDisponibles.some((item: any) => !item.producto) || sectoresVacios.length !== 9 || !Number.isInteger(Number(sesion.prize_index))) {
         responder(res, { error: 'No se pudo preparar esta ruleta. Recarga la página.' }, 409);
         return;
       }
@@ -361,8 +407,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
       // giros son siempre sin premio. El resultado original y su token siguen
       // intactos, por si el premio anterior aún está en el carrito.
       if (filaAnterior?.cooldown_activo) {
-        let indiceResultado = aleatorioMenorQue(9);
-        if (indiceResultado >= indiceProducto) indiceResultado += 1;
+        const indiceResultado = sectoresVacios[aleatorioMenorQue(sectoresVacios.length)].indice;
         responder(res, {
           ganador: false,
           motivo: filaAnterior.is_winner === true ? 'ya-premiado' : 'periodo-espera',
@@ -375,14 +420,17 @@ export default async function handler(req: Req, res: Res): Promise<void> {
         return;
       }
 
-      const indiceResultado = aleatorioMenorQue(10);
-      const ganador = indiceResultado === indiceProducto;
+      const boleto = aleatorioMenorQue(premiosDisponibles.length * 10);
+      const ganador = boleto < premiosDisponibles.length;
+      const indiceResultado = ganador
+        ? premiosDisponibles[boleto].indice
+        : sectoresVacios[aleatorioMenorQue(sectoresVacios.length)].indice;
       let premio: any = null;
       let token: string | null = null;
       let tokenHash: string | null = null;
       let productId: number | null = null;
       if (ganador) {
-        premio = productoVisible;
+        premio = premiosDisponibles[boleto].producto;
         const tokenBytes = new Uint8Array(32);
         crypto.getRandomValues(tokenBytes);
         token = Array.from(tokenBytes).map((b) => b.toString(16).padStart(2, '0')).join('');
