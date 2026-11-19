@@ -262,7 +262,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
         return;
       }
       const anterior = await pool.query(
-        'select product_id, redeemed_at, expires_at from public.ruleta_premios where client_hash = $1',
+        'select product_id, redeemed_at from public.ruleta_premios where client_hash = $1',
         [clientHash],
       );
       if (anterior.rows?.[0]?.redeemed_at) {
