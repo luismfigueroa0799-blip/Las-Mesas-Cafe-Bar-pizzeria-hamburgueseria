@@ -22,12 +22,15 @@ export default function RuletaPremio({ onAbrirCarrito }: { onAbrirCarrito: () =>
   const { addToCart } = useCart();
   const [abierta, setAbierta] = useState(false);
   const [girando, setGirando] = useState(false);
+  const [preparando, setPreparando] = useState(false);
   const [sectores, setSectores] = useState<Sector[]>([]);
+  const [sessionId, setSessionId] = useState('');
   const [premio, setPremio] = useState<Premio | null>(null);
   const [error, setError] = useState('');
   const [mensajeResultado, setMensajeResultado] = useState('');
   const [rotacion, setRotacion] = useState(0);
   const [resultado, setResultado] = useState<'ganador' | 'sin-premio' | null>(null);
+  const [reintentoPreparacion, setReintentoPreparacion] = useState(0);
   const temporizador = useRef<number | null>(null);
 
   useEffect(() => {
@@ -37,13 +40,41 @@ export default function RuletaPremio({ onAbrirCarrito }: { onAbrirCarrito: () =>
 
   useEffect(() => () => { if (temporizador.current) window.clearTimeout(temporizador.current); }, []);
 
+  useEffect(() => {
+    if (!abierta) return;
+    let cancelado = false;
+    setPreparando(true);
+    setError('');
+    setSessionId('');
+    setSectores([]);
+    fetch('/api/productos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'preparar-ruleta', clientId: idCliente() }),
+    }).then(async (response) => {
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error || 'No se pudo preparar la ruleta.');
+      const lista: Sector[] = Array.isArray(data.sectores) ? data.sectores : [];
+      if (!data.sessionId || lista.length !== 10) throw new Error('No se pudo preparar la ruleta. Recarga la página.');
+      if (!cancelado) {
+        setSectores(lista);
+        setSessionId(data.sessionId);
+      }
+    }).catch((e) => {
+      if (!cancelado) setError(e instanceof Error ? e.message : 'No se pudo preparar la ruleta.');
+    }).finally(() => {
+      if (!cancelado) setPreparando(false);
+    });
+    return () => { cancelado = true; };
+  }, [abierta, reintentoPreparacion]);
+
   function cerrar() {
     if (girando) return;
     setAbierta(false);
   }
 
   async function girar() {
-    if (girando) return;
+    if (girando || preparando || !sessionId) return;
     setGirando(true);
     setError('');
     setMensajeResultado('');
@@ -51,7 +82,7 @@ export default function RuletaPremio({ onAbrirCarrito }: { onAbrirCarrito: () =>
       const response = await fetch('/api/productos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'ruleta', clientId: idCliente() }),
+        body: JSON.stringify({ action: 'ruleta', clientId: idCliente(), sessionId }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error || 'No se pudo iniciar la ruleta.');
@@ -126,7 +157,7 @@ export default function RuletaPremio({ onAbrirCarrito }: { onAbrirCarrito: () =>
           <span className="ruleta-puntero" aria-hidden="true" />
           <div className="ruleta-rueda" style={{ background: colores, transform: `rotate(${rotacion}deg)` }}>
             {sectoresVisibles.map((sector, i) => (
-              <span key={`${sector.id}-${i}`} className="ruleta-sector-label" style={{ transform: `rotate(${sector.centro}deg) translateY(-92px) rotate(90deg)` }}>{sector.name}</span>
+              <span key={`${sector.id}-${i}`} className={`ruleta-sector-label${sector.premiable ? ' ruleta-sector-premio' : ''}`} style={{ transform: `rotate(${sector.centro}deg) translateY(-92px) rotate(90deg)` }}>{sector.name}</span>
             ))}
             <span className="ruleta-centro"><Gift size={24} /></span>
           </div>
@@ -137,8 +168,8 @@ export default function RuletaPremio({ onAbrirCarrito }: { onAbrirCarrito: () =>
           <div className="ruleta-ganador" role="status">{mensajeResultado}</div>
         ) : (
           <>
-            <button type="button" className="ruleta-boton" onClick={girar} disabled={girando}>
-              {girando ? <><LoaderCircle size={18} className="ruleta-cargando" /> Girando…</> : 'Girar la ruleta'}
+            <button type="button" className="ruleta-boton" onClick={preparando ? undefined : error ? () => setReintentoPreparacion((n) => n + 1) : girar} disabled={girando || preparando || (!sessionId && !error)}>
+              {girando || preparando ? <><LoaderCircle size={18} className="ruleta-cargando" /> {preparando ? 'Preparando la ruleta…' : 'Girando…'}</> : error ? 'Volver a intentar' : 'Girar la ruleta'}
             </button>
             {error && <p className="ruleta-error" role="alert">{error}</p>}
             {!girando && <button type="button" className="ruleta-despues" onClick={cerrar}>Ahora no</button>}

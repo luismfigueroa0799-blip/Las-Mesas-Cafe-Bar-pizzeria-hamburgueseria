@@ -218,7 +218,8 @@ async function gruposConOpciones(): Promise<any[]> {
 
 export default async function handler(req: Req, res: Res): Promise<void> {
   if (req?.method === 'POST') {
-    if (req.body?.action !== 'ruleta') {
+    const accionRuleta = req.body?.action;
+    if (accionRuleta !== 'ruleta' && accionRuleta !== 'preparar-ruleta') {
       responder(res, { error: 'Acción no válida' }, 400);
       return;
     }
@@ -270,6 +271,15 @@ export default async function handler(req: Req, res: Res): Promise<void> {
          from public.ruleta_premios where token_hash is not null and product_id is not null
          on conflict (token_hash) do nothing`,
       );
+      await pool.query(`create table if not exists public.ruleta_sesiones (
+        session_id text primary key,
+        client_hash text not null,
+        sectors jsonb not null,
+        prize_product_id bigint not null,
+        prize_index integer not null,
+        created_at timestamptz not null default now(),
+        consumed_at timestamptz
+      )`);
       const candidatos = await pool.query(
         `select id, name, price, image_url from public.products
          where is_available = true and price >= 0 and price <= 2
@@ -292,15 +302,53 @@ export default async function handler(req: Req, res: Res): Promise<void> {
         } while (valor >= maximo);
         return valor % limite;
       };
-      // La rueda muestra un producto posible y nueve espacios vacíos. Cada
-      // sector tiene el mismo tamaño, así que el producto ocupa un 10 %.
-      const productoVisible = elegibles[aleatorioMenorQue(elegibles.length)];
-      const indiceProducto = aleatorioMenorQue(10);
+      // En cada apertura se prepara una rueda nueva: un producto aleatorio y
+      // nueve espacios vacíos conservan la probabilidad visual del 10 %.
+      const productoPreparado = elegibles[aleatorioMenorQue(elegibles.length)];
+      const indicePreparado = aleatorioMenorQue(10);
       const sectores = Array.from({ length: 10 }, (_, indice) =>
-        indice === indiceProducto
-          ? { id: productoVisible.id, name: productoVisible.name, image: productoVisible.image, weight: 0.1, premiable: true }
+        indice === indicePreparado
+          ? { id: productoPreparado.id, name: productoPreparado.name, image: productoPreparado.image, weight: 0.1, premiable: true }
           : { id: `vacio-${indice}`, name: '', image: null, weight: 0.1, premiable: false },
       );
+      if (accionRuleta === 'preparar-ruleta') {
+        const sessionBytes = new Uint8Array(24);
+        crypto.getRandomValues(sessionBytes);
+        const sessionId = Array.from(sessionBytes).map((b) => b.toString(16).padStart(2, '0')).join('');
+        await pool.query('delete from public.ruleta_sesiones where created_at < now() - interval \'1 day\'');
+        await pool.query(
+          `insert into public.ruleta_sesiones (session_id, client_hash, sectors, prize_product_id, prize_index)
+           values ($1, $2, $3::jsonb, $4, $5)`,
+          [sessionId, clientHash, JSON.stringify(sectores), Number(productoPreparado.id), indicePreparado],
+        );
+        responder(res, { sessionId, sectores });
+        return;
+      }
+
+      const sessionId = String(req.body?.sessionId ?? '').trim();
+      if (!/^[a-f0-9]{48}$/.test(sessionId)) {
+        responder(res, { error: 'La ruleta ha caducado. Recarga la página para intentarlo de nuevo.' }, 400);
+        return;
+      }
+      const sesionResult = await pool.query(
+        `update public.ruleta_sesiones set consumed_at = now()
+         where session_id = $1 and client_hash = $2 and consumed_at is null
+           and created_at > now() - interval '30 minutes'
+         returning sectors, prize_product_id, prize_index`,
+        [sessionId, clientHash],
+      );
+      const sesion = sesionResult.rows?.[0];
+      if (!sesion) {
+        responder(res, { error: 'La ruleta ha caducado. Recarga la página para intentarlo de nuevo.' }, 409);
+        return;
+      }
+      const sectoresSesion = Array.isArray(sesion.sectors) ? sesion.sectors : JSON.parse(String(sesion.sectors));
+      const indiceProducto = Number(sesion.prize_index);
+      const productoVisible = elegibles.find((p: any) => Number(p.id) === Number(sesion.prize_product_id));
+      if (!productoVisible || !Array.isArray(sectoresSesion) || sectoresSesion.length !== 10 || !Number.isInteger(indiceProducto)) {
+        responder(res, { error: 'No se pudo preparar esta ruleta. Recarga la página.' }, 409);
+        return;
+      }
       const anterior = await pool.query(
         `select product_id, token_hash, redeemed_at, is_winner,
                 created_at > now() - interval '7 days' as cooldown_activo
@@ -322,7 +370,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
           premio: null,
           token: null,
           nuevoSorteo: false,
-          sectores,
+          sectores: sectoresSesion,
         });
         return;
       }
@@ -354,7 +402,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
            is_winner = excluded.is_winner`,
         [clientHash, tokenHash, productId, ganador],
       );
-      responder(res, { ganador, premio, token, indiceResultado, nuevoSorteo: true, sectores });
+      responder(res, { ganador, premio, token, indiceResultado, nuevoSorteo: true, sectores: sectoresSesion });
       return;
     } catch (error) {
       g.console?.error?.('[productos] no se pudo procesar la ruleta:', error);
