@@ -282,6 +282,25 @@ export default async function handler(req: Req, res: Res): Promise<void> {
         responder(res, { error: 'No hay productos disponibles para la ruleta en este momento.' }, 409);
         return;
       }
+      const aleatorioMenorQue = (limite: number): number => {
+        const maximo = Math.floor(0x100000000 / limite) * limite;
+        let valor = 0;
+        do {
+          const muestra = new Uint32Array(1);
+          crypto.getRandomValues(muestra);
+          valor = muestra[0];
+        } while (valor >= maximo);
+        return valor % limite;
+      };
+      // La rueda muestra un producto posible y nueve espacios vacíos. Cada
+      // sector tiene el mismo tamaño, así que el producto ocupa un 10 %.
+      const productoVisible = elegibles[aleatorioMenorQue(elegibles.length)];
+      const indiceProducto = aleatorioMenorQue(10);
+      const sectores = Array.from({ length: 10 }, (_, indice) =>
+        indice === indiceProducto
+          ? { id: productoVisible.id, name: productoVisible.name, image: productoVisible.image, weight: 0.1, premiable: true }
+          : { id: `vacio-${indice}`, name: '', image: null, weight: 0.1, premiable: false },
+      );
       const anterior = await pool.query(
         `select product_id, token_hash, redeemed_at, is_winner,
                 created_at > now() - interval '7 days' as cooldown_activo
@@ -289,24 +308,17 @@ export default async function handler(req: Req, res: Res): Promise<void> {
         [clientHash],
       );
       const filaAnterior = anterior.rows?.[0];
-      const sectores = [
-        { id: 'sin-premio', name: 'Sin premio', weight: 0.9 },
-        ...elegibles.map((producto: any) => ({
-          id: producto.id,
-          name: producto.name,
-          image: producto.image,
-          weight: 0.1 / elegibles.length,
-        })),
-      ];
 
       // La ruleta vuelve a mostrarse durante el periodo de espera, pero esos
       // giros son siempre sin premio. El resultado original y su token siguen
       // intactos, por si el premio anterior aún está en el carrito.
       if (filaAnterior?.cooldown_activo) {
+        let indiceResultado = aleatorioMenorQue(9);
+        if (indiceResultado >= indiceProducto) indiceResultado += 1;
         responder(res, {
           ganador: false,
           motivo: filaAnterior.is_winner === true ? 'ya-premiado' : 'periodo-espera',
-          indiceResultado: 0,
+          indiceResultado,
           premio: null,
           token: null,
           nuevoSorteo: false,
@@ -315,29 +327,14 @@ export default async function handler(req: Req, res: Res): Promise<void> {
         return;
       }
 
-      const limiteSorteo = Math.floor(0x100000000 / 10000) * 10000;
-      let sorteo = 0;
-      do {
-        const muestra = new Uint32Array(1);
-        crypto.getRandomValues(muestra);
-        sorteo = muestra[0];
-      } while (sorteo >= limiteSorteo);
-      const ganador = sorteo % 10000 < 1000;
+      const indiceResultado = aleatorioMenorQue(10);
+      const ganador = indiceResultado === indiceProducto;
       let premio: any = null;
       let token: string | null = null;
       let tokenHash: string | null = null;
       let productId: number | null = null;
-      let indiceResultado = 0;
       if (ganador) {
-        const limite = Math.floor(0x100000000 / elegibles.length) * elegibles.length;
-        let aleatorio = 0;
-        do {
-          const indice = new Uint32Array(1);
-          crypto.getRandomValues(indice);
-          aleatorio = indice[0];
-        } while (aleatorio >= limite);
-        premio = elegibles[aleatorio % elegibles.length];
-        indiceResultado = sectores.findIndex((sector: any) => sector.id === premio.id);
+        premio = productoVisible;
         const tokenBytes = new Uint8Array(32);
         crypto.getRandomValues(tokenBytes);
         token = Array.from(tokenBytes).map((b) => b.toString(16).padStart(2, '0')).join('');

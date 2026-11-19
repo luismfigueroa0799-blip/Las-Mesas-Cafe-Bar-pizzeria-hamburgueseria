@@ -3,7 +3,7 @@ import { Gift, LoaderCircle, X } from 'lucide-react';
 import { useCart } from '@/CartContext';
 import { formatearPrecio } from '@/precio';
 
-type Sector = { id: string; name: string; image?: string | null; weight: number };
+type Sector = { id: string; name: string; image?: string | null; weight: number; premiable?: boolean };
 type Premio = { id: string; name: string; price: number; image?: string | null };
 
 const CLIENTE_KEY = 'lm_ruleta_cliente_v1';
@@ -112,7 +112,7 @@ export default function RuletaPremio({ onAbrirCarrito }: { onAbrirCarrito: () =>
     return { ...sector, inicio, fin: acumulado, centro: (inicio + acumulado) / 2, indice: i };
   });
   const colores = sectores.length
-    ? `conic-gradient(${sectoresVisibles.map((sector) => `${sector.indice % 2 ? '#f2ead8' : '#d5ad36'} ${sector.inicio}deg ${sector.fin}deg`).join(',')})`
+    ? `conic-gradient(${sectoresVisibles.map((sector) => `${sector.premiable ? '#d5ad36' : '#fffdf7'} ${sector.inicio}deg ${sector.fin}deg`).join(',')})`
     : 'conic-gradient(#d5ad36, #f2ead8, #d5ad36)';
 
   return (
