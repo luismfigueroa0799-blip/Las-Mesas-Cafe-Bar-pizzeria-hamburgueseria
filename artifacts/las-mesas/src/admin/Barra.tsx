@@ -69,6 +69,7 @@ const Barra: React.FC = () => {
   const [filtroTipo, setFiltroTipo] = useState<'todos' | 'mesa' | 'domicilio'>('todos');
   const [filtroEstado, setFiltroEstado] = useState('todos');
   const [facturaId, setFacturaId] = useState<number | null>(null);
+  const [imprimirAlAbrir, setImprimirAlAbrir] = useState(false);
   const peticionActiva = useRef(false);
 
   useEffect(() => {
@@ -118,7 +119,7 @@ const Barra: React.FC = () => {
     void cargarPedidos();
     const temporizador = window.setInterval(() => {
       if (document.visibilityState === 'visible') void cargarPedidos(true);
-    }, 5000);
+    }, 3000);
     const alVolver = () => { if (document.visibilityState === 'visible') void cargarPedidos(true); };
     document.addEventListener('visibilitychange', alVolver);
     return () => {
@@ -147,6 +148,15 @@ const Barra: React.FC = () => {
   const factura = pedidos.find((pedido) => pedido.id === facturaId) ?? null;
   const articulosFactura = factura ? lineasDe(factura) : [];
 
+  useEffect(() => {
+    if (!factura || !imprimirAlAbrir) return;
+    const temporizador = window.setTimeout(() => {
+      window.print();
+      setImprimirAlAbrir(false);
+    }, 180);
+    return () => window.clearTimeout(temporizador);
+  }, [factura, imprimirAlAbrir]);
+
   if (comprobandoSesion) return <div className="barra-cargando"><RefreshCw className="barra-spin" /> Comprobando acceso…</div>;
   if (!token) return <Login destino="/admin/barra" />;
 
@@ -165,7 +175,7 @@ const Barra: React.FC = () => {
       <section className="barra-contenido">
         <div className="barra-heading">
           <div><span className="barra-eyebrow"><FileText size={15} /> Control de pedidos</span><h1>Comandas de barra</h1><p>Pedidos de mesa y a domicilio, con código y factura imprimible.</p></div>
-          <div className="barra-live"><span /> Actualización automática cada 5 segundos{actualizada && <small>Actualizada {new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(actualizada)}</small>}</div>
+          <div className="barra-live"><span /> Cocina sincronizada · actualización cada 3 segundos{actualizada && <small>Actualizada {new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(actualizada)}</small>}</div>
         </div>
 
         <div className="barra-resumen">
@@ -192,17 +202,34 @@ const Barra: React.FC = () => {
           {filtrados.map((pedido) => {
             const mesa = pedido.tipoEntrega === 'mesa' || Boolean(pedido.mesa);
             const lineas = lineasDe(pedido);
+            const estadoCocina = String(pedido.estadoCocina || 'pendiente').toLowerCase();
+            const pasos = mesa
+              ? ['pendiente', 'confirmado', 'preparando', 'listo', 'servido']
+              : ['pendiente', 'confirmado', 'preparando', 'listo', 'en_reparto', 'entregado'];
+            const indicePaso = pasos.indexOf(estadoCocina);
+            const pasosCompletados = indicePaso < 0 && (estadoCocina === 'servido' || estadoCocina === 'entregado')
+              ? pasos.length - 1
+              : Math.max(0, indicePaso);
             return (
               <article className="barra-pedido" key={pedido.id}>
                 <div className="barra-pedido-cabeza">
                   <div className="barra-codigo-wrap"><span className="barra-codigo">{pedido.codigo || `#${pedido.id}`}</span><span className={`barra-origen ${mesa ? 'mesa' : 'domicilio'}`}>{mesa ? <><UtensilsCrossed size={13} /> {pedido.mesa ? `Mesa ${pedido.mesa.replace(/^mesa\s*/i, '')}` : 'Mesa'}</> : <><Truck size={13} /> A domicilio</>}</span></div>
-                  <span className={`barra-estado ${String(pedido.estadoPago || 'pendiente').toLowerCase().replaceAll('_', '-')}`}>{nombreEstado(pedido.estadoPago || 'pendiente')}</span>
+                  <span className={`barra-estado ${String(pedido.estadoPago || 'pendiente').toLowerCase().replaceAll('_', '-')}`}>Pago: {nombreEstado(pedido.estadoPago || 'pendiente')}</span>
                 </div>
                 <div className="barra-metadata"><span><CalendarClock size={14} /> {fechaPedido(pedido.fecha)}</span>{pedido.cliente && <strong>{pedido.cliente}</strong>}{pedido.telefono && <a href={`tel:${pedido.telefono}`}>{pedido.telefono}</a>}{!mesa && pedido.direccion && <span>{pedido.direccion}</span>}</div>
+                <div className="barra-progreso" aria-label={`Estado de cocina: ${nombreEstado(estadoCocina)}`}>
+                  <div className="barra-progreso-cabeza"><strong><ChefHat size={15} /> Progreso en cocina</strong><span className={`barra-cocina-estado ${estadoCocina}`}>{nombreEstado(estadoCocina)}</span></div>
+                  <ol className="barra-pasos">
+                    {pasos.map((paso, indice) => <li key={paso} className={`${indice <= pasosCompletados ? 'completado' : ''} ${indice === indicePaso ? 'actual' : ''}`}>
+                      <span className="barra-paso-punto">{indice < pasosCompletados ? <Check size={11} /> : indice + 1}</span>
+                      <span>{nombreEstado(paso)}</span>
+                    </li>)}
+                  </ol>
+                </div>
                 <div className="barra-lineas">
                   {lineas.map((linea) => <div className="barra-linea" key={linea.key}><span>{linea.cantidad}×</span><div><strong>{linea.nombre}</strong>{linea.opciones.length > 0 && <small>{linea.opciones.join(' · ')}</small>}{linea.nota && <small>Nota: {linea.nota}</small>}</div><b>{euros(linea.subtotal)}</b></div>)}
                 </div>
-                <div className="barra-pedido-pie"><div className="barra-total"><span>Total</span><strong>{euros(pedido.total)}</strong></div><button type="button" className="barra-factura-boton" onClick={() => setFacturaId(pedido.id)}><FileText size={16} /> Ver / imprimir factura</button></div>
+                <div className="barra-pedido-pie"><div className="barra-total"><span>Total</span><strong>{euros(pedido.total)}</strong></div><div className="barra-factura-botones"><button type="button" className="barra-factura-boton ver" onClick={() => { setImprimirAlAbrir(false); setFacturaId(pedido.id); }}><FileText size={16} /> Ver factura</button><button type="button" className="barra-factura-boton imprimir" onClick={() => { setImprimirAlAbrir(true); setFacturaId(pedido.id); }}><Printer size={16} /> Imprimir factura</button></div></div>
               </article>
             );
           })}

@@ -51,8 +51,29 @@
 .barra-pedido-pie { margin-top: 12px; }
 .barra-total { display: flex; align-items: baseline; gap: 9px; color: #7d725f; font-size: .75rem; }
 .barra-total strong { color: #493528; font-family: var(--app-font-serif, Georgia, serif); font-size: 1.2rem; }
-.barra-factura-boton { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 39px; padding: 0 13px; border: 0; border-radius: 8px; color: #fff; background: #788957; font-size: .72rem; font-weight: 800; cursor: pointer; }
-.barra-factura-boton:hover { background: #667747; }
+.barra-factura-botones { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.barra-factura-boton { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 39px; padding: 0 13px; border: 1px solid transparent; border-radius: 8px; color: #fff; font-size: .72rem; font-weight: 800; cursor: pointer; }
+.barra-factura-boton.ver { border-color: #788957; color: #53633a; background: #fffefa; }
+.barra-factura-boton.ver:hover { background: #eef1e6; }
+.barra-factura-boton.imprimir { background: #788957; }
+.barra-factura-boton.imprimir:hover { background: #667747; }
+.barra-progreso { margin: 12px 0; padding: 11px 12px 10px; border: 1px solid #e9e1d3; border-radius: 10px; background: #fbfaf6; }
+.barra-progreso-cabeza { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.barra-progreso-cabeza > strong { display: inline-flex; align-items: center; gap: 6px; color: #574734; font-size: .73rem; }
+.barra-cocina-estado { padding: 4px 8px; border-radius: 999px; color: #5d4824; background: #f3e7bd; font-size: .65rem; font-weight: 800; }
+.barra-cocina-estado.confirmado { color: #435731; background: #e7edda; }
+.barra-cocina-estado.preparando { color: #79571e; background: #f7ebcb; }
+.barra-cocina-estado.listo, .barra-cocina-estado.servido, .barra-cocina-estado.entregado { color: #285b4d; background: #dceee7; }
+.barra-cocina-estado.en_reparto { color: #36527b; background: #e1eafa; }
+.barra-pasos { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 0; margin: 0; padding: 0; list-style: none; }
+.barra-pasos li { position: relative; display: flex; align-items: center; flex-direction: column; gap: 5px; color: #918777; font-size: .62rem; text-align: center; }
+.barra-pasos li::before { position: absolute; top: 11px; left: calc(-50% + 11px); right: calc(50% + 11px); height: 2px; content: ''; background: #ded8cc; }
+.barra-pasos li:first-child::before { display: none; }
+.barra-paso-punto { position: relative; z-index: 1; display: grid; place-items: center; width: 23px; height: 23px; border: 2px solid #d8d1c3; border-radius: 50%; color: #827968; background: #fbfaf6; font-size: .62rem; font-weight: 800; }
+.barra-pasos li.completado { color: #4f6338; font-weight: 750; }
+.barra-pasos li.completado::before { background: #84975e; }
+.barra-pasos li.completado .barra-paso-punto { border-color: #788957; color: #fff; background: #788957; }
+.barra-pasos li.actual .barra-paso-punto { outline: 3px solid #78895730; }
 .barra-error { margin: 12px 0; padding: 12px 14px; border: 1px solid #e7c8b8; border-radius: 9px; color: #8b4d37; background: #fff1e9; font-size: .8rem; }
 .barra-vacio, .barra-cargando { display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 10px; min-height: 210px; color: #897d6a; text-align: center; font-size: .84rem; }
 .barra-vacio strong { color: #544435; font-family: var(--app-font-serif, Georgia, serif); font-size: 1.2rem; }
@@ -109,11 +130,44 @@
   .barra-resumen { grid-template-columns: 1fr 1fr; }
   .barra-resumen > div:first-child { grid-column: 1 / -1; }
   .barra-pedido-pie { align-items: stretch; flex-direction: column; }
-  .barra-factura-boton { width: 100%; }
+  .barra-factura-botones { width: 100%; }
+  .barra-factura-boton { flex: 1 1 100%; }
+  .barra-pasos li { font-size: .54rem; }
+  .barra-paso-punto { width: 21px; height: 21px; }
   .barra-factura-cabecera { flex-direction: column; }
   .barra-factura-numero { align-items: flex-start; text-align: left; }
   .barra-factura-cliente { grid-template-columns: 1fr; gap: 12px; }
 }
+
+/* Evita que el tema global fuerce texto claro sobre la paleta clara de Barra. */
+html.dark .barra-page { color: #f5f0e6 !important; background: #1a1817 !important; }
+html.dark .barra-page :is(h1,h2,h3,p,span,strong,b,small,a,button,label,select,input,li,td,th) { color: #f5f0e6 !important; }
+html.dark .barra-page .barra-topbar,
+html.dark .barra-page .barra-resumen > div,
+html.dark .barra-page .barra-pedido,
+html.dark .barra-page .barra-progreso,
+html.dark .barra-page .barra-linea,
+html.dark .barra-page .barra-filtros select,
+html.dark .barra-page .barra-busqueda,
+html.dark .barra-page .barra-acciones a,
+html.dark .barra-page .barra-acciones button { background: #2a2725 !important; border-color: rgba(212,175,55,.24) !important; }
+html.dark .barra-page .barra-busqueda input { background: transparent !important; }
+html.dark .barra-page .barra-factura-boton.ver { background: #2a2725 !important; }
+html.dark .barra-page .barra-factura-boton.imprimir,
+html.dark .barra-page .barra-factura-acciones button.principal { background: #788957 !important; }
+html.dark .barra-page .barra-origen { background: #343d2b !important; }
+html.dark .barra-page .barra-origen.domicilio { background: #453624 !important; }
+html.dark .barra-page .barra-cocina-estado { background: #51452a !important; }
+html.dark .barra-page .barra-cocina-estado.confirmado { background: #35412d !important; }
+html.dark .barra-page .barra-cocina-estado.listo,
+html.dark .barra-page .barra-cocina-estado.servido,
+html.dark .barra-page .barra-cocina-estado.entregado { background: #294238 !important; }
+html.dark .barra-page .barra-cocina-estado.en_reparto { background: #2d3b52 !important; }
+html.dark .barra-page .barra-paso-punto { background: #252321 !important; border-color: #5a5349 !important; }
+html.dark .barra-page .barra-pasos li.completado .barra-paso-punto { background: #788957 !important; border-color: #788957 !important; }
+html.dark .barra-page .barra-factura-dialog,
+html.dark .barra-page .barra-factura-hoja { color: #382e24 !important; background: #fff !important; }
+html.dark .barra-page .barra-factura-hoja :is(p,h2,span,strong,small,td,th,footer) { color: #382e24 !important; }
 @media print {
   body * { visibility: hidden !important; }
   .barra-factura-overlay, .barra-factura-overlay * { visibility: visible !important; }
