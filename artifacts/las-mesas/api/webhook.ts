@@ -701,7 +701,10 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   ).trim();
   let avisoNtfy: Record<string, unknown> | null = null;
 
-  if (topicNtfy && evento?.type === 'checkout.session.completed' && pedidoId) {
+  const pagoConfirmado =
+    (evento?.type === 'checkout.session.completed' && objeto?.payment_status === 'paid') ||
+    evento?.type === 'checkout.session.async_payment_succeeded';
+  if (topicNtfy && pagoConfirmado && pedidoId) {
     try {
       const textoNtfy = [
         '---------------------------------',
@@ -714,7 +717,12 @@ export default async function handler(req: Req, res: Res): Promise<void> {
       ].join('\n');
       const r = await g.fetch('https://ntfy.sh/' + encodeURIComponent(topicNtfy), {
         method: 'POST',
-        headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+        headers: {
+          'Content-Type': 'text/plain; charset=utf-8',
+          Title: 'Nuevo pedido para cocina',
+          Priority: 'urgent',
+          Tags: 'bell,pizza',
+        },
         body: textoNtfy,
       });
       const respuesta = await r.text();
