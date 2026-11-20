@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Check, ChefHat, Clock3, LogOut, PackageCheck, RefreshCw, Truck, UtensilsCrossed } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowLeft, Bell, BellRing, Check, ChefHat, Clock3, LogOut, PackageCheck, RefreshCw, Truck, UtensilsCrossed, X } from 'lucide-react';
 import { Link } from 'wouter';
 import Login, { borrarToken, leerToken } from '@/admin/Login';
 import { supabaseNavegador } from '@/lib/supabase';
@@ -48,6 +48,25 @@ function euro(value: number) {
   return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(Number.isFinite(value) ? value : 0);
 }
 
+function tocarAviso(context: AudioContext) {
+  if (context.state !== 'running') return;
+  const inicio = context.currentTime + 0.03;
+  [880, 660, 880].forEach((frecuencia, indice) => {
+    const cuando = inicio + indice * 0.24;
+    const tono = context.createOscillator();
+    const volumen = context.createGain();
+    tono.type = 'sine';
+    tono.frequency.value = frecuencia;
+    volumen.gain.setValueAtTime(0.0001, cuando);
+    volumen.gain.exponentialRampToValueAtTime(0.16, cuando + 0.025);
+    volumen.gain.exponentialRampToValueAtTime(0.0001, cuando + 0.19);
+    tono.connect(volumen);
+    volumen.connect(context.destination);
+    tono.start(cuando);
+    tono.stop(cuando + 0.2);
+  });
+}
+
 function esMesa(pedido: PedidoCocina) {
   return pedido.tipoEntrega === 'mesa' || Boolean(pedido.mesa);
 }
@@ -86,6 +105,13 @@ const Cocina: React.FC = () => {
   const [actualizandoId, setActualizandoId] = useState<number | null>(null);
   const [error, setError] = useState('');
   const [ultimaActualizacion, setUltimaActualizacion] = useState<Date | null>(null);
+  const [sonidoActivo, setSonidoActivo] = useState(false);
+  const [avisoNuevo, setAvisoNuevo] = useState('');
+  const pedidosVistos = useRef<Set<number> | null>(null);
+  const peticionActiva = useRef(false);
+  const sonidoRef = useRef(false);
+  const audioRef = useRef<AudioContext | null>(null);
+  const avisoTimer = useRef<number | null>(null);
 
   useEffect(() => {
     if (token) { setComprobandoSesion(false); return; }
@@ -102,7 +128,8 @@ const Cocina: React.FC = () => {
   }, [token]);
 
   const cargarPedidos = useCallback(async (silencioso = false) => {
-    if (!token) return;
+    if (!token || peticionActiva.current) return;
+    peticionActiva.current = true;
     if (!silencioso) setCargando(true);
     try {
       const response = await fetch('/api/admin-productos?vista=cocina', {
@@ -117,12 +144,27 @@ const Cocina: React.FC = () => {
         }
         throw new Error(data?.error || 'No se pudieron cargar los pedidos.');
       }
-      setPedidos(Array.isArray(data.pedidos) ? data.pedidos : []);
+      const lista: PedidoCocina[] = Array.isArray(data.pedidos) ? data.pedidos : [];
+      const vistos = pedidosVistos.current;
+      if (!vistos) {
+        pedidosVistos.current = new Set(lista.map((pedido) => pedido.id));
+      } else {
+        const nuevos = lista.filter((pedido) => !vistos.has(pedido.id));
+        nuevos.forEach((pedido) => vistos.add(pedido.id));
+        if (nuevos.length) {
+          setAvisoNuevo(nuevos.length === 1 ? '¡Nuevo pedido recibido!' : `¡Han llegado ${nuevos.length} pedidos nuevos!`);
+          if (sonidoRef.current && audioRef.current) tocarAviso(audioRef.current);
+          if (avisoTimer.current) window.clearTimeout(avisoTimer.current);
+          avisoTimer.current = window.setTimeout(() => setAvisoNuevo(''), 12000);
+        }
+      }
+      setPedidos(lista);
       setError('');
       setUltimaActualizacion(new Date());
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudieron cargar los pedidos.');
     } finally {
+      peticionActiva.current = false;
       if (!silencioso) setCargando(false);
     }
   }, [token]);
@@ -130,9 +172,41 @@ const Cocina: React.FC = () => {
   useEffect(() => {
     if (!token) return;
     void cargarPedidos();
-    const timer = window.setInterval(() => void cargarPedidos(true), 12000);
-    return () => window.clearInterval(timer);
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === 'visible') void cargarPedidos(true);
+    }, 3000);
+    const alVolver = () => { if (document.visibilityState === 'visible') void cargarPedidos(true); };
+    document.addEventListener('visibilitychange', alVolver);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', alVolver);
+    };
   }, [token, cargarPedidos]);
+
+  async function alternarSonido() {
+    if (sonidoRef.current) {
+      sonidoRef.current = false;
+      setSonidoActivo(false);
+      return;
+    }
+    try {
+      const ContextoAudio = window.AudioContext;
+      if (!ContextoAudio) throw new Error('El navegador no admite avisos sonoros.');
+      const context = audioRef.current ?? new ContextoAudio();
+      audioRef.current = context;
+      await context.resume();
+      sonidoRef.current = true;
+      setSonidoActivo(true);
+      tocarAviso(context);
+    } catch {
+      setError('No se pudo activar el sonido. Comprueba el volumen del iPad e inténtalo otra vez.');
+    }
+  }
+
+  useEffect(() => () => {
+    if (avisoTimer.current) window.clearTimeout(avisoTimer.current);
+    if (audioRef.current && audioRef.current.state !== 'closed') void audioRef.current.close();
+  }, []);
 
   async function cambiarEstado(pedido: PedidoCocina, nuevoEstado: EstadoCocina) {
     setActualizandoId(pedido.id);
@@ -179,6 +253,9 @@ const Cocina: React.FC = () => {
         <Link href="/admin/inventario" className="cocina-volver"><ArrowLeft size={17} /> Volver al inventario</Link>
         <div className="cocina-brand"><ChefHat size={20} /><span>Las Mesas</span><i /> Cocina</div>
         <div className="cocina-top-actions">
+          <button type="button" className={sonidoActivo ? 'sonido-activo' : ''} onClick={() => void alternarSonido()} aria-pressed={sonidoActivo}>
+            {sonidoActivo ? <BellRing size={16} /> : <Bell size={16} />} <span>{sonidoActivo ? 'Avisos activos' : 'Activar avisos'}</span>
+          </button>
           <button type="button" onClick={() => void cargarPedidos()} disabled={cargando} aria-label="Actualizar pedidos">
             <RefreshCw size={16} className={cargando ? 'cocina-spin' : ''} /> <span>Actualizar</span>
           </button>
@@ -193,7 +270,7 @@ const Cocina: React.FC = () => {
             <h1>Pedidos de cocina</h1>
             <p>Mesas y pedidos a domicilio en un solo lugar.</p>
           </div>
-          <div className="cocina-actualizacion"><span className="cocina-live-dot" /> Actualización automática cada 12 s{ultimaActualizacion && <small>Última: {horaPedido(ultimaActualizacion.toISOString())}</small>}</div>
+          <div className="cocina-actualizacion"><span className="cocina-live-dot" /> Comprobando cada 3 segundos{ultimaActualizacion && <small>Última: {horaPedido(ultimaActualizacion.toISOString())}</small>}</div>
         </div>
 
         <div className="cocina-tipo-filtros" role="group" aria-label="Filtrar por tipo de pedido">
@@ -214,6 +291,7 @@ const Cocina: React.FC = () => {
           ))}
         </div>
 
+        {avisoNuevo && <div className="cocina-aviso-nuevo" role="alert"><BellRing size={19} /><strong>{avisoNuevo}</strong><span>Revisa la tarjeta del pedido en la lista.</span><button type="button" onClick={() => setAvisoNuevo('')} aria-label="Cerrar aviso"><X size={17} /></button></div>}
         {error && <div className="cocina-error" role="alert">{error}</div>}
         {cargando && !pedidos.length ? <div className="cocina-vacio"><RefreshCw className="cocina-spin" /> Cargando pedidos…</div> : null}
         {!cargando && !error && filtrados.length === 0 && <div className="cocina-vacio"><ChefHat size={28} /><strong>No hay pedidos en esta vista</strong><span>Los pedidos nuevos aparecerán automáticamente.</span></div>}
