@@ -46,15 +46,23 @@ export function sitioSinApi(): boolean {
 
 export function guardarToken(token: string) {
   try {
-    sessionStorage.setItem('lm_admin_token', token);
+    // La sesión del staff debe sobrevivir a cambios de ruta, pestaña y al
+    // cierre/reapertura del navegador. Solo se elimina al pulsar "Salir".
+    localStorage.setItem('lm_admin_token', token);
+    sessionStorage.removeItem('lm_admin_token');
   } catch {
-    /* sin sessionStorage */
+    /* el navegador puede bloquear el almacenamiento */
   }
 }
 
 export function leerToken(): string {
   try {
-    return sessionStorage.getItem('lm_admin_token') ?? '';
+    const token = localStorage.getItem('lm_admin_token') ?? sessionStorage.getItem('lm_admin_token') ?? '';
+    if (token && !localStorage.getItem('lm_admin_token')) {
+      localStorage.setItem('lm_admin_token', token);
+      sessionStorage.removeItem('lm_admin_token');
+    }
+    return token;
   } catch {
     return '';
   }
@@ -62,9 +70,10 @@ export function leerToken(): string {
 
 export function borrarToken() {
   try {
+    localStorage.removeItem('lm_admin_token');
     sessionStorage.removeItem('lm_admin_token');
   } catch {
-    /* sin sessionStorage */
+    /* el navegador puede bloquear el almacenamiento */
   }
 }
 
