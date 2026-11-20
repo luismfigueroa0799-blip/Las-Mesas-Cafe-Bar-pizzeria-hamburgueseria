@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { LogOut, Moon, Pencil, RefreshCw, Settings, Sun, UtensilsCrossed } from 'lucide-react';
+import { ClipboardList, LogOut, Moon, Pencil, RefreshCw, Settings, Sun, UtensilsCrossed } from 'lucide-react';
 import { Link } from 'wouter';
 import { notificarMenuActualizado } from '@/products';
 import Login, { borrarToken, leerToken } from '@/admin/Login';
@@ -305,6 +305,9 @@ const Inventario: React.FC = () => {
           </p>
         </div>
         <div className="admin-acciones">
+          <Link className="admin-boton admin-boton-claro" href="/admin/cocina">
+            <ClipboardList size={16} /> Cocina
+          </Link>
           <button
             type="button"
             className="admin-boton admin-boton-claro"

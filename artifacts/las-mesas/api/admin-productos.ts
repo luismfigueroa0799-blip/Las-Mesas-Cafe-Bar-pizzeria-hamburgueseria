@@ -19,6 +19,7 @@ interface Req {
     | { get?: (nombre: string) => string | null }
     | Record<string, string | string[] | undefined>;
   body?: unknown;
+  query?: Record<string, string | string[] | undefined>;
 }
 
 interface Res {
@@ -180,6 +181,112 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   if (!esStaff(usuario)) {
     responder(res, { error: 'Esta cuenta no tiene acceso al inventario' }, 403);
     return;
+  }
+
+  // Vista de cocina dentro de la misma función para no superar el límite de
+  // funciones serverless del proyecto.
+  if ((!req?.method || req.method === 'GET') && req.query?.vista === 'cocina') {
+    const pool = await poolDeNeon();
+    if (!pool) {
+      responder(res, { error: 'Neon no está configurado (falta DATABASE_URL)' }, 503);
+      return;
+    }
+    try {
+      await pool.query(`alter table public.pedidos
+        add column if not exists estado_cocina text not null default 'pendiente'`);
+      const resultado = await pool.query(
+        `select p.id, p.id_pedido, p.cliente_nombre, p.cliente_telefono, p.direccion,
+                p.productos, p.total, p.tipo_entrega, p.estado, p.estado_cocina, p.fecha,
+                coalesce(to_jsonb(p)->>'mesa', to_jsonb(p)->>'mesa_id', '') as mesa
+         from public.pedidos p
+         where coalesce(p.fecha, now()) >= now() - interval '3 days'
+         order by p.fecha desc nulls last, p.id desc
+         limit 150`,
+      );
+      const pedidos = resultado.rows.map((fila: any) => {
+        let productos = fila.productos;
+        if (typeof productos === 'string') {
+          try { productos = JSON.parse(productos); } catch { productos = []; }
+        }
+        if (!Array.isArray(productos)) productos = Array.isArray(productos?.items) ? productos.items : [];
+        return {
+          id: Number(fila.id),
+          codigo: String(fila.id_pedido ?? fila.id ?? ''),
+          cliente: String(fila.cliente_nombre ?? ''),
+          telefono: String(fila.cliente_telefono ?? ''),
+          direccion: String(fila.direccion ?? ''),
+          mesa: String(fila.mesa ?? ''),
+          productos,
+          total: Number(fila.total ?? 0),
+          tipoEntrega: String(fila.tipo_entrega ?? '').toLowerCase(),
+          estadoPago: String(fila.estado ?? '').toLowerCase(),
+          estadoCocina: String(fila.estado_cocina ?? 'pendiente').toLowerCase(),
+          fecha: fila.fecha ? new Date(fila.fecha).toISOString() : null,
+        };
+      });
+      responder(res, { pedidos });
+    } catch (error) {
+      g.console?.error?.('[admin] no se pudieron cargar los pedidos de cocina:', error);
+      responder(res, { error: 'No se pudieron cargar los pedidos de cocina' }, 502);
+    }
+    return;
+  }
+
+  // Avanza únicamente el estado operativo de cocina; el estado de pago se
+  // conserva aparte en `pedidos.estado`.
+  if (req?.method === 'POST') {
+    const body = leerCuerpo(req);
+    if (String(body.accion ?? '').toLowerCase() === 'actualizar_cocina') {
+      const id = Number(body.id);
+      const siguiente = String(body.estado_cocina ?? '').toLowerCase();
+      const estadosValidos = new Set(['confirmado', 'preparando', 'listo', 'servido', 'en_reparto', 'entregado']);
+      if (!Number.isInteger(id) || id <= 0 || !estadosValidos.has(siguiente)) {
+        responder(res, { error: 'Datos de pedido no válidos' }, 400);
+        return;
+      }
+      const pool = await poolDeNeon();
+      if (!pool) {
+        responder(res, { error: 'Neon no está configurado (falta DATABASE_URL)' }, 503);
+        return;
+      }
+      try {
+        await pool.query(`alter table public.pedidos
+          add column if not exists estado_cocina text not null default 'pendiente'`);
+        const actual = await pool.query('select estado_cocina, tipo_entrega from public.pedidos where id = $1', [id]);
+        const pedido = actual.rows?.[0];
+        if (!pedido) {
+          responder(res, { error: 'No se encontró el pedido' }, 404);
+          return;
+        }
+        const estadoActual = String(pedido.estado_cocina ?? 'pendiente').toLowerCase();
+        const tipoEntrega = String(pedido.tipo_entrega ?? '').toLowerCase();
+        const transiciones: Record<string, string[]> = {
+          pendiente: ['confirmado'],
+          confirmado: ['preparando'],
+          preparando: ['listo'],
+          listo: tipoEntrega === 'mesa' ? ['servido'] : ['en_reparto'],
+          en_reparto: ['entregado'],
+        };
+        if (!transiciones[estadoActual]?.includes(siguiente)) {
+          responder(res, { error: 'Ese cambio de estado no está permitido' }, 409);
+          return;
+        }
+        const actualizado = await pool.query(
+          `update public.pedidos set estado_cocina = $2
+           where id = $1 and estado_cocina = $3 returning id, estado_cocina`,
+          [id, siguiente, estadoActual],
+        );
+        if (!actualizado.rows?.length) {
+          responder(res, { error: 'El pedido cambió mientras lo actualizabas. Actualiza la lista.' }, 409);
+          return;
+        }
+        responder(res, { ok: true, id, estadoCocina: siguiente });
+      } catch (error) {
+        g.console?.error?.('[admin] no se pudo actualizar el estado de cocina:', error);
+        responder(res, { error: 'No se pudo actualizar el pedido' }, 502);
+      }
+      return;
+    }
   }
 
   // 2) Listar

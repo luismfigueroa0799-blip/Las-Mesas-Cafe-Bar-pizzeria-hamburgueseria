@@ -1,0 +1,140 @@
+.cocina-page {
+  min-height: 100vh;
+  color: #34291f;
+  background: #f6f2e9;
+  font-family: var(--app-font-sans, Arial, sans-serif);
+}
+.cocina-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  min-height: 68px;
+  padding: 0 max(24px, calc((100vw - 1180px) / 2));
+  border-bottom: 1px solid #e9dfcc;
+  background: rgba(249, 246, 238, .95);
+  backdrop-filter: blur(12px);
+}
+.cocina-volver,
+.cocina-brand,
+.cocina-top-actions,
+.cocina-top-actions button,
+.cocina-tipo-filtros button,
+.cocina-estado-filtros button,
+.cocina-tipo-tag,
+.cocina-hora,
+.cocina-accion,
+.cocina-finalizado,
+.cocina-live-dot {
+  display: inline-flex;
+  align-items: center;
+}
+.cocina-volver {
+  width: fit-content;
+  gap: 9px;
+  color: #594533;
+  font-size: .82rem;
+  font-weight: 650;
+  text-decoration: none;
+}
+.cocina-brand {
+  gap: 9px;
+  color: #493528;
+  font-family: var(--app-font-serif, Georgia, serif);
+  font-size: 1.15rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.cocina-brand svg { color: #89733c; }
+.cocina-brand i { width: 1px; height: 20px; margin-inline: 3px; background: #d8c9ad; }
+.cocina-brand span { letter-spacing: .08em; text-transform: uppercase; font-family: var(--app-font-sans, Arial, sans-serif); font-size: .65rem; }
+.cocina-top-actions { justify-self: end; gap: 8px; }
+.cocina-top-actions button {
+  justify-content: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid #ded2bd;
+  border-radius: 9px;
+  color: #4c3c2e;
+  background: #fffdf9;
+  font-size: .75rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.cocina-top-actions button:disabled { opacity: .55; cursor: wait; }
+.cocina-contenido { width: min(1180px, calc(100% - 48px)); margin: 0 auto; padding: 42px 0 70px; }
+.cocina-heading { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 29px; }
+.cocina-eyebrow { display: flex; align-items: center; gap: 8px; color: #798956; font-size: .7rem; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
+.cocina-heading h1 { margin: 9px 0 5px; color: #422f22; font-family: var(--app-font-serif, Georgia, serif); font-size: clamp(2.1rem, 5vw, 3rem); font-weight: 550; letter-spacing: -.035em; }
+.cocina-heading p { margin: 0; color: #817565; font-size: .89rem; }
+.cocina-actualizacion { display: flex; align-items: center; gap: 9px; color: #756b5c; font-size: .74rem; white-space: nowrap; }
+.cocina-actualizacion small { margin-left: 6px; color: #a69b89; }
+.cocina-live-dot { width: 11px; height: 11px; border-radius: 50%; background: #788c55; box-shadow: 0 0 0 4px #e7ecd9; }
+.cocina-tipo-filtros { display: flex; gap: 9px; margin-bottom: 14px; overflow-x: auto; }
+.cocina-tipo-filtros button { flex: 0 0 auto; gap: 8px; min-height: 42px; padding: 0 16px; border: 1px solid #e0d6c4; border-radius: 999px; color: #685844; background: #fffdf8; font-size: .78rem; font-weight: 700; cursor: pointer; transition: .18s ease; }
+.cocina-tipo-filtros button.activo { border-color: #73834e; color: #fff; background: #73834e; box-shadow: 0 5px 14px #73834e2b; }
+.cocina-estado-filtros { display: flex; gap: 8px; margin: 18px 0 23px; padding-bottom: 11px; overflow-x: auto; border-bottom: 1px solid #e8dfd0; }
+.cocina-estado-filtros button { flex: 0 0 auto; justify-content: center; min-height: 34px; padding: 0 14px; border: 1px solid #ded2bd; border-radius: 999px; color: #655745; background: transparent; font-size: .72rem; font-weight: 650; cursor: pointer; }
+.cocina-estado-filtros button.activo { border-color: #c6b18f; color: #503b2b; background: #eee6d7; }
+.cocina-lista { display: grid; gap: 16px; }
+.cocina-pedido { padding: 20px 21px 18px; border: 1px solid #e6dbc8; border-radius: 15px; background: #fffefa; box-shadow: 0 5px 17px rgba(70, 50, 24, .055); transition: border-color .2s ease, box-shadow .2s ease; }
+.cocina-pedido-pendiente { border-left: 4px solid #c69a56; background: linear-gradient(100deg, #fffaf0, #fffefa 52%); }
+.cocina-pedido-confirmado { border-left: 4px solid #7e8c5c; }
+.cocina-pedido-preparando { border-left: 4px solid #ce9f3c; }
+.cocina-pedido-listo { border-left: 4px solid #4e9780; }
+.cocina-pedido-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 14px; }
+.cocina-pedido-origen { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.cocina-tipo-tag { gap: 6px; min-height: 25px; padding: 0 10px; border-radius: 999px; color: #617142; background: #edf0e3; font-size: .7rem; font-weight: 800; }
+.cocina-tipo-tag.domicilio { color: #855f38; background: #f4eadb; }
+.cocina-hora { gap: 5px; color: #9b8c75; font-size: .74rem; }
+.cocina-codigo { color: #a49783; font-size: .68rem; }
+.cocina-estado-tag { flex: 0 0 auto; padding: 6px 10px; border-radius: 6px; color: #fff; background: #b6a88f; font-size: .65rem; font-weight: 850; letter-spacing: .04em; text-transform: uppercase; }
+.cocina-estado-tag.confirmado { background: #798956; }
+.cocina-estado-tag.preparando { background: #c19034; }
+.cocina-estado-tag.listo { background: #46836e; }
+.cocina-estado-tag.en_reparto { background: #526b98; }
+.cocina-estado-tag.servido, .cocina-estado-tag.entregado { background: #513c2d; }
+.cocina-cliente { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px 16px; margin: 0 0 12px; color: #776b5a; font-size: .77rem; }
+.cocina-cliente strong { color: #47372a; font-size: .88rem; }
+.cocina-cliente a { color: #6c7e4c; text-decoration: none; }
+.cocina-cliente span { flex-basis: 100%; color: #786d5d; line-height: 1.45; }
+.cocina-items { display: grid; gap: 7px; margin: 0; padding: 0; list-style: none; }
+.cocina-items li { display: flex; align-items: flex-start; gap: 10px; padding: 10px 11px; border-radius: 8px; background: #f7f4ed; }
+.cocina-cantidad { flex: 0 0 28px; color: #6f804d; font-size: .82rem; font-weight: 850; }
+.cocina-items li > div { display: grid; gap: 3px; min-width: 0; }
+.cocina-items li strong { color: #443629; font-size: .82rem; }
+.cocina-items li small { color: #847967; font-size: .72rem; line-height: 1.35; }
+.cocina-items li .cocina-nota { color: #9b603e; font-weight: 650; }
+.cocina-pedido-foot { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin-top: 15px; }
+.cocina-total { display: flex; align-items: baseline; flex-wrap: wrap; gap: 7px; color: #746958; font-size: .75rem; }
+.cocina-total strong { color: #493528; font-family: var(--app-font-serif, Georgia, serif); font-size: 1.15rem; }
+.cocina-total small { flex-basis: 100%; color: #9a8f7c; font-size: .66rem; text-transform: capitalize; }
+.cocina-accion { justify-content: center; gap: 8px; min-height: 43px; padding: 0 15px; border: 0; border-radius: 9px; color: #fff; background: #788957; font-size: .75rem; font-weight: 800; cursor: pointer; box-shadow: 0 4px 12px #7889572b; }
+.cocina-accion:hover { background: #667747; }
+.cocina-accion:disabled { opacity: .65; cursor: wait; }
+.cocina-finalizado { gap: 6px; color: #60744b; font-size: .73rem; font-weight: 750; }
+.cocina-vacio, .cocina-cargando { display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 10px; min-height: 220px; color: #897d6a; text-align: center; font-size: .85rem; }
+.cocina-vacio strong { color: #544435; font-family: var(--app-font-serif, Georgia, serif); font-size: 1.25rem; }
+.cocina-vacio span { font-size: .76rem; }
+.cocina-error { margin: 12px 0; padding: 12px 14px; border: 1px solid #e7c8b8; border-radius: 9px; color: #8b4d37; background: #fff1e9; font-size: .8rem; }
+.cocina-spin { animation: cocina-girar .8s linear infinite; }
+@keyframes cocina-girar { to { transform: rotate(360deg); } }
+@media (max-width: 700px) {
+  .cocina-topbar { grid-template-columns: 1fr auto; min-height: 60px; padding-inline: 14px; }
+  .cocina-brand { display: none; }
+  .cocina-top-actions { grid-column: 2; }
+  .cocina-top-actions button { width: 40px; padding: 0; }
+  .cocina-top-actions button span { display: none; }
+  .cocina-contenido { width: calc(100% - 28px); padding-top: 27px; }
+  .cocina-heading { display: grid; align-items: start; gap: 15px; margin-bottom: 22px; }
+  .cocina-actualizacion { flex-wrap: wrap; white-space: normal; }
+  .cocina-actualizacion small { flex-basis: 100%; margin-left: 20px; }
+  .cocina-pedido { padding: 15px 13px 14px; }
+  .cocina-pedido-head { align-items: flex-start; }
+  .cocina-pedido-origen { gap: 7px; }
+  .cocina-pedido-foot { align-items: stretch; flex-direction: column; }
+  .cocina-accion { width: 100%; }
+}

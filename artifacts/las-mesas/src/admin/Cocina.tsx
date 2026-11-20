@@ -1,0 +1,268 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ArrowLeft, Check, ChefHat, Clock3, LogOut, PackageCheck, RefreshCw, Truck, UtensilsCrossed } from 'lucide-react';
+import { Link } from 'wouter';
+import Login, { borrarToken, leerToken } from '@/admin/Login';
+import { supabaseNavegador } from '@/lib/supabase';
+import './cocina.css';
+
+type EstadoCocina = 'pendiente' | 'confirmado' | 'preparando' | 'listo' | 'servido' | 'en_reparto' | 'entregado';
+type ProductoPedido = Record<string, any>;
+interface PedidoCocina {
+  id: number;
+  codigo: string;
+  cliente: string;
+  telefono: string;
+  direccion: string;
+  mesa: string;
+  productos: ProductoPedido[];
+  total: number;
+  tipoEntrega: string;
+  estadoPago: string;
+  estadoCocina: EstadoCocina;
+  fecha: string | null;
+}
+
+const FILTROS_ESTADO = [
+  ['todos', 'Todos'],
+  ['pendiente', 'Pendiente'],
+  ['confirmado', 'Confirmado'],
+  ['preparando', 'En cocina'],
+  ['listo', 'Listo'],
+  ['finalizado', 'Finalizados'],
+] as const;
+
+function textoEstado(estado: EstadoCocina) {
+  return ({
+    pendiente: 'Pendiente', confirmado: 'Confirmado', preparando: 'En cocina', listo: 'Listo',
+    servido: 'Servido', en_reparto: 'En reparto', entregado: 'Entregado',
+  } as Record<EstadoCocina, string>)[estado] ?? 'Pendiente';
+}
+
+function horaPedido(fecha: string | null) {
+  if (!fecha) return 'Hora no disponible';
+  const date = new Date(fecha);
+  return Number.isNaN(date.getTime()) ? 'Hora no disponible' : new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit' }).format(date);
+}
+
+function euro(value: number) {
+  return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(Number.isFinite(value) ? value : 0);
+}
+
+function esMesa(pedido: PedidoCocina) {
+  return pedido.tipoEntrega === 'mesa' || Boolean(pedido.mesa);
+}
+
+function articulosPedido(pedido: PedidoCocina) {
+  return pedido.productos.map((item, index) => {
+    const nombre = String(item.nombre ?? item.name ?? item.producto ?? item.title ?? 'Producto');
+    const cantidad = Math.max(1, Number(item.qty ?? item.cantidad ?? item.quantity ?? 1));
+    const opciones = Array.isArray(item.opciones) ? item.opciones : Array.isArray(item.options) ? item.options : [];
+    const extras = opciones.map((opcion: any) => typeof opcion === 'string' ? opcion : opcion.nombre ?? opcion.name).filter(Boolean);
+    const nota = String(item.nota ?? item.note ?? '').trim();
+    return { key: `${pedido.id}-${index}`, nombre, cantidad, extras, nota };
+  });
+}
+
+function siguienteAccion(pedido: PedidoCocina): { estado: EstadoCocina; texto: string } | null {
+  switch (pedido.estadoCocina) {
+    case 'pendiente': return { estado: 'confirmado', texto: 'Confirmar pedido' };
+    case 'confirmado': return { estado: 'preparando', texto: 'Empezar preparación' };
+    case 'preparando': return { estado: 'listo', texto: 'Marcar como listo' };
+    case 'listo': return esMesa(pedido)
+      ? { estado: 'servido', texto: 'Marcar servido' }
+      : { estado: 'en_reparto', texto: 'Sale a reparto' };
+    case 'en_reparto': return { estado: 'entregado', texto: 'Marcar entregado' };
+    default: return null;
+  }
+}
+
+const Cocina: React.FC = () => {
+  const [token, setToken] = useState(() => leerToken());
+  const [comprobandoSesion, setComprobandoSesion] = useState(() => !leerToken());
+  const [pedidos, setPedidos] = useState<PedidoCocina[]>([]);
+  const [tipo, setTipo] = useState<'todos' | 'mesa' | 'domicilio'>('todos');
+  const [estado, setEstado] = useState<string>('todos');
+  const [cargando, setCargando] = useState(false);
+  const [actualizandoId, setActualizandoId] = useState<number | null>(null);
+  const [error, setError] = useState('');
+  const [ultimaActualizacion, setUltimaActualizacion] = useState<Date | null>(null);
+
+  useEffect(() => {
+    if (token) { setComprobandoSesion(false); return; }
+    const supabase = supabaseNavegador();
+    if (!supabase) { setComprobandoSesion(false); return; }
+    let vigente = true;
+    supabase.auth.getSession().then(({ data }) => {
+      if (!vigente) return;
+      const access = data.session?.access_token ?? '';
+      if (access) setToken(access);
+      setComprobandoSesion(false);
+    }).catch(() => { if (vigente) setComprobandoSesion(false); });
+    return () => { vigente = false; };
+  }, [token]);
+
+  const cargarPedidos = useCallback(async (silencioso = false) => {
+    if (!token) return;
+    if (!silencioso) setCargando(true);
+    try {
+      const response = await fetch('/api/admin-productos?vista=cocina', {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store',
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        if (response.status === 401) {
+          borrarToken();
+          setToken('');
+        }
+        throw new Error(data?.error || 'No se pudieron cargar los pedidos.');
+      }
+      setPedidos(Array.isArray(data.pedidos) ? data.pedidos : []);
+      setError('');
+      setUltimaActualizacion(new Date());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudieron cargar los pedidos.');
+    } finally {
+      if (!silencioso) setCargando(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    if (!token) return;
+    void cargarPedidos();
+    const timer = window.setInterval(() => void cargarPedidos(true), 12000);
+    return () => window.clearInterval(timer);
+  }, [token, cargarPedidos]);
+
+  async function cambiarEstado(pedido: PedidoCocina, nuevoEstado: EstadoCocina) {
+    setActualizandoId(pedido.id);
+    setError('');
+    try {
+      const response = await fetch('/api/admin-productos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ accion: 'actualizar_cocina', id: pedido.id, estado_cocina: nuevoEstado }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error || 'No se pudo actualizar el pedido.');
+      setPedidos((actuales) => actuales.map((item) => item.id === pedido.id ? { ...item, estadoCocina: nuevoEstado } : item));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo actualizar el pedido.');
+      void cargarPedidos(true);
+    } finally {
+      setActualizandoId(null);
+    }
+  }
+
+  function salir() {
+    borrarToken();
+    const supabase = supabaseNavegador();
+    if (supabase) void supabase.auth.signOut();
+    window.location.assign('/login');
+  }
+
+  const filtrados = useMemo(() => pedidos.filter((pedido) => {
+    const mesa = esMesa(pedido);
+    if (tipo === 'mesa' && !mesa) return false;
+    if (tipo === 'domicilio' && mesa) return false;
+    if (estado === 'finalizado') return pedido.estadoCocina === 'servido' || pedido.estadoCocina === 'entregado';
+    if (estado !== 'todos' && pedido.estadoCocina !== estado) return false;
+    return true;
+  }), [pedidos, tipo, estado]);
+
+  if (comprobandoSesion) return <div className="cocina-cargando"><RefreshCw className="cocina-spin" /> Comprobando acceso…</div>;
+  if (!token) return <Login destino="/admin/cocina" />;
+
+  return (
+    <main className="cocina-page">
+      <header className="cocina-topbar">
+        <Link href="/admin/inventario" className="cocina-volver"><ArrowLeft size={17} /> Volver al inventario</Link>
+        <div className="cocina-brand"><ChefHat size={20} /><span>Las Mesas</span><i /> Cocina</div>
+        <div className="cocina-top-actions">
+          <button type="button" onClick={() => void cargarPedidos()} disabled={cargando} aria-label="Actualizar pedidos">
+            <RefreshCw size={16} className={cargando ? 'cocina-spin' : ''} /> <span>Actualizar</span>
+          </button>
+          <button type="button" onClick={salir} aria-label="Salir"><LogOut size={16} /><span>Salir</span></button>
+        </div>
+      </header>
+
+      <section className="cocina-contenido">
+        <div className="cocina-heading">
+          <div>
+            <span className="cocina-eyebrow"><UtensilsCrossed size={15} /> Panel de trabajo</span>
+            <h1>Pedidos de cocina</h1>
+            <p>Mesas y pedidos a domicilio en un solo lugar.</p>
+          </div>
+          <div className="cocina-actualizacion"><span className="cocina-live-dot" /> Actualización automática cada 12 s{ultimaActualizacion && <small>Última: {horaPedido(ultimaActualizacion.toISOString())}</small>}</div>
+        </div>
+
+        <div className="cocina-tipo-filtros" role="group" aria-label="Filtrar por tipo de pedido">
+          {([
+            ['todos', `Todos (${pedidos.length})`],
+            ['mesa', `Mesas (${pedidos.filter(esMesa).length})`],
+            ['domicilio', `A domicilio (${pedidos.filter((pedido) => !esMesa(pedido)).length})`],
+          ] as const).map(([valor, label]) => (
+            <button key={valor} type="button" className={tipo === valor ? 'activo' : ''} onClick={() => setTipo(valor)}>
+              {valor === 'domicilio' ? <Truck size={16} /> : valor === 'mesa' ? <UtensilsCrossed size={16} /> : <PackageCheck size={16} />}{label}
+            </button>
+          ))}
+        </div>
+
+        <div className="cocina-estado-filtros" role="group" aria-label="Filtrar por estado">
+          {FILTROS_ESTADO.map(([valor, label]) => (
+            <button key={valor} type="button" className={estado === valor ? 'activo' : ''} onClick={() => setEstado(valor)}>{label}</button>
+          ))}
+        </div>
+
+        {error && <div className="cocina-error" role="alert">{error}</div>}
+        {cargando && !pedidos.length ? <div className="cocina-vacio"><RefreshCw className="cocina-spin" /> Cargando pedidos…</div> : null}
+        {!cargando && !error && filtrados.length === 0 && <div className="cocina-vacio"><ChefHat size={28} /><strong>No hay pedidos en esta vista</strong><span>Los pedidos nuevos aparecerán automáticamente.</span></div>}
+
+        <div className="cocina-lista">
+          {filtrados.map((pedido) => {
+            const mesa = esMesa(pedido);
+            const proxima = siguienteAccion(pedido);
+            const items = articulosPedido(pedido);
+            return (
+              <article className={`cocina-pedido cocina-pedido-${pedido.estadoCocina}`} key={pedido.id}>
+                <div className="cocina-pedido-head">
+                  <div className="cocina-pedido-origen">
+                    <span className={`cocina-tipo-tag ${mesa ? 'mesa' : 'domicilio'}`}>
+                      {mesa ? <><UtensilsCrossed size={13} /> {pedido.mesa ? `Mesa ${pedido.mesa.replace(/^mesa\s*/i, '')}` : 'Pedido de mesa'}</> : <><Truck size={13} /> A domicilio</>}
+                    </span>
+                    <span className="cocina-hora"><Clock3 size={13} /> {horaPedido(pedido.fecha)}</span>
+                    <span className="cocina-codigo">#{pedido.codigo}</span>
+                  </div>
+                  <span className={`cocina-estado-tag ${pedido.estadoCocina}`}>{textoEstado(pedido.estadoCocina)}</span>
+                </div>
+
+                {!mesa && <div className="cocina-cliente"><strong>{pedido.cliente || 'Cliente'}</strong>{pedido.telefono && <a href={`tel:${pedido.telefono}`}>{pedido.telefono}</a>}{pedido.direccion && <span>{pedido.direccion}</span>}</div>}
+                {mesa && pedido.cliente && <div className="cocina-cliente"><strong>{pedido.cliente}</strong>{pedido.telefono && <a href={`tel:${pedido.telefono}`}>{pedido.telefono}</a>}</div>}
+
+                <ul className="cocina-items">
+                  {items.map((item) => (
+                    <li key={item.key}>
+                      <span className="cocina-cantidad">{item.cantidad}×</span>
+                      <div><strong>{item.nombre}</strong>{item.extras.length > 0 && <small>{item.extras.join(' · ')}</small>}{item.nota && <small className="cocina-nota">Nota: {item.nota}</small>}</div>
+                    </li>
+                  ))}
+                </ul>
+
+                <div className="cocina-pedido-foot">
+                  <div className="cocina-total"><span>Total</span><strong>{euro(pedido.total)}</strong>{pedido.estadoPago && <small>Pago: {pedido.estadoPago.replaceAll('_', ' ')}</small>}</div>
+                  {proxima && <button type="button" className="cocina-accion" onClick={() => void cambiarEstado(pedido, proxima.estado)} disabled={actualizandoId === pedido.id}>
+                    {actualizandoId === pedido.id ? <RefreshCw size={16} className="cocina-spin" /> : <Check size={17} />}
+                    {actualizandoId === pedido.id ? 'Guardando…' : proxima.texto}
+                  </button>}
+                  {!proxima && <span className="cocina-finalizado"><Check size={15} /> Pedido finalizado</span>}
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+    </main>
+  );
+};
+
+export default Cocina;
