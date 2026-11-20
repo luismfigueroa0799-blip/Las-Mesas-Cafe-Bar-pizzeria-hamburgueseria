@@ -121,6 +121,7 @@
 .cocina-vacio strong { color: #544435; font-family: var(--app-font-serif, Georgia, serif); font-size: 1.25rem; }
 .cocina-vacio span { font-size: .76rem; }
 .cocina-error { margin: 12px 0; padding: 12px 14px; border: 1px solid #e7c8b8; border-radius: 9px; color: #8b4d37; background: #fff1e9; font-size: .8rem; }
+.cocina-error.cocina-info { border-color: #d9d0a4; color: #5c5028; background: #fff9df; }
 .cocina-aviso-nuevo { position: relative; display: flex; align-items: center; gap: 12px; margin: 0 0 17px; padding: 14px 48px 14px 16px; border: 1px solid #d8b856; border-radius: 11px; color: #46361e; background: linear-gradient(100deg,#fff1b8,#fffaf0); box-shadow: 0 5px 18px rgba(160,122,33,.14); animation: cocina-aviso-entrada .22s ease-out; }
 .cocina-aviso-nuevo > svg { flex: 0 0 auto; color: #9b7625; }
 .cocina-aviso-nuevo strong { font-size: .88rem; }

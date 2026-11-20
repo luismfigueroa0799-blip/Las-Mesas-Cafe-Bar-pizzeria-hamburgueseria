@@ -106,6 +106,10 @@ const Cocina: React.FC = () => {
   const [error, setError] = useState('');
   const [ultimaActualizacion, setUltimaActualizacion] = useState<Date | null>(null);
   const [sonidoActivo, setSonidoActivo] = useState(false);
+  const [pushActivo, setPushActivo] = useState(false);
+  const [pushCargando, setPushCargando] = useState(false);
+  const [pushPublicKey, setPushPublicKey] = useState('');
+  const [pushMensaje, setPushMensaje] = useState('');
   const [avisoNuevo, setAvisoNuevo] = useState('');
   const pedidosVistos = useRef<Set<number> | null>(null);
   const peticionActiva = useRef(false);
@@ -145,6 +149,7 @@ const Cocina: React.FC = () => {
         throw new Error(data?.error || 'No se pudieron cargar los pedidos.');
       }
       const lista: PedidoCocina[] = Array.isArray(data.pedidos) ? data.pedidos : [];
+      if (typeof data.pushPublicKey === 'string') setPushPublicKey(data.pushPublicKey);
       const vistos = pedidosVistos.current;
       if (!vistos) {
         pedidosVistos.current = new Set(lista.map((pedido) => pedido.id));
@@ -183,6 +188,14 @@ const Cocina: React.FC = () => {
     };
   }, [token, cargarPedidos]);
 
+  useEffect(() => {
+    if (!token || !('serviceWorker' in navigator)) return;
+    navigator.serviceWorker.register('/service-worker.js', { scope: '/' })
+      .then((registro) => registro.pushManager.getSubscription())
+      .then((suscripcion) => { if (suscripcion) setPushActivo(true); })
+      .catch(() => undefined);
+  }, [token]);
+
   async function alternarSonido() {
     if (sonidoRef.current) {
       sonidoRef.current = false;
@@ -200,6 +213,63 @@ const Cocina: React.FC = () => {
       tocarAviso(context);
     } catch {
       setError('No se pudo activar el sonido. Comprueba el volumen del iPad e inténtalo otra vez.');
+    }
+  }
+
+  function clavePushABuffer(valor: string): Uint8Array {
+    const normalizado = valor.replace(/-/g, '+').replace(/_/g, '/');
+    const decodificado = window.atob(normalizado + '='.repeat((4 - normalizado.length % 4) % 4));
+    return Uint8Array.from(decodificado, (caracter) => caracter.charCodeAt(0));
+  }
+
+  async function alternarPush() {
+    setPushCargando(true);
+    setPushMensaje('');
+    try {
+      const instalada = window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone === true;
+      if (!instalada) throw new Error('En el iPad, abre esta página en Safari, pulsa Compartir y elige “Añadir a pantalla de inicio”. Después abre Cocina desde ese icono.');
+      if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
+        throw new Error('Este iPad no admite notificaciones web. Actualiza iPadOS y abre Cocina desde la pantalla de inicio.');
+      }
+
+      const registro = await navigator.serviceWorker.register('/service-worker.js', { scope: '/' });
+      await navigator.serviceWorker.ready;
+      const suscripcionActual = await registro.pushManager.getSubscription();
+      if (suscripcionActual && pushActivo) {
+        const jsonActual = suscripcionActual.toJSON();
+        await fetch('/api/admin-productos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ accion: 'eliminar_push', subscription: jsonActual }),
+        });
+        await suscripcionActual.unsubscribe();
+        setPushActivo(false);
+        setPushMensaje('Avisos de pedidos desactivados en este iPad.');
+        return;
+      }
+      if (!pushPublicKey) throw new Error('Falta configurar la clave pública de notificaciones en el servidor.');
+      const permiso = await Notification.requestPermission();
+      if (permiso !== 'granted') throw new Error('Permite las notificaciones de Cocina en los ajustes del iPad.');
+      const bytesClave = clavePushABuffer(pushPublicKey);
+      const claveServidor = new ArrayBuffer(bytesClave.byteLength);
+      new Uint8Array(claveServidor).set(bytesClave);
+      const suscripcion = suscripcionActual ?? await registro.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: claveServidor,
+      });
+      const respuesta = await fetch('/api/admin-productos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ accion: 'registrar_push', subscription: suscripcion.toJSON() }),
+      });
+      const data = await respuesta.json();
+      if (!respuesta.ok) throw new Error(data?.error || 'No se pudieron guardar los avisos de este iPad.');
+      setPushActivo(true);
+      setPushMensaje('La suscripción de este iPad quedó guardada. Falta autorizar y configurar el envío de notificaciones desde el servidor para que lleguen pedidos.');
+    } catch (error) {
+      setPushMensaje(error instanceof Error ? error.message : 'No se pudieron activar los avisos push.');
+    } finally {
+      setPushCargando(false);
     }
   }
 
@@ -256,6 +326,9 @@ const Cocina: React.FC = () => {
           <button type="button" className={sonidoActivo ? 'sonido-activo' : ''} onClick={() => void alternarSonido()} aria-pressed={sonidoActivo}>
             {sonidoActivo ? <BellRing size={16} /> : <Bell size={16} />} <span>{sonidoActivo ? 'Avisos activos' : 'Activar avisos'}</span>
           </button>
+          <button type="button" className={pushActivo ? 'sonido-activo' : ''} onClick={() => void alternarPush()} disabled={pushCargando} aria-pressed={pushActivo} aria-label={pushActivo ? 'Desactivar suscripción de avisos push' : 'Preparar avisos push'}>
+            {pushActivo ? <BellRing size={16} /> : <Bell size={16} />} <span>{pushCargando ? 'Configurando…' : pushActivo ? 'Suscripción guardada' : 'Preparar avisos push'}</span>
+          </button>
           <button type="button" onClick={() => void cargarPedidos()} disabled={cargando} aria-label="Actualizar pedidos">
             <RefreshCw size={16} className={cargando ? 'cocina-spin' : ''} /> <span>Actualizar</span>
           </button>
@@ -292,6 +365,7 @@ const Cocina: React.FC = () => {
         </div>
 
         {avisoNuevo && <div className="cocina-aviso-nuevo" role="alert"><BellRing size={19} /><strong>{avisoNuevo}</strong><span>Revisa la tarjeta del pedido en la lista.</span><button type="button" onClick={() => setAvisoNuevo('')} aria-label="Cerrar aviso"><X size={17} /></button></div>}
+        {pushMensaje && <div className={`cocina-error ${pushActivo ? 'cocina-info' : ''}`} role="status">{pushMensaje}</div>}
         {error && <div className="cocina-error" role="alert">{error}</div>}
         {cargando && !pedidos.length ? <div className="cocina-vacio"><RefreshCw className="cocina-spin" /> Cargando pedidos…</div> : null}
         {!cargando && !error && filtrados.length === 0 && <div className="cocina-vacio"><ChefHat size={28} /><strong>No hay pedidos en esta vista</strong><span>Los pedidos nuevos aparecerán automáticamente.</span></div>}

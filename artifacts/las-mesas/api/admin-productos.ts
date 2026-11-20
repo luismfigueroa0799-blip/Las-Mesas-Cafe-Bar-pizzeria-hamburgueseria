@@ -224,7 +224,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
           fecha: fila.fecha ? new Date(fila.fecha).toISOString() : null,
         };
       });
-      responder(res, { pedidos });
+      responder(res, { pedidos, pushPublicKey: String(entorno().VAPID_PUBLIC_KEY ?? '').trim() || null });
     } catch (error) {
       g.console?.error?.('[admin] no se pudieron cargar los pedidos de cocina:', error);
       responder(res, { error: 'No se pudieron cargar los pedidos de cocina' }, 502);
@@ -236,6 +236,44 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   // conserva aparte en `pedidos.estado`.
   if (req?.method === 'POST') {
     const body = leerCuerpo(req);
+    const accion = String(body.accion ?? '').toLowerCase();
+    if (accion === 'registrar_push' || accion === 'eliminar_push') {
+      const subscription = body.subscription && typeof body.subscription === 'object' ? body.subscription : null;
+      const endpoint = String(subscription?.endpoint ?? '').trim();
+      if (!endpoint || !/^https:\/\//i.test(endpoint)) {
+        responder(res, { error: 'La suscripción de notificaciones no es válida' }, 400);
+        return;
+      }
+      const pool = await poolDeNeon();
+      if (!pool) {
+        responder(res, { error: 'Neon no está configurado (falta DATABASE_URL)' }, 503);
+        return;
+      }
+      try {
+        await pool.query(`create table if not exists public.cocina_push_subscriptions (
+          endpoint text primary key,
+          subscription jsonb not null,
+          created_at timestamptz not null default now(),
+          last_seen timestamptz not null default now()
+        )`);
+        if (accion === 'registrar_push') {
+          await pool.query(
+            `insert into public.cocina_push_subscriptions (endpoint, subscription)
+             values ($1, $2::jsonb)
+             on conflict (endpoint) do update set subscription = excluded.subscription, last_seen = now()`,
+            [endpoint, JSON.stringify(subscription)],
+          );
+          responder(res, { ok: true, activo: true });
+        } else {
+          await pool.query('delete from public.cocina_push_subscriptions where endpoint = $1', [endpoint]);
+          responder(res, { ok: true, activo: false });
+        }
+      } catch (error) {
+        g.console?.error?.('[admin] no se pudo guardar la suscripción push de cocina:', error);
+        responder(res, { error: 'No se pudo guardar la configuración de avisos' }, 502);
+      }
+      return;
+    }
     if (String(body.accion ?? '').toLowerCase() === 'actualizar_cocina') {
       const id = Number(body.id);
       const siguiente = String(body.estado_cocina ?? '').toLowerCase();

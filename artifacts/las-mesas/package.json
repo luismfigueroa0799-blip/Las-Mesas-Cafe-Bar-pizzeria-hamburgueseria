@@ -79,6 +79,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.119.0",
     "@vercel/blob": "^2.9.0",
-    "pg": "8.13.1"
+    "pg": "8.13.1",
+    "web-push": "3.6.7"
   }
 }

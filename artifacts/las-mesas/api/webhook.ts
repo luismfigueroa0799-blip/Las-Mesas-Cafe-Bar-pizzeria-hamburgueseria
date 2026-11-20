@@ -15,9 +15,12 @@
 //
 // Tipos globales mínimos para que este archivo compile con cualquier tsconfig
 // (sin depender de "lib": ["dom"] ni de @types/node).
+import { createRequire } from 'node:module';
+
 type Global = Record<string, any>;
 
 const g = globalThis as unknown as Global;
+const cargarModulo = createRequire(import.meta.url);
 
 // Margen de ejecución de la función.
 export const maxDuration = 30;
@@ -433,6 +436,45 @@ async function consultarNeon(sql: string, valores: unknown[] = []): Promise<any[
   }
 }
 
+async function enviarAvisoPushCocina(): Promise<void> {
+  const env = entorno();
+  const publicKey = String(env.VAPID_PUBLIC_KEY ?? '').trim();
+  const privateKey = String(env.VAPID_PRIVATE_KEY ?? '').trim();
+  const subject = String(env.VAPID_SUBJECT ?? '').trim();
+  if (!publicKey || !privateKey || !subject) {
+    log('[webhook] push de cocina sin configurar: faltan variables VAPID');
+    return;
+  }
+  const pool = await poolDeNeon();
+  if (!pool) return;
+  try {
+    const webPush: any = cargarModulo('web-push');
+    webPush.setVapidDetails(subject, publicKey, privateKey);
+    const resultado = await pool.query('select endpoint, subscription from public.cocina_push_subscriptions');
+    const payload = JSON.stringify({
+      title: 'Nuevo pedido para cocina',
+      body: 'Hay un pedido nuevo. Abre Cocina para verlo.',
+      url: '/admin/cocina',
+      tag: `pedido-${Date.now()}`,
+    });
+    const envios = await Promise.allSettled((resultado.rows ?? []).map(async (fila: any) => {
+      const subscription = typeof fila.subscription === 'string' ? JSON.parse(fila.subscription) : fila.subscription;
+      try {
+        await webPush.sendNotification(subscription, payload, { TTL: 60, urgency: 'high' });
+      } catch (error: any) {
+        if (error?.statusCode === 404 || error?.statusCode === 410) {
+          await pool.query('delete from public.cocina_push_subscriptions where endpoint = $1', [fila.endpoint]);
+        }
+        throw error;
+      }
+    }));
+    const fallos = envios.filter((envio) => envio.status === 'rejected').length;
+    log('[webhook] aviso push de cocina:', { enviadas: envios.length - fallos, fallidas: fallos });
+  } catch (error) {
+    log('[webhook] no se pudo enviar el aviso push de cocina:', error);
+  }
+}
+
 /** Columnas que se pueden tocar de la tabla `pedidos` de Neon. */
 const COLUMNAS_NEON = [
   'id_pedido',
@@ -704,6 +746,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   const pagoConfirmado =
     (evento?.type === 'checkout.session.completed' && objeto?.payment_status === 'paid') ||
     evento?.type === 'checkout.session.async_payment_succeeded';
+  if (pagoConfirmado && pedidoId) await enviarAvisoPushCocina();
   if (topicNtfy && pagoConfirmado && pedidoId) {
     try {
       const textoNtfy = [
