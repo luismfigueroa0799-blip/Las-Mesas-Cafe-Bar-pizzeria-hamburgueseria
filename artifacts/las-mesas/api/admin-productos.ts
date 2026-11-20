@@ -185,7 +185,9 @@ export default async function handler(req: Req, res: Res): Promise<void> {
 
   // Vista de cocina dentro de la misma función para no superar el límite de
   // funciones serverless del proyecto.
-  if ((!req?.method || req.method === 'GET') && req.query?.vista === 'cocina') {
+  const vistaPedidos = Array.isArray(req.query?.vista) ? req.query?.vista[0] : req.query?.vista;
+  if ((!req?.method || req.method === 'GET') && (vistaPedidos === 'cocina' || vistaPedidos === 'barra')) {
+    const esVistaBarra = vistaPedidos === 'barra';
     const pool = await poolDeNeon();
     if (!pool) {
       responder(res, { error: 'Neon no está configurado (falta DATABASE_URL)' }, 503);
@@ -199,9 +201,9 @@ export default async function handler(req: Req, res: Res): Promise<void> {
                 p.productos, p.total, p.tipo_entrega, p.estado, p.estado_cocina, p.fecha,
                 coalesce(to_jsonb(p)->>'mesa', to_jsonb(p)->>'mesa_id', '') as mesa
          from public.pedidos p
-         where coalesce(p.fecha, now()) >= now() - interval '3 days'
+         where coalesce(p.fecha, now()) >= now() - interval '${esVistaBarra ? '30 days' : '3 days'}'
          order by p.fecha desc nulls last, p.id desc
-         limit 150`,
+         limit ${esVistaBarra ? 500 : 150}`,
       );
       const pedidos = resultado.rows.map((fila: any) => {
         let productos = fila.productos;
@@ -224,7 +226,9 @@ export default async function handler(req: Req, res: Res): Promise<void> {
           fecha: fila.fecha ? new Date(fila.fecha).toISOString() : null,
         };
       });
-      responder(res, { pedidos, pushPublicKey: String(entorno().VAPID_PUBLIC_KEY ?? '').trim() || null });
+      responder(res, esVistaBarra
+        ? { pedidos }
+        : { pedidos, pushPublicKey: String(entorno().VAPID_PUBLIC_KEY ?? '').trim() || null });
     } catch (error) {
       g.console?.error?.('[admin] no se pudieron cargar los pedidos de cocina:', error);
       responder(res, { error: 'No se pudieron cargar los pedidos de cocina' }, 502);

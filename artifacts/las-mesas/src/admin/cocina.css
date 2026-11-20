@@ -64,6 +64,22 @@
   font-weight: 700;
   cursor: pointer;
 }
+.cocina-top-actions .cocina-link-barra {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid #ded2bd;
+  border-radius: 9px;
+  color: #4c3c2e;
+  background: #fffdf9;
+  font-size: .75rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+.cocina-top-actions .cocina-link-barra:hover { border-color: #c6b18f; background: #fff9e8; }
 .cocina-top-actions button:disabled { opacity: .55; cursor: wait; }
 .cocina-top-actions button.sonido-activo { border-color: #778752; color: #fff; background: #778752; }
 .cocina-contenido { width: min(1180px, calc(100% - 48px)); margin: 0 auto; padding: 42px 0 70px; }

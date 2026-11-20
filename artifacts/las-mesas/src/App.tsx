@@ -11,6 +11,7 @@ import ProductCard from '@/ProductCard';
 import Inventario from '@/admin/Inventario';
 import GestionOpciones from '@/admin/GestionOpciones';
 import Cocina from '@/admin/Cocina';
+import Barra from '@/admin/Barra';
 import Login from '@/admin/Login';
 import {
   alCambiarMenu,
@@ -100,6 +101,7 @@ function App() {
   const esRutaLogin = rutaActual === '/login';
   const esRutaOpciones = rutaActual === '/admin/opciones';
   const esRutaCocina = rutaActual === '/admin/cocina';
+  const esRutaBarra = rutaActual === '/admin/barra';
   const esRutaAdmin = rutaActual.startsWith('/admin');
   const [productosVisibles, setProductosVisibles] = useState(12);
   const { cart, addToCart, clearCart } = useCart();
@@ -298,6 +300,7 @@ function App() {
 
   if (esRutaLogin) return <Login />;
   if (esRutaCocina) return <Cocina />;
+  if (esRutaBarra) return <Barra />;
   if (esRutaOpciones) return <GestionOpciones />;
   if (esRutaAdmin) return <Inventario />;
 

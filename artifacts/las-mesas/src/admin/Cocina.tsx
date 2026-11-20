@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Bell, BellRing, Check, ChefHat, Clock3, LogOut, PackageCheck, RefreshCw, Truck, UtensilsCrossed, X } from 'lucide-react';
+import { ArrowLeft, Bell, BellRing, Check, ChefHat, Clock3, FileText, LogOut, PackageCheck, RefreshCw, Truck, UtensilsCrossed, X } from 'lucide-react';
 import { Link } from 'wouter';
 import Login, { borrarToken, leerToken } from '@/admin/Login';
 import { supabaseNavegador } from '@/lib/supabase';
@@ -323,6 +323,7 @@ const Cocina: React.FC = () => {
         <Link href="/admin/inventario" className="cocina-volver"><ArrowLeft size={17} /> Volver al inventario</Link>
         <div className="cocina-brand"><ChefHat size={20} /><span>Las Mesas</span><i /> Cocina</div>
         <div className="cocina-top-actions">
+          <Link href="/admin/barra" className="cocina-link-barra"><FileText size={16} /><span>Barra</span></Link>
           <button type="button" className={sonidoActivo ? 'sonido-activo' : ''} onClick={() => void alternarSonido()} aria-pressed={sonidoActivo}>
             {sonidoActivo ? <BellRing size={16} /> : <Bell size={16} />} <span>{sonidoActivo ? 'Avisos activos' : 'Activar avisos'}</span>
           </button>
