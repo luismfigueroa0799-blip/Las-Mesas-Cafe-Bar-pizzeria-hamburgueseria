@@ -78,11 +78,11 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
   const [ubicacionError, setUbicacionError] = useState('');
 
   // ?mesa=N indica que el pedido es para esa mesa del local (QR de mesa).
-  // Solo se admite entre 1 y 8 (las 8 mesas del local).
+  // Solo se admite entre 1 y 9 (las 9 mesas del local).
   const mesaUrl = useMemo(() => {
     const valor = new URLSearchParams(window.location.search).get('mesa');
     const numero = Number(valor ?? '');
-    if (valor !== null && Number.isInteger(numero) && numero >= 1 && numero <= 8) {
+    if (valor !== null && Number.isInteger(numero) && numero >= 1 && numero <= 9) {
       return String(numero);
     }
     return '';
@@ -677,3 +677,4 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
 };
 
 export default CartSidebar;
+

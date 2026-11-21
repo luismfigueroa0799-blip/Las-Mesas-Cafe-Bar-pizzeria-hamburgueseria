@@ -917,6 +917,16 @@ function valorCabecera(req: Req, nombre: string): string {
  * urls de exito y de cancelacion de Stripe.
  */
 function urlBaseDeLaPeticion(req: Req): string {
+  // 1) Prioridad: variable de entorno NEXT_PUBLIC_URL (configurada en Vercel).
+  //    Así las URLs de Stripe siempre apuntan al dominio correcto, sin importar
+  //    cómo acceda el cliente (QR de mesa, dominio personalizado, etc.).
+  const env = entorno();
+  const configurada = String(env.NEXT_PUBLIC_URL ?? env.PUBLIC_URL ?? '').trim();
+  if (esUrlValida(configurada)) {
+    return configurada.replace(/\/+$/, '');
+  }
+
+  // 2) Fallback: intentar deducir desde las cabeceras de la petición.
   const host = valorCabecera(req, 'x-forwarded-host') || valorCabecera(req, 'host');
   const dominio = host.split(',')[0].trim();
   // Solo se usa si parece un nombre de dominio de verdad.
@@ -924,9 +934,8 @@ function urlBaseDeLaPeticion(req: Req): string {
     const proto = valorCabecera(req, 'x-forwarded-proto') || 'https';
     return proto + '://' + dominio.replace(/:\d+$/, '');
   }
-  const env = entorno();
-  const configurada = String(env.NEXT_PUBLIC_URL ?? env.PUBLIC_URL ?? '').trim();
-  if (esUrlValida(configurada)) return configurada.replace(/\/+$/, '');
+
+  // 3) Último recurso: URL por defecto de Vercel.
   return 'https://las-mesas-cafe-bar-pizzeria-hamburgueseria-7l1h-git-main-luism4.vercel.app';
 }
 

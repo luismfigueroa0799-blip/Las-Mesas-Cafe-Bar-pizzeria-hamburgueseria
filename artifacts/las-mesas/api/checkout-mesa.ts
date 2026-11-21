@@ -1,7 +1,7 @@
 // Creación de sesión de pago para pedidos de MESA (QR de mesa).
 //
 // Flujo:
-//   1. Esta API valida que haya mesa (1-8) y envía los datos al webhook de n8n
+//   1. Esta API valida que haya mesa (1-9) y envía los datos al webhook de n8n
 //      `crear-pedido-mesa`, que:
 //        - recalcula precios contra Neon (`products`),
 //        - inserta el pedido en Neon (`pedidos`) con tipo_entrega='mesa' y mesa,
@@ -92,12 +92,12 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     urlOrigen,
   } = body ?? {};
 
-  // Validar mesa entre 1 y 8
+  // Validar mesa entre 1 y 9
   const mesaNum = Number(mesa);
-  if (!Number.isInteger(mesaNum) || mesaNum < 1 || mesaNum > 8) {
+  if (!Number.isInteger(mesaNum) || mesaNum < 1 || mesaNum > 9) {
     return responder(
       res,
-      { error: 'Mesa inválida: debe ser un número del 1 al 8' },
+      { error: 'Mesa inválida: debe ser un número del 1 al 9' },
       400
     );
   }
@@ -190,3 +190,4 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     );
   }
 }
+
