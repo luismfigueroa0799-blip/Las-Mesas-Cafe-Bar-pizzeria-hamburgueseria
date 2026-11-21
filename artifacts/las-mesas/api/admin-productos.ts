@@ -202,6 +202,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
                 coalesce(to_jsonb(p)->>'mesa', to_jsonb(p)->>'mesa_id', '') as mesa
          from public.pedidos p
          where coalesce(p.fecha, now()) >= now() - interval '${esVistaBarra ? '30 days' : '3 days'}'
+           and lower(btrim(coalesce(p.estado, ''))) in ('pagado', 'paid')
          order by p.fecha desc nulls last, p.id desc
          limit ${esVistaBarra ? 500 : 150}`,
       );

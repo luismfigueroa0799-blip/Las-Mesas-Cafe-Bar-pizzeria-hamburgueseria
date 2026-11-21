@@ -67,7 +67,6 @@ const Barra: React.FC = () => {
   const [error, setError] = useState('');
   const [busqueda, setBusqueda] = useState('');
   const [filtroTipo, setFiltroTipo] = useState<'todos' | 'mesa' | 'domicilio'>('todos');
-  const [filtroEstado, setFiltroEstado] = useState('todos');
   const [facturaId, setFacturaId] = useState<number | null>(null);
   const [imprimirAlAbrir, setImprimirAlAbrir] = useState(false);
   const [pushActivo, setPushActivo] = useState(false);
@@ -220,9 +219,8 @@ const Barra: React.FC = () => {
     const coincideTexto = !texto || [pedido.codigo, pedido.cliente, pedido.telefono, pedido.direccion, ...pedido.productos.map((item) => item.nombre ?? item.name ?? '')]
       .some((valor) => String(valor ?? '').toLowerCase().includes(texto));
     const coincideTipo = filtroTipo === 'todos' || (filtroTipo === 'mesa' ? mesa : !mesa);
-    const coincideEstado = filtroEstado === 'todos' || String(pedido.estadoPago || '').toLowerCase().includes(filtroEstado);
-    return coincideTexto && coincideTipo && coincideEstado;
-  }), [pedidos, busqueda, filtroTipo, filtroEstado]);
+    return coincideTexto && coincideTipo;
+  }), [pedidos, busqueda, filtroTipo]);
 
   const factura = pedidos.find((pedido) => pedido.id === facturaId) ?? null;
   const articulosFactura = factura ? lineasDe(factura) : [];
@@ -256,7 +254,7 @@ const Barra: React.FC = () => {
 
       <section className="barra-contenido">
         <div className="barra-heading">
-          <div><span className="barra-eyebrow"><FileText size={15} /> Control de pedidos</span><h1>Comandas de barra</h1><p>Pedidos de mesa y a domicilio, con código y factura imprimible.</p></div>
+          <div><span className="barra-eyebrow"><FileText size={15} /> Control de pedidos pagados</span><h1>Comandas de barra</h1><p>Se muestran cuando Stripe confirma el pago.</p></div>
           <div className="barra-live"><span /> Cocina sincronizada · actualización cada 3 segundos{actualizada && <small>Actualizada {new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(actualizada)}</small>}</div>
         </div>
 
@@ -271,9 +269,6 @@ const Barra: React.FC = () => {
           <label className="barra-busqueda"><Search size={17} /><input value={busqueda} onChange={(event) => setBusqueda(event.target.value)} placeholder="Buscar por código, cliente o producto" /></label>
           <select value={filtroTipo} onChange={(event) => setFiltroTipo(event.target.value as typeof filtroTipo)} aria-label="Filtrar por tipo">
             <option value="todos">Todos los pedidos</option><option value="mesa">Mesas</option><option value="domicilio">A domicilio</option>
-          </select>
-          <select value={filtroEstado} onChange={(event) => setFiltroEstado(event.target.value)} aria-label="Filtrar por estado de pago">
-            <option value="todos">Todos los estados</option><option value="pagado">Pagados</option><option value="pendiente">Pendientes</option><option value="cancelado">Cancelados</option>
           </select>
         </div>
 
