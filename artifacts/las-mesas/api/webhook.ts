@@ -436,7 +436,7 @@ async function consultarNeon(sql: string, valores: unknown[] = []): Promise<any[
   }
 }
 
-async function enviarAvisoPushCocina(): Promise<void> {
+async function enviarAvisoPushCocina(pedidoClave: string): Promise<void> {
   const env = entorno();
   const publicKey = String(env.VAPID_PUBLIC_KEY ?? '').trim();
   const privateKey = String(env.VAPID_PRIVATE_KEY ?? '').trim();
@@ -450,15 +450,26 @@ async function enviarAvisoPushCocina(): Promise<void> {
   try {
     const webPush: any = cargarModulo('web-push');
     webPush.setVapidDetails(subject, publicKey, privateKey);
-    const resultado = await pool.query('select endpoint, subscription from public.cocina_push_subscriptions');
-    const payload = JSON.stringify({
-      title: 'Nuevo pedido para cocina',
-      body: 'Hay un pedido nuevo. Abre Cocina para verlo.',
-      url: '/admin/cocina',
-      tag: `pedido-${Date.now()}`,
-    });
+    await pool.query(`create table if not exists public.cocina_push_subscriptions (
+      endpoint text primary key,
+      subscription jsonb not null,
+      paneles text[] not null default array['cocina']::text[],
+      created_at timestamptz not null default now(),
+      last_seen timestamptz not null default now()
+    )`);
+    await pool.query(`alter table public.cocina_push_subscriptions
+      add column if not exists paneles text[] not null default array['cocina']::text[]`);
+    const resultado = await pool.query('select endpoint, subscription, paneles from public.cocina_push_subscriptions');
     const envios = await Promise.allSettled((resultado.rows ?? []).map(async (fila: any) => {
       const subscription = typeof fila.subscription === 'string' ? JSON.parse(fila.subscription) : fila.subscription;
+      const paneles = Array.isArray(fila.paneles) ? fila.paneles : ['cocina'];
+      const destino = paneles.includes('barra') ? 'barra' : 'cocina';
+      const payload = JSON.stringify({
+        title: destino === 'barra' ? 'Nueva comanda en Barra' : 'Nuevo pedido para cocina',
+        body: destino === 'barra' ? 'Hay una comanda nueva. Abre Barra para verla.' : 'Hay un pedido nuevo. Abre Cocina para verlo.',
+        url: destino === 'barra' ? '/admin/barra' : '/admin/cocina',
+        tag: `pedido-${String(pedidoClave).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 48)}`,
+      });
       try {
         await webPush.sendNotification(subscription, payload, { TTL: 60, urgency: 'high' });
       } catch (error: any) {
@@ -746,7 +757,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   const pagoConfirmado =
     (evento?.type === 'checkout.session.completed' && objeto?.payment_status === 'paid') ||
     evento?.type === 'checkout.session.async_payment_succeeded';
-  if (pagoConfirmado && pedidoId) await enviarAvisoPushCocina();
+  if (pagoConfirmado && pedidoId) await enviarAvisoPushCocina(String(pedidoId));
   if (topicNtfy && pagoConfirmado && pedidoId) {
     try {
       const textoNtfy = [

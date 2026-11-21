@@ -227,7 +227,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
         };
       });
       responder(res, esVistaBarra
-        ? { pedidos }
+        ? { pedidos, pushPublicKey: String(entorno().VAPID_PUBLIC_KEY ?? '').trim() || null }
         : { pedidos, pushPublicKey: String(entorno().VAPID_PUBLIC_KEY ?? '').trim() || null });
     } catch (error) {
       g.console?.error?.('[admin] no se pudieron cargar los pedidos de cocina:', error);
@@ -244,6 +244,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     if (accion === 'registrar_push' || accion === 'eliminar_push') {
       const subscription = body.subscription && typeof body.subscription === 'object' ? body.subscription : null;
       const endpoint = String(subscription?.endpoint ?? '').trim();
+      const panelPush = String(body.panel ?? '').toLowerCase() === 'barra' ? 'barra' : 'cocina';
       if (!endpoint || !/^https:\/\//i.test(endpoint)) {
         responder(res, { error: 'La suscripción de notificaciones no es válida' }, 400);
         return;
@@ -257,19 +258,36 @@ export default async function handler(req: Req, res: Res): Promise<void> {
         await pool.query(`create table if not exists public.cocina_push_subscriptions (
           endpoint text primary key,
           subscription jsonb not null,
+          paneles text[] not null default array['cocina']::text[],
           created_at timestamptz not null default now(),
           last_seen timestamptz not null default now()
         )`);
+        await pool.query(`alter table public.cocina_push_subscriptions
+          add column if not exists paneles text[] not null default array['cocina']::text[]`);
         if (accion === 'registrar_push') {
           await pool.query(
-            `insert into public.cocina_push_subscriptions (endpoint, subscription)
-             values ($1, $2::jsonb)
-             on conflict (endpoint) do update set subscription = excluded.subscription, last_seen = now()`,
-            [endpoint, JSON.stringify(subscription)],
+            `insert into public.cocina_push_subscriptions as push_actual (endpoint, subscription, paneles)
+             values ($1, $2::jsonb, array[$3]::text[])
+             on conflict (endpoint) do update set
+               subscription = excluded.subscription,
+               paneles = case when $3 = any(push_actual.paneles)
+                 then push_actual.paneles
+                 else array_append(push_actual.paneles, $3) end,
+               last_seen = now()`,
+            [endpoint, JSON.stringify(subscription), panelPush],
           );
           responder(res, { ok: true, activo: true });
         } else {
-          await pool.query('delete from public.cocina_push_subscriptions where endpoint = $1', [endpoint]);
+          await pool.query(
+            `update public.cocina_push_subscriptions
+             set paneles = array_remove(paneles, $2), last_seen = now()
+             where endpoint = $1 and $2 = any(paneles)`,
+            [endpoint, panelPush],
+          );
+          await pool.query(
+            'delete from public.cocina_push_subscriptions where endpoint = $1 and cardinality(paneles) = 0',
+            [endpoint],
+          );
           responder(res, { ok: true, activo: false });
         }
       } catch (error) {

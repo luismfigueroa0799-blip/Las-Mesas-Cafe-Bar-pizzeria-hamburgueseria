@@ -18,8 +18,9 @@ self.addEventListener('push', (event) => {
     icon: '/assets/logo-las-mesas.jpeg',
     badge: '/assets/logo-las-mesas.jpeg',
     tag: payload.tag || 'pedido-cocina',
-    renotify: true,
+    renotify: false,
     requireInteraction: true,
+    vibrate: [300, 120, 300, 120, 500],
     data: { url: payload.url || '/admin/cocina' },
   }));
 });

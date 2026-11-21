@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, CalendarClock, Check, ChefHat, FileText, LogOut, Printer, RefreshCw, Search, Truck, UtensilsCrossed, X } from 'lucide-react';
+import { ArrowLeft, Bell, BellRing, CalendarClock, Check, ChefHat, FileText, LogOut, Printer, RefreshCw, Search, Truck, UtensilsCrossed, X } from 'lucide-react';
 import { Link } from 'wouter';
 import Login, { borrarToken, leerToken } from '@/admin/Login';
 import { supabaseNavegador } from '@/lib/supabase';
@@ -70,6 +70,10 @@ const Barra: React.FC = () => {
   const [filtroEstado, setFiltroEstado] = useState('todos');
   const [facturaId, setFacturaId] = useState<number | null>(null);
   const [imprimirAlAbrir, setImprimirAlAbrir] = useState(false);
+  const [pushActivo, setPushActivo] = useState(false);
+  const [pushCargando, setPushCargando] = useState(false);
+  const [pushPublicKey, setPushPublicKey] = useState('');
+  const [pushMensaje, setPushMensaje] = useState('');
   const peticionActiva = useRef(false);
 
   useEffect(() => {
@@ -104,6 +108,7 @@ const Barra: React.FC = () => {
         throw new Error(datos?.error || 'No se pudieron cargar las comandas.');
       }
       setPedidos(Array.isArray(datos.pedidos) ? datos.pedidos : []);
+      if (typeof datos.pushPublicKey === 'string') setPushPublicKey(datos.pushPublicKey);
       setActualizada(new Date());
       setError('');
     } catch (fallo) {
@@ -113,6 +118,60 @@ const Barra: React.FC = () => {
       if (!silencioso) setCargando(false);
     }
   }, [token]);
+
+  function clavePushABuffer(valor: string): Uint8Array {
+    const normalizado = valor.replace(/-/g, '+').replace(/_/g, '/');
+    const decodificado = window.atob(normalizado + '='.repeat((4 - normalizado.length % 4) % 4));
+    return Uint8Array.from(decodificado, (caracter) => caracter.charCodeAt(0));
+  }
+
+  async function alternarAvisosPush() {
+    setPushCargando(true);
+    setPushMensaje('');
+    try {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
+        throw new Error('Este navegador no admite avisos push. Abre Barra en Chrome actualizado en la tablet Android.');
+      }
+      const registro = await navigator.serviceWorker.register('/service-worker.js', { scope: '/' });
+      await navigator.serviceWorker.ready;
+      const suscripcionActual = await registro.pushManager.getSubscription();
+      if (pushActivo) {
+        if (suscripcionActual) {
+          const respuesta = await fetch('/api/admin-productos', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ accion: 'eliminar_push', panel: 'barra', subscription: suscripcionActual.toJSON() }),
+          });
+          if (!respuesta.ok) throw new Error('No se pudo desactivar el aviso de Barra.');
+        }
+        localStorage.setItem('lasmesas-barra-push', 'inactivo');
+        setPushActivo(false);
+        setPushMensaje('Avisos de Barra desactivados en esta tablet.');
+        return;
+      }
+      if (!pushPublicKey) throw new Error('No se pudo cargar la clave de avisos. Actualiza el panel e inténtalo de nuevo.');
+      const permiso = await Notification.requestPermission();
+      if (permiso !== 'granted') throw new Error('Permite las notificaciones de Chrome en los ajustes de la tablet.');
+      const bytesClave = clavePushABuffer(pushPublicKey);
+      const claveServidor = new ArrayBuffer(bytesClave.byteLength);
+      new Uint8Array(claveServidor).set(bytesClave);
+      const suscripcion = suscripcionActual ?? await registro.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: claveServidor });
+      const respuesta = await fetch('/api/admin-productos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ accion: 'registrar_push', panel: 'barra', subscription: suscripcion.toJSON() }),
+      });
+      const data = await respuesta.json();
+      if (!respuesta.ok) throw new Error(data?.error || 'No se pudieron guardar los avisos de esta tablet.');
+      localStorage.setItem('lasmesas-barra-push', 'activo');
+      setPushActivo(true);
+      setPushMensaje('Avisos activados. Esta tablet recibirá una alerta cuando se confirme un pedido pagado.');
+    } catch (fallo) {
+      setPushMensaje(fallo instanceof Error ? fallo.message : 'No se pudieron activar los avisos push.');
+    } finally {
+      setPushCargando(false);
+    }
+  }
 
   useEffect(() => {
     if (!token) return;
@@ -127,6 +186,26 @@ const Barra: React.FC = () => {
       document.removeEventListener('visibilitychange', alVolver);
     };
   }, [token, cargarPedidos]);
+
+  useEffect(() => {
+    if (!token || !('serviceWorker' in navigator) || !('Notification' in window)) return;
+    if (localStorage.getItem('lasmesas-barra-push') !== 'activo' || Notification.permission !== 'granted') return;
+    let vigente = true;
+    const sincronizarSuscripcion = async () => {
+      const registro = await navigator.serviceWorker.register('/service-worker.js', { scope: '/' });
+      await navigator.serviceWorker.ready;
+      const suscripcion = await registro.pushManager.getSubscription();
+      if (!suscripcion || !vigente) return;
+      const respuesta = await fetch('/api/admin-productos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ accion: 'registrar_push', panel: 'barra', subscription: suscripcion.toJSON() }),
+      });
+      if (respuesta.ok && vigente) setPushActivo(true);
+    };
+    void sincronizarSuscripcion().catch(() => undefined);
+    return () => { vigente = false; };
+  }, [token]);
 
   function salir() {
     borrarToken();
@@ -167,6 +246,9 @@ const Barra: React.FC = () => {
         <div className="barra-brand"><ChefHat size={20} /><span>Las Mesas</span><i /> Barra</div>
         <nav className="barra-acciones">
           <Link href="/admin/cocina"><UtensilsCrossed size={16} /><span>Cocina</span></Link>
+          <button type="button" className={pushActivo ? 'barra-avisos-activos' : ''} onClick={() => void alternarAvisosPush()} disabled={pushCargando} aria-pressed={pushActivo}>
+            {pushActivo ? <BellRing size={16} /> : <Bell size={16} />}<span>{pushCargando ? 'Configurando…' : pushActivo ? 'Avisos activos' : 'Activar avisos'}</span>
+          </button>
           <button type="button" onClick={() => void cargarPedidos()} disabled={cargando}><RefreshCw size={16} className={cargando ? 'barra-spin' : ''} /><span>Actualizar</span></button>
           <button type="button" onClick={salir}><LogOut size={16} /><span>Salir</span></button>
         </nav>
@@ -178,6 +260,7 @@ const Barra: React.FC = () => {
           <div className="barra-live"><span /> Cocina sincronizada · actualización cada 3 segundos{actualizada && <small>Actualizada {new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(actualizada)}</small>}</div>
         </div>
 
+        {pushMensaje && <div className={`barra-push-mensaje ${pushActivo ? 'activo' : ''}`} role="status">{pushMensaje}</div>}
         <div className="barra-resumen">
           <div><span>Comandas cargadas</span><strong>{pedidos.length}</strong></div>
           <div><span>Mesas</span><strong>{pedidos.filter((pedido) => pedido.tipoEntrega === 'mesa' || Boolean(pedido.mesa)).length}</strong></div>

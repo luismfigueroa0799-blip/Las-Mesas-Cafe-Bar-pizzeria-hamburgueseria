@@ -10,6 +10,8 @@
 .barra-acciones a, .barra-acciones button { justify-content: center; gap: 7px; min-height: 38px; padding: 0 12px; border: 1px solid #ded2bd; border-radius: 9px; color: #4c3c2e; background: #fffdf9; font-size: .74rem; font-weight: 750; text-decoration: none; cursor: pointer; }
 .barra-acciones a:hover, .barra-acciones button:hover { border-color: #c6ad76; background: #fff9e8; }
 .barra-acciones button:disabled { opacity: .6; cursor: wait; }
+.barra-acciones button.barra-avisos-activos { border-color: #788957; color: #fff; background: #788957; }
+.barra-acciones button.barra-avisos-activos:hover { background: #667747; }
 .barra-contenido { width: min(1240px, calc(100% - 48px)); margin: 0 auto; padding: 38px 0 70px; }
 .barra-heading { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 25px; }
 .barra-eyebrow { display: flex; align-items: center; gap: 7px; color: #788654; font-size: .7rem; font-weight: 850; letter-spacing: .13em; text-transform: uppercase; }
@@ -75,6 +77,8 @@
 .barra-pasos li.completado .barra-paso-punto { border-color: #788957; color: #fff; background: #788957; }
 .barra-pasos li.actual .barra-paso-punto { outline: 3px solid #78895730; }
 .barra-error { margin: 12px 0; padding: 12px 14px; border: 1px solid #e7c8b8; border-radius: 9px; color: #8b4d37; background: #fff1e9; font-size: .8rem; }
+.barra-push-mensaje { margin: -7px 0 16px; padding: 10px 13px; border: 1px solid #e5c4ad; border-radius: 9px; color: #784b32; background: #fff3e8; font-size: .78rem; }
+.barra-push-mensaje.activo { border-color: #cbd6b7; color: #4c6037; background: #f0f4e8; }
 .barra-vacio, .barra-cargando { display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 10px; min-height: 210px; color: #897d6a; text-align: center; font-size: .84rem; }
 .barra-vacio strong { color: #544435; font-family: var(--app-font-serif, Georgia, serif); font-size: 1.2rem; }
 .barra-spin { animation: barra-girar .8s linear infinite; }

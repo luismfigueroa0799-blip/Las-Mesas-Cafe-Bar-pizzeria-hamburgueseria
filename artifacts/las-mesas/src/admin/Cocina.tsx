@@ -240,9 +240,8 @@ const Cocina: React.FC = () => {
         await fetch('/api/admin-productos', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ accion: 'eliminar_push', subscription: jsonActual }),
+          body: JSON.stringify({ accion: 'eliminar_push', panel: 'cocina', subscription: jsonActual }),
         });
-        await suscripcionActual.unsubscribe();
         setPushActivo(false);
         setPushMensaje('Avisos de pedidos desactivados en este iPad.');
         return;
@@ -260,7 +259,7 @@ const Cocina: React.FC = () => {
       const respuesta = await fetch('/api/admin-productos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ accion: 'registrar_push', subscription: suscripcion.toJSON() }),
+        body: JSON.stringify({ accion: 'registrar_push', panel: 'cocina', subscription: suscripcion.toJSON() }),
       });
       const data = await respuesta.json();
       if (!respuesta.ok) throw new Error(data?.error || 'No se pudieron guardar los avisos de este iPad.');
