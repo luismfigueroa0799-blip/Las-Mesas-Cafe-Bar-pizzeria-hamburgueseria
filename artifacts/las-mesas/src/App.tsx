@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link, Route, Switch, useLocation } from 'wouter';
-import { ArrowDown, ArrowRight, ArrowUpRight, CalendarDays, Clock3, MapPin, Menu as MenuIcon, Moon, PartyPopper, Phone, Search, ShoppingBag, Sun, X } from 'lucide-react';
+import { ArrowDown, ArrowRight, ArrowUpRight, CalendarDays, Clock3, MapPin, Menu as MenuIcon, Moon, PartyPopper, Phone, Search, ShoppingBag, Star, Sun, X } from 'lucide-react';
 import './index.css';
 import { useCart } from '@/CartContext';
 import { useTheme } from '@/ThemeContext';
@@ -532,10 +532,11 @@ function App() {
             {facebookUrl && <span className="min-w-0 break-words">
               {t('contacto.facebook')}: <a href={facebookUrl} target="_blank" rel="noreferrer">{t('contacto.verPerfil')}</a>
             </span>}
-            {reviewsUrl && <span className="min-w-0 break-words">
-              {t('contacto.googleResenas')}: {' '}
-              <a href={reviewsUrl} target="_blank" rel="noreferrer">{t('contacto.compartir')}</a>
-            </span>}
+            {reviewsUrl && <a className="social-review-cta" href={reviewsUrl} target="_blank" rel="noreferrer" aria-label={t('contacto.escribirResena')}>
+              <Star size={16} fill="currentColor" aria-hidden="true" />
+              <span>{t('contacto.escribirResena')}</span>
+              <ArrowUpRight size={15} aria-hidden="true" />
+            </a>}
           </div>}
         </div>
       </section>
