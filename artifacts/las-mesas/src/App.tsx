@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link, Route, Switch, useLocation } from 'wouter';
 import { ArrowDown, ArrowRight, ArrowUpRight, CalendarDays, Clock3, MapPin, Menu as MenuIcon, Moon, Phone, Search, ShoppingBag, Sun, X } from 'lucide-react';
 import './index.css';
@@ -30,11 +30,43 @@ const whatsapp = '34928896097';
 const reviewsUrl = 'https://www.google.com/maps/place//data=!4m3!3m2!1s0xc409545c15692dd:0x541a55e1c584b7c7!12e1?source=g.page.m.ia._&laa=nmx-review-solicitation-ia2';
 const instagramUrl = 'https://www.instagram.com/lasmesascafebar/';
 const facebookUrl = ''; // Añadir aquí el perfil oficial cuando esté disponible.
-const hours = [
-  ['Lunes–viernes', '18:00–23:00'],
-  ['Sábado', '12:00–15:00 · 18:00–23:00'],
-  ['Domingo', '12:00–17:00'],
+const hours: [string, string][] = [
+  ['contacto.horario.lunesViernes', '18:00–23:00'],
+  ['contacto.horario.sabado', '12:00–15:00 · 18:00–23:00'],
+  ['contacto.horario.domingo', '12:00–17:00'],
 ];
+const HORARIO_SEMANAL: [number, number][][] = [
+  [[18 * 60, 23 * 60]], [[18 * 60, 23 * 60]], [[18 * 60, 23 * 60]],
+  [[18 * 60, 23 * 60]], [[18 * 60, 23 * 60]], [[12 * 60, 15 * 60], [18 * 60, 23 * 60]],
+  [[12 * 60, 17 * 60]],
+];
+const DIAS_SEMANA = ['contacto.dia.lunes', 'contacto.dia.martes', 'contacto.dia.miercoles', 'contacto.dia.jueves', 'contacto.dia.viernes', 'contacto.dia.sabado', 'contacto.dia.domingo'];
+
+type EstadoHorario =
+  | { abierto: true; cierre: number; dia: number }
+  | { abierto: false; apertura: number; dia: number; hoy: boolean };
+
+function obtenerEstadoHorario(fecha: Date): EstadoHorario {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Atlantic/Canary', weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  }).formatToParts(fecha);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  const indiceDia = ({ Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5, Sun: 6 } as Record<string, number>)[values.weekday] ?? 0;
+  const minutosAhora = Number(values.hour) * 60 + Number(values.minute);
+  for (const [inicio, fin] of HORARIO_SEMANAL[indiceDia]) {
+    if (minutosAhora >= inicio && minutosAhora < fin) return { abierto: true, cierre: fin, dia: indiceDia };
+  }
+  for (let desplazamiento = 0; desplazamiento < 7; desplazamiento++) {
+    const dia = (indiceDia + desplazamiento) % 7;
+    const proxima = HORARIO_SEMANAL[dia].find(([inicio]) => desplazamiento > 0 || inicio > minutosAhora);
+    if (proxima) return { abierto: false, apertura: proxima[0], dia, hoy: desplazamiento === 0 };
+  }
+  return { abierto: false, apertura: 18 * 60, dia: 0, hoy: false };
+}
+
+function horaDeMinutos(minutos: number) {
+  return `${String(Math.floor(minutos / 60)).padStart(2, '0')}:${String(minutos % 60).padStart(2, '0')}`;
+}
 
 function formatLocalDate(date: Date) {
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -66,6 +98,11 @@ type AvisoPedido =
   | null;
 
 function App() {
+  const [horaActual, setHoraActual] = useState(() => new Date());
+  useEffect(() => {
+    const timer = window.setInterval(() => setHoraActual(new Date()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
   const [activeSlug, setActiveSlug] = useState(CATEGORIES[0].slug);
   const [productos, setProductos] = useState<Product[]>([]);
   const [categorias, setCategorias] = useState<Category[]>(CATEGORIES);
@@ -112,6 +149,12 @@ function App() {
   const { cart, addToCart, clearCart } = useCart();
   const { tema, alternarTema } = useTheme();
   const { idioma, cambiarIdioma, t } = useI18n();
+  const estadoHorario = useMemo(() => obtenerEstadoHorario(horaActual), [horaActual]);
+  const textoEstadoHorario = estadoHorario.abierto
+    ? `${t('contacto.estado.abierto')} · ${t('contacto.estado.cierra').replace('{hora}', horaDeMinutos(estadoHorario.cierre))}`
+    : `${t('contacto.estado.cerrado')} · ${estadoHorario.hoy
+      ? t('contacto.estado.abreHoy').replace('{hora}', horaDeMinutos(estadoHorario.apertura))
+      : t('contacto.estado.proxima').replace('{dia}', t(DIAS_SEMANA[estadoHorario.dia])).replace('{hora}', horaDeMinutos(estadoHorario.apertura))}`;
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
   const activeCategory = categorias.find((c) => c.slug === activeSlug) ?? categorias[0];
   const productosActivos = productos.filter((p) => p.category_slug === activeCategory.slug);
@@ -375,16 +418,16 @@ function App() {
       </section>
 
       {/* ===== NUESTROS FAVORITOS: 3 platos destacados ===== */}
-      <section className="home-favorites section-pad">
+      <section className="home-favorites section-pad" aria-labelledby="favoritos-title">
         <div className="shell">
           <div className="home-fav-head">
             <div>
               <p className="eyebrow"><span className="gold-dot" /> Los más pedidos</p>
-              <h2>{t('home.fav.titulo')}<span>.</span></h2>
+              <h2 id="favoritos-title">{t('home.fav.titulo')}<span>.</span></h2>
             </div>
             <Link className="button button-outline" href="/carta" data-testid="link-toda-carta">{t('home.fav.verToda')} <ArrowRight size={16} /></Link>
           </div>
-          <div className="home-fav-grid">
+          <div className="home-fav-grid" role="region" aria-label={t('home.fav.titulo')} tabIndex={0}>
             {[
               { nombre: 'Burger Pizza', imagen: '/images/Burger-Pizza.jpg', precio: '14,80 €' },
               { nombre: 'Costilla a la BBQ', imagen: '/images/Costillas-BBQ.jpg', precio: '15,95 €' },
@@ -493,11 +536,11 @@ function App() {
 
   const paginaLocal = (
     <>
-      <section className="essence section-pad" id="esencia">
+      <section className="essence section-pad" id="esencia" aria-labelledby="esencia-title">
         <div className="shell essence-grid">
           <div className="section-index">01 <span>— LA CASA</span></div>
-          <div className="essence-title"><p className="eyebrow">{t('casa.titulo')}</p><h2>{t('local.volver.cena')}<br /><em>{t('local.quedate')}</em></h2></div>
-          <div className="essence-text"><p>En Las Mesas el plan no tiene que complicarse: algo rico para picar, una charla sin prisa y, si apetece, una partida de billar.</p><p>Un café de barrio con espíritu de bar. Hecho para encontrarse.</p><a className="text-link dark-link" href="#contacto">{t('local.contacto')} <ArrowRight size={15} /></a></div>
+          <div className="essence-title"><p className="eyebrow">{t('casa.titulo')}</p><h2 id="esencia-title">{t('local.volver.cena')}<br /><em>{t('local.quedate')}</em></h2></div>
+          <div className="essence-text"><p>{t('local.esencia.p1')}</p><p>{t('local.esencia.p2')}</p><a className="text-link dark-link" href="#contacto">{t('local.contacto')} <ArrowRight size={15} /></a></div>
         </div>
       </section>
       <section className="gallery-section section-pad" id="local-galeria" aria-labelledby="gallery-title">
@@ -520,46 +563,31 @@ function App() {
           <div className="house-note"><span className="note-mark">LM</span><p>«La mejor jugada<br />{t('cita.sub')}»</p><span className="note-rule" /><span className="eyebrow">Las Mesas · Gran Canaria</span></div>
         </div>
       </section>
-      <section className="contact-section section-pad" id="contacto">
+      <section className="contact-section section-pad" id="contacto" aria-labelledby="contacto-title">
         <div className="shell">
-          <div className="contact-heading"><div><p className="eyebrow"><span className="gold-dot" /> Nos vemos en el barrio</p><h2>{t('contacto.ven')}<span>.</span></h2></div><a className="button button-outline" href={mapsUrl} target="_blank" rel="noreferrer" data-testid="link-maps">{t('contacto.comoLlegar')} <ArrowUpRight size={16} /></a></div>
+          <div className="contact-heading"><div><p className="eyebrow"><span className="gold-dot" /> {t('contacto.titulo')}</p><h2 id="contacto-title">{t('contacto.ven')}<span>.</span></h2></div><a className="button button-outline" href={mapsUrl} target="_blank" rel="noreferrer" data-testid="link-maps">{t('contacto.comoLlegar')} <ArrowUpRight size={16} /></a></div>
           <div className="contact-grid">
-            <div className="address-block"><MapPin size={21} /><span className="eyebrow">Dirección</span><address className="break-words">{address}</address><a className="text-link dark-link" href={mapsUrl} target="_blank" rel="noreferrer">{t('contacto.abrirMaps')} <ArrowUpRight size={14} /></a></div>
-            <div className="hours-block"><Clock3 size={21} /><span className="eyebrow">Horario</span>{hours.map(([day, time]) => <div className="hours-row" key={day}><span>{day}</span><strong>{time}</strong></div>)}</div>
-            <div className="phone-block"><Phone size={21} /><span className="eyebrow">Llámanos</span><a href={phoneHref} data-testid="link-call-footer">{phone}</a><p>{t('contacto.llamamos.desc')}</p></div>
+            <div className="address-block"><MapPin size={21} aria-hidden="true" /><span className="eyebrow">{t('contacto.direccion')}</span><address className="break-words">{address}</address></div>
+            <div className="hours-block" id="horario" aria-labelledby="horario-title"><Clock3 size={21} aria-hidden="true" /><h3 className="eyebrow" id="horario-title">{t('contacto.horario')}</h3><dl className="hours-list">{hours.map(([day, time]) => <div className="hours-row" key={day}><dt>{t(day)}</dt><dd>{time}</dd></div>)}</dl><p className={`hours-status ${estadoHorario.abierto ? 'is-open' : 'is-closed'}`} role="status" aria-live="polite" aria-atomic="true"><span aria-hidden="true" />{textoEstadoHorario}</p></div>
+            <div className="phone-block"><Phone size={21} aria-hidden="true" /><span className="eyebrow">{t('contacto.llamanos')}</span><a href={phoneHref} data-testid="link-call-footer">{phone}</a><p>{t('contacto.llamamos.desc')}</p></div>
           </div>
           {/* La URL de las reseñas NO se imprime: se muestra como enlace para
               que no aparezca el texto gigante que rompía el móvil. */}
-          <div className="social-editable">
-            <span className="eyebrow">Redes y reseñas</span>
+          {(instagramUrl || reviewsUrl) && <div className="social-editable">
+            <span className="eyebrow">{t('contacto.social')}</span>
             <p>{t('contacto.redes')}</p>
-            <span className="min-w-0 break-words">
-              Instagram:{' '}
-              {instagramUrl ? (
-                <a href={instagramUrl} target="_blank" rel="noreferrer">{t('contacto.verPerfil')}</a>
-              ) : (
-                'pendiente de añadir'
-              )}
-            </span>
-            <span className="min-w-0 break-words">
-              Facebook:{' '}
-              {facebookUrl ? (
-                <a href={facebookUrl} target="_blank" rel="noreferrer">{t('contacto.verPerfil')}</a>
-              ) : (
-                'pendiente de añadir'
-              )}
-            </span>
-            <span className="min-w-0 break-words">
-              Reseñas Google:{' '}
-              {reviewsUrl ? (
-                <a href={reviewsUrl} target="_blank" rel="noreferrer">
-                  compartir opinión
-                </a>
-              ) : (
-                'pendiente de añadir'
-              )}
-            </span>
-          </div>
+            {instagramUrl && <span className="min-w-0 break-words">
+              {t('contacto.instagram')}: {' '}
+              <a href={instagramUrl} target="_blank" rel="noreferrer">{t('contacto.verPerfil')}</a>
+            </span>}
+            {facebookUrl && <span className="min-w-0 break-words">
+              {t('contacto.facebook')}: <a href={facebookUrl} target="_blank" rel="noreferrer">{t('contacto.verPerfil')}</a>
+            </span>}
+            {reviewsUrl && <span className="min-w-0 break-words">
+              {t('contacto.googleResenas')}: {' '}
+              <a href={reviewsUrl} target="_blank" rel="noreferrer">{t('contacto.compartir')}</a>
+            </span>}
+          </div>}
         </div>
       </section>
     </>
@@ -617,7 +645,8 @@ function App() {
   );
 
   return (
-    <main>
+    <>
+      <a className="skip-link" href="#contenido-principal">{t('accesibilidad.saltar')}</a>
       {avisoPedido && (
         <div className={`pedido-aviso pedido-aviso-${avisoPedido.tipo}`} role="status" data-testid="pedido-aviso">
           <div className="pedido-aviso-inner">
@@ -731,6 +760,7 @@ function App() {
         </nav>
       </div>
 
+      <main id="contenido-principal" tabIndex={-1}>
       <Switch>
         <Route path="/">{paginaInicio}</Route>
         <Route path="/carta">{paginaCarta}</Route>
@@ -739,20 +769,21 @@ function App() {
         <Route path="/reservas">{paginaReservas}</Route>
         <Route>{paginaInicio}</Route>
       </Switch>
+      </main>
 
       <footer className="site-footer">
         <div className="shell footer-main"><a href="#inicio" className="footer-brand"><img src="/assets/logo-las-mesas.jpeg" alt="" /><span>Pizzeria Las Mesas</span></a><p>{t('footer.lema')}</p><nav aria-label="Navegación de pie">{[['La casa','#esencia'],['El local','#local'],['La carta','#carta'],['Celebraciones','#celebraciones'],['Reservas','#reserva']].map(([label,href]) => <a key={href} href={href}>{label}</a>)}</nav></div>
         <div className="shell footer-details">
-          <div className="footer-hours"><span className="footer-label">Horario</span>{hours.map(([day, time]) => <p key={day}><span>{day}</span><strong>{time}</strong></p>)}</div>
-          <div className="footer-contact"><span className="footer-label">Contacto</span><a href={phoneHref}>{phone}</a><a href={mapsUrl} target="_blank" rel="noreferrer">Pintor Antonio Padrón, 59 · Cómo llegar</a></div>
-          <div className="footer-social min-w-0"><span className="footer-label">Redes y reseñas</span>{instagramUrl && <span>Instagram: <a href={instagramUrl} target="_blank" rel="noreferrer">{t('contacto.verPerfil')}</a></span>}{facebookUrl && <span>Facebook: <a href={facebookUrl} target="_blank" rel="noreferrer">{t('contacto.verPerfil')}</a></span>}{reviewsUrl && <span>Reseñas Google: <a href={reviewsUrl} target="_blank" rel="noreferrer">{t('contacto.compartir')}</a></span>}</div>
+          <div className="footer-hours"><span className="footer-label">{t('contacto.horario')}</span>{hours.map(([day, time]) => <p key={day}><span>{t(day)}</span><strong>{time}</strong></p>)}</div>
+          <div className="footer-contact"><span className="footer-label">{t('nav.contacto')}</span><a href={phoneHref}>{phone}</a><a href={mapsUrl} target="_blank" rel="noreferrer">Pintor Antonio Padrón, 59 · {t('contacto.comoLlegar')}</a></div>
+          <div className="footer-social min-w-0"><span className="footer-label">{t('contacto.social')}</span>{instagramUrl && <span>{t('contacto.instagram')}: <a href={instagramUrl} target="_blank" rel="noreferrer">{t('contacto.verPerfil')}</a></span>}{facebookUrl && <span>{t('contacto.facebook')}: <a href={facebookUrl} target="_blank" rel="noreferrer">{t('contacto.verPerfil')}</a></span>}{reviewsUrl && <span>{t('contacto.googleResenas')}: <a href={reviewsUrl} target="_blank" rel="noreferrer">{t('contacto.compartir')}</a></span>}</div>
         </div>
         <div className="shell footer-bottom"><span>© Pizzeria Las Mesas</span><span>Pintor Antonio Padrón, 59 · Las Mesas Bajas · Las Palmas de Gran Canaria</span></div>
         <div className="shell"><p style={{ fontSize: '.7rem', opacity: .75, lineHeight: 1.6, margin: '10px 0 0' }}>Condiciones de envío: Los precios de la carta son para consumo en local o recogida. Los pedidos a domicilio tienen un recargo del 25% sobre el precio de los productos y un coste de envío de 1,50 €/km (máximo 8 km).</p></div>
       </footer>
       <CartSidebar open={cartOpen} onClose={() => setCartOpen(false)} />
       <RuletaPremio onAbrirCarrito={() => setCartOpen(true)} />
-    </main>
+    </>
   );
 }
 

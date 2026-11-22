@@ -2372,3 +2372,106 @@ html.dark .carta-sin-resultados { background: #2A2725; border-color: rgba(212,17
   .home-order-actions .button { width: 100%; }
   .home-hero-order-hint { font-size: .76rem; }
 }
+
+/* Favoritos en móvil: carrusel táctil, compacto y navegable con teclado. */
+@media (max-width: 600px) {
+  .home-favorites { overflow: hidden; }
+  .home-favorites .shell { width: 100%; padding-inline: 0; }
+  .home-fav-head { justify-content: space-between; align-items: center; gap: 12px; margin: 0 20px 22px; text-align: left; }
+  .home-fav-head h2 { max-width: 11ch; font-size: clamp(2rem, 9vw, 2.7rem); line-height: 1.05; }
+  .home-fav-head .button { min-height: 44px; padding: 0 13px; font-size: .72rem; white-space: nowrap; }
+  .home-fav-grid {
+    display: flex !important;
+    gap: 14px;
+    overflow-x: auto;
+    padding: 2px 20px 18px;
+    scroll-padding-inline: 20px;
+    scroll-snap-type: x mandatory;
+    overscroll-behavior-inline: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(197,160,89,.65) transparent;
+  }
+  .home-fav-grid:focus-visible { outline: 3px solid #a98024; outline-offset: -3px; border-radius: 12px; }
+  .home-fav-card { flex: 0 0 min(82vw, 360px); scroll-snap-align: start; border-radius: 18px; }
+  .home-fav-card img { height: auto; aspect-ratio: 1.48; object-fit: cover; }
+  .home-fav-info { min-height: 76px; padding: 14px 16px; }
+  .home-fav-info h3 { font-size: 1.05rem; }
+  .home-fav-info strong { font-size: 1rem; white-space: nowrap; }
+}
+
+@media (max-width: 380px) {
+  .home-fav-head { align-items: flex-start; flex-direction: column; }
+  .home-fav-head h2 { max-width: none; }
+  .home-fav-card { flex-basis: 86vw; }
+}
+
+/* Accesibilidad de los recorridos principales y datos del local. */
+.skip-link {
+  position: fixed;
+  z-index: 20000;
+  top: 12px;
+  left: 12px;
+  transform: translateY(-180%);
+  padding: 12px 16px;
+  border: 2px solid #1a1817;
+  border-radius: 8px;
+  color: #1a1817;
+  background: #f2c84b;
+  font-weight: 800;
+  text-decoration: none;
+}
+.skip-link:focus { transform: translateY(0); }
+main:focus { outline: 0; }
+.hours-list { margin: 0; }
+.hours-row dt, .hours-row dd { margin: 0; }
+.hours-row dt { flex: 1; }
+.hours-row dd { flex: 1.2; font-weight: 650; text-align: right; }
+.hours-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin: 16px 0 0;
+  padding: 9px 12px;
+  border: 1px solid #cfc7b2;
+  border-radius: 999px;
+  color: #413c31;
+  background: #f7f4eb;
+  font-size: .88rem;
+  font-weight: 650;
+  line-height: 1.4;
+}
+.hours-status > span { flex: 0 0 10px; width: 10px; height: 10px; border-radius: 50%; background: #756d5c; }
+.hours-status.is-open { border-color: #9bb29b; color: #214d30; background: #edf5e9; }
+.hours-status.is-open > span { background: #32834c; }
+.hours-status.is-closed > span { background: #8d6e35; }
+.contact-heading .button { min-height: 44px; }
+.phone-block > a { display: inline-flex; align-items: center; min-height: 44px; }
+.contact-grid a:focus-visible, .essence a:focus-visible, .skip-link:focus-visible { outline: 3px solid #8a6818; outline-offset: 3px; }
+.social-editable { font-size: .86rem; line-height: 1.6; }
+html.dark .essence-text,
+html.dark .essence-text p,
+html.dark .contact-grid,
+html.dark .contact-grid address,
+html.dark .contact-grid .phone-block p { color: #e7e0d4 !important; }
+html.dark .contact-grid > div + div { border-color: rgba(212,175,55,.24); }
+html.dark .hours-row { border-color: rgba(212,175,55,.2); }
+html.dark .hours-row dd { color: #f5f0e6; }
+html.dark .contact-grid .eyebrow,
+html.dark .social-editable,
+html.dark .social-editable .eyebrow { color: #d7c9a5 !important; }
+html.dark .hours-status { border-color: rgba(212,175,55,.28); color: #f5f0e6; background: #292621; }
+html.dark .hours-status.is-open { border-color: #668568; color: #d8f0d6; background: #203126; }
+html.dark .hours-status.is-open > span { background: #72bd7e; }
+@media (max-width: 700px) {
+  .essence-text { font-size: 1rem; line-height: 1.75; }
+  .contact-grid > div { padding-block: 24px; }
+  .hours-row { font-size: .9rem; padding-block: 11px; }
+  .hours-status { max-width: 100%; font-size: .88rem; }
+  .social-editable { display: grid; grid-template-columns: 1fr; gap: 10px; padding-top: 22px; font-size: .9rem; }
+  .social-editable .eyebrow, .social-editable p { grid-column: auto; }
+  .footer-details { font-size: .84rem; }
+  .footer-hours p { padding-block: 9px; }
+  .footer-label { font-size: .72rem; }
+  .footer-bottom { font-size: .76rem; line-height: 1.6; }
+}
