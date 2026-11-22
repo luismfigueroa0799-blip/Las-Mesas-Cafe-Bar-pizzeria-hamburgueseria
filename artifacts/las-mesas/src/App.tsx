@@ -393,6 +393,9 @@ function App() {
             <ArrowRight className="home-action-arrow" size={19} aria-hidden="true" />
           </Link>
         </div>
+        <Link className="home-menu-link" href={mesaActual ? `/carta?mesa=${encodeURIComponent(mesaActual)}` : '/carta'} data-testid="link-ver-carta-inicio">
+          {t('home.hero.verCarta')} <ArrowRight size={16} aria-hidden="true" />
+        </Link>
 
         <div className="home-info-strip">
           <div className="home-info-hours"><span className={`home-open-dot ${estadoHorario.abierto ? 'is-open' : ''}`} aria-hidden="true" /><span>{textoEstadoHorario}</span><a href="#horario-inicio">{t('home.acceso.horarioCompleto')}</a></div>
@@ -436,6 +439,23 @@ function App() {
         </div>
       </div>
     </section>
+    {reviewsUrl && <section className="home-review section-pad" aria-labelledby="home-review-title">
+      <div className="shell">
+        <div className="home-review-card">
+          <span className="home-review-star" aria-hidden="true"><Star size={27} /></span>
+          <div className="home-review-copy">
+            <p className="eyebrow">{t('home.resenas.eyebrow')}</p>
+            <h2 id="home-review-title">{t('home.resenas.titulo')}</h2>
+            <p>{t('home.resenas.desc')}</p>
+          </div>
+          <a className="social-review-cta home-review-cta" href={reviewsUrl} target="_blank" rel="noopener noreferrer" aria-label={t('home.resenas.boton')}>
+            <Star size={17} fill="currentColor" aria-hidden="true" />
+            <span>{t('home.resenas.boton')}</span>
+            <ArrowUpRight size={16} aria-hidden="true" />
+          </a>
+        </div>
+      </div>
+    </section>}
     </>
   );
 
