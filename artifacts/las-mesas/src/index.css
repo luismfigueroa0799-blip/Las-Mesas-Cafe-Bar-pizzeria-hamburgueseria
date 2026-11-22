@@ -2243,3 +2243,132 @@ html.dark .cart-item-opciones { color: #D4AF37; }
 @media (max-width: 600px) {
   .opt-sheet { top: auto; bottom: 0; left: 0; transform: none; width: 100vw; max-height: 92dvh; border-radius: 16px 16px 0 0; }
 }
+
+/* Navegación y búsqueda de la carta */
+:root {
+  --fondo-web: #F9F7F2;
+  --fondo-tarjeta: #FFFFFF;
+  --texto-oscuro: #2C2C2C;
+  --texto-gris: #666666;
+  --fondo-input-claro: #F5F5F5;
+  color-scheme: light;
+}
+html.dark {
+  --fondo-web: #1A1817;
+  --fondo-tarjeta: #2A2725;
+  --texto-oscuro: #F5F0E6;
+  --texto-gris: #D1D5DB;
+  --fondo-input-claro: #2A2725;
+  color-scheme: dark;
+}
+.home-hero-order-hint {
+  max-width: 440px;
+  margin: 0;
+  color: #e1d8c5;
+  font-size: .82rem;
+  line-height: 1.55;
+}
+.home-order-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
+.home-order-actions .home-hero-btn { margin-top: 0; }
+.home-pickup-btn { border-color: rgba(245,240,230,.62); color: #f5f0e6; }
+.home-pickup-btn:hover { border-color: #d5b149; color: #171610; }
+.home-order-actions .home-hero-order-hint { flex-basis: 100%; }
+.carta-busqueda-wrap { display: flex; justify-content: flex-end; margin: 18px 0 24px; }
+.carta-busqueda {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: min(100%, 420px);
+  min-height: 46px;
+  padding: 0 14px;
+  border: 1px solid rgba(212,175,55,.42);
+  border-radius: 999px;
+  color: var(--oro-claro);
+  background: var(--fondo-tarjeta);
+  box-shadow: 0 3px 12px rgba(0,0,0,.06);
+}
+.carta-busqueda:focus-within { border-color: var(--oro); box-shadow: 0 0 0 3px rgba(212,175,55,.18); }
+.carta-busqueda input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  color: var(--texto-oscuro);
+  background: transparent;
+  font: inherit;
+  font-size: .84rem;
+}
+.carta-busqueda input::placeholder { color: var(--texto-gris); opacity: .8; }
+.carta-busqueda button {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 50%;
+  color: var(--texto-oscuro);
+  background: transparent;
+  font-size: 1.3rem;
+  cursor: pointer;
+}
+.carta-busqueda button:hover { background: rgba(212,175,55,.14); }
+.carta-sin-resultados {
+  grid-column: 1 / -1;
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+  padding: 24px;
+  border: 1px dashed rgba(212,175,55,.42);
+  border-radius: 12px;
+  color: var(--texto-gris);
+  background: var(--fondo-tarjeta);
+}
+.carta-sin-resultados strong { color: var(--texto-oscuro); }
+.carta-sin-resultados button {
+  min-height: 40px;
+  margin-top: 4px;
+  padding: 0 14px;
+  border: 1px solid var(--oro);
+  border-radius: 8px;
+  color: var(--texto-oscuro);
+  background: transparent;
+  font-weight: 700;
+  cursor: pointer;
+}
+.category-tab.active,
+.category-tab.active span,
+[role="tab"][aria-selected="true"] { color: #1A1817 !important; }
+.category-tab.active svg,
+[role="tab"][aria-selected="true"] svg { color: #1A1817 !important; }
+html.dark .category-tab.active,
+html.dark .category-tab.active span,
+html.dark [role="tab"][aria-selected="true"] { color: #1A1817 !important; }
+html.dark .carta-busqueda { background: #2A2725; border-color: rgba(212,175,55,.34); }
+html.dark .carta-sin-resultados { background: #2A2725; border-color: rgba(212,175,55,.3); }
+
+@media (max-width: 900px) {
+  .menu-experience { grid-template-columns: minmax(0, 1fr); }
+  .category-list {
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 12px 4px;
+    border-right: 0;
+    border-bottom: 1px solid rgba(212,175,55,.22);
+    scrollbar-width: thin;
+    scroll-snap-type: x proximity;
+  }
+  .category-tab { flex: 0 0 auto; min-height: 44px; scroll-snap-align: start; }
+  .menu-download-note { display: none; }
+  .menu-panel { padding: 24px 0; }
+}
+@media (max-width: 600px) {
+  .carta-busqueda-wrap { justify-content: stretch; margin: 14px 0 19px; }
+  .carta-busqueda { width: 100%; min-height: 48px; }
+  .carta-sin-resultados { padding: 18px; }
+  .carta-sin-resultados button { width: 100%; }
+  .home-order-actions { align-items: stretch; flex-direction: column; }
+  .home-order-actions .button { width: 100%; }
+  .home-hero-order-hint { font-size: .76rem; }
+}

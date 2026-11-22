@@ -172,6 +172,31 @@ html.dark .barra-page .barra-pasos li.completado .barra-paso-punto { background:
 html.dark .barra-page .barra-factura-dialog,
 html.dark .barra-page .barra-factura-hoja { color: #382e24 !important; background: #fff !important; }
 html.dark .barra-page .barra-factura-hoja :is(p,h2,span,strong,small,td,th,footer) { color: #382e24 !important; }
+
+/* En tablet se mantienen visibles las etiquetas y se amplían los controles táctiles. */
+@media (max-width: 900px) {
+  .barra-topbar { grid-template-columns: 1fr; gap: 8px; padding: 9px 16px; }
+  .barra-brand { display: none; }
+  .barra-acciones { grid-column: 1; justify-self: stretch; justify-content: flex-end; flex-wrap: wrap; gap: 7px; }
+  .barra-acciones a,
+  .barra-acciones button { width: auto; min-height: 44px; padding: 0 12px; }
+  .barra-acciones a span,
+  .barra-acciones button span { display: inline; }
+  .barra-factura-boton { min-height: 44px; }
+}
+@media (max-width: 520px) {
+  .barra-acciones { justify-content: stretch; }
+  .barra-acciones a,
+  .barra-acciones button { flex: 1 1 calc(50% - 7px); min-height: 44px; }
+  .barra-acciones a span,
+  .barra-acciones button span { display: inline; font-size: .69rem; }
+  .barra-factura-botones { display: grid; grid-template-columns: 1fr 1fr; }
+  .barra-factura-boton { min-height: 46px; }
+}
+.barra-page :is(button,a,select,input):focus-visible {
+  outline: 3px solid rgba(120,137,87,.42);
+  outline-offset: 2px;
+}
 @media print {
   body * { visibility: hidden !important; }
   .barra-factura-overlay, .barra-factura-overlay * { visibility: visible !important; }

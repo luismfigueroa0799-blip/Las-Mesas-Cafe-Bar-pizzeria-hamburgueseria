@@ -931,6 +931,30 @@ html.dark .admin-opciones-page input,
 html.dark .admin-opciones-page select { background: #1f1d1b !important; color: #f5f0e6 !important; border-color: rgba(212,175,55,.28) !important; }
 html.dark .admin-opciones-page .admin-theme-toggle { color: #f5f0e6 !important; background: #2a2725 !important; }
 
+/* Acabado uniforme y controles táctiles para el inventario en tablet. */
+.admin .admin-boton,
+.admin .admin-theme-toggle,
+.admin .admin-pestana,
+.admin .admin-ficha { min-height: 44px; }
+.admin :is(button,input,select,textarea):focus-visible {
+  outline: 3px solid rgba(212,175,55,.42);
+  outline-offset: 2px;
+}
+html:not(.dark) .admin .admin-lista { background: #fff !important; border-color: #e5dfd2 !important; }
+html.dark .admin:not(.admin-opciones-page) { background: #10100f !important; color: #f5f0e6 !important; }
+html.dark .admin:not(.admin-opciones-page) :is(.admin-card,.admin-table-wrap,.admin-panel,.admin-section,.admin-form-card,.admin-lista,.admin-item) {
+  background: #1d1c1a !important;
+  color: #f5f0e6 !important;
+  border-color: rgba(212,175,55,.22) !important;
+}
+html.dark .admin:not(.admin-opciones-page) :is(.admin-item-info strong,.admin-item-info p,.admin-item-precio,.admin-switch-texto,.admin-sub,.admin-vacio) { color: #eee8dc !important; }
+html.dark .admin:not(.admin-opciones-page) :is(input,select,textarea) { background: #252321 !important; color: #f5f0e6 !important; border-color: rgba(212,175,55,.28) !important; }
+@media (max-width: 760px) {
+  .admin-head { align-items: flex-start; }
+  .admin-acciones { width: 100%; justify-content: flex-start; }
+  .admin .admin-boton { min-height: 44px; }
+}
+
 @media (max-width: 900px) {
   .admin-opciones-layout { grid-template-columns: 1fr; }
   .admin-opciones-page .admin-nuevo-grupo { position: static; }

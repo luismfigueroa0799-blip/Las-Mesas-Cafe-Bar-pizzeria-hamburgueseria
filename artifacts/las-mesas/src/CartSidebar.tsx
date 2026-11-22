@@ -89,6 +89,18 @@ const CartSidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, o
   }, []);
   const mesa = mesaUrl || datos.mesa || '';
   const tipoEntregaActiva: TipoEntrega = mesaUrl ? 'mesa' : datos.tipoEntrega;
+  const tipoInicioAplicado = useRef<TipoEntrega | ''>('');
+
+  // Los accesos directos del inicio conservan en el carrito el método elegido.
+  // La mesa del QR tiene prioridad y no se modifica aquí.
+  useEffect(() => {
+    if (!open || mesaUrl) return;
+    const tipo = new URLSearchParams(window.location.search).get('entrega');
+    if ((tipo === 'domicilio' || tipo === 'recogida') && tipoInicioAplicado.current !== tipo) {
+      setDatos((actual) => ({ ...actual, tipoEntrega: tipo }));
+      tipoInicioAplicado.current = tipo;
+    }
+  }, [open, mesaUrl]);
 
   const errores = useMemo(() => {
     const lista: string[] = [];

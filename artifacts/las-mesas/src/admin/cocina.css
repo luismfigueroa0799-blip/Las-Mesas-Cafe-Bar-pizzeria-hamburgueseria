@@ -165,3 +165,41 @@
   .cocina-aviso-nuevo { align-items: flex-start; flex-wrap: wrap; gap: 8px 10px; }
   .cocina-aviso-nuevo span { flex-basis: 100%; margin-left: 29px; }
 }
+
+/* Barra de acciones cómoda para tabletas y teléfonos. */
+@media (max-width: 900px) {
+  .cocina-topbar { grid-template-columns: 1fr; gap: 8px; padding: 9px 16px; }
+  .cocina-brand { display: none; }
+  .cocina-top-actions { grid-column: 1; justify-self: stretch; justify-content: flex-end; flex-wrap: wrap; gap: 7px; }
+  .cocina-top-actions button,
+  .cocina-top-actions .cocina-link-barra { width: auto; min-height: 44px; padding: 0 11px; }
+  .cocina-top-actions button span,
+  .cocina-top-actions .cocina-link-barra span { display: inline; }
+}
+@media (max-width: 480px) {
+  .cocina-top-actions { justify-content: stretch; }
+  .cocina-top-actions button,
+  .cocina-top-actions .cocina-link-barra { flex: 1 1 calc(50% - 7px); min-height: 44px; }
+  .cocina-top-actions button span,
+  .cocina-top-actions .cocina-link-barra span { display: inline; font-size: .68rem; }
+}
+
+/* El panel sigue el tema guardado en el inventario. */
+html.dark .cocina-page { color: #f5f0e6 !important; background: #1a1817 !important; }
+html.dark .cocina-page :is(h1,h2,h3,strong,b,label) { color: #f5f0e6 !important; }
+html.dark .cocina-page :is(p,small,.cocina-volver,.cocina-actualizacion,.cocina-hora,.cocina-cliente,.cocina-total) { color: #d1c9bc !important; }
+html.dark .cocina-topbar,
+html.dark .cocina-pedido,
+html.dark .cocina-tipo-filtros button:not(.activo),
+html.dark .cocina-estado-filtros button:not(.activo) { background: #24211f !important; border-color: rgba(212,175,55,.24) !important; }
+html.dark .cocina-items li,
+html.dark .cocina-top-actions button,
+html.dark .cocina-top-actions .cocina-link-barra { background: #2a2725 !important; border-color: rgba(212,175,55,.25) !important; }
+html.dark .cocina-tipo-filtros button:not(.activo),
+html.dark .cocina-estado-filtros button:not(.activo),
+html.dark .cocina-top-actions button,
+html.dark .cocina-top-actions .cocina-link-barra { color: #f5f0e6 !important; }
+html.dark .cocina-items li strong { color: #f5f0e6 !important; }
+html.dark .cocina-items li small { color: #c9c1b5 !important; }
+html.dark .cocina-estado-tag { color: #fff !important; }
+html.dark .cocina-pedido-pendiente { background: linear-gradient(100deg,#30291e,#24211f 55%) !important; }

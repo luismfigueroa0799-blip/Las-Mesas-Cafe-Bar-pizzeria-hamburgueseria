@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, Route, Switch, useLocation } from 'wouter';
-import { ArrowDown, ArrowRight, ArrowUpRight, CalendarDays, Clock3, MapPin, Menu as MenuIcon, Moon, Phone, ShoppingBag, Sun, X } from 'lucide-react';
+import { ArrowDown, ArrowRight, ArrowUpRight, CalendarDays, Clock3, MapPin, Menu as MenuIcon, Moon, Phone, Search, ShoppingBag, Sun, X } from 'lucide-react';
 import './index.css';
 import { useCart } from '@/CartContext';
 import { useTheme } from '@/ThemeContext';
@@ -60,7 +60,7 @@ function timesForDate(date: string) {
 
 // Estado del aviso de pedido (confirmación o cancelación tras el pago).
 type AvisoPedido =
-  | { tipo: 'confirmado'; idPedido: string; codigo: string; total: string; articulos: { name: string; qty: number }[] }
+  | { tipo: 'confirmado'; idPedido: string; codigo: string; total: string; articulos: { name: string; qty: number }[]; mesa?: string }
   | { tipo: 'cancelado' }
   | { tipo: 'error'; mensaje: string }
   | null;
@@ -95,8 +95,13 @@ function App() {
   const [reservationDate, setReservationDate] = useState('');
   const [reservationTime, setReservationTime] = useState('');
   const [cartOpen, setCartOpen] = useState(false);
+  const [busquedaCarta, setBusquedaCarta] = useState('');
   const [avisoPedido, setAvisoPedido] = useState<AvisoPedido>(null);
   const [location, navegar] = useLocation();
+  const mesaQuery = new URLSearchParams(window.location.search).get('mesa');
+  const mesaActual = mesaQuery && Number.isInteger(Number(mesaQuery)) && Number(mesaQuery) >= 1 && Number(mesaQuery) <= 9
+    ? String(Number(mesaQuery))
+    : '';
   const rutaActual = location.replace(/\/+$/, '').toLowerCase();
   const esRutaLogin = rutaActual === '/login';
   const esRutaOpciones = rutaActual === '/admin/opciones';
@@ -110,7 +115,11 @@ function App() {
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
   const activeCategory = categorias.find((c) => c.slug === activeSlug) ?? categorias[0];
   const productosActivos = productos.filter((p) => p.category_slug === activeCategory.slug);
-  useEffect(() => { setProductosVisibles(12); }, [activeSlug]);
+  const textoBusqueda = busquedaCarta.trim().toLocaleLowerCase('es');
+  const productosFiltrados = textoBusqueda
+    ? productosActivos.filter((p) => `${p.name} ${p.description ?? ''}`.toLocaleLowerCase('es').includes(textoBusqueda))
+    : productosActivos;
+  useEffect(() => { setProductosVisibles(12); }, [activeSlug, busquedaCarta]);
 
   // Cargar la carta desde la API (lee Neon: ids, precios y disponibilidad).
   useEffect(() => {
@@ -195,6 +204,7 @@ function App() {
         codigo,
         total: '',
         articulos: [],
+        mesa: mesaParam ?? undefined,
       });
       clearCart();
       window.history.replaceState({}, '', urlLimpia());
@@ -218,6 +228,7 @@ function App() {
             articulos: Array.isArray(datos.articulos)
               ? datos.articulos.map((a: { name: string; qty: number }) => ({ name: a.name, qty: a.qty }))
               : [],
+            mesa: mesaParam ?? undefined,
           });
         }
         clearCart();
@@ -316,9 +327,24 @@ function App() {
           <p className="eyebrow"><span className="gold-dot" /> Pizzeria Las Mesas</p>
           <h1 className="home-hero-title">{t('home.hero.titulo1')}<br /><em>{t('home.hero.titulo2')}</em></h1>
           <p className="home-hero-desc">{t('home.hero.desc2')}</p>
-          <Link className="button button-gold home-hero-btn" href="/carta" data-testid="link-ver-carta">
-            Ver la carta <ArrowRight size={18} />
-          </Link>
+          {mesaActual ? (
+            <div className="home-order-actions">
+              <Link className="button button-gold home-hero-btn" href={`/carta?mesa=${encodeURIComponent(mesaActual)}`} data-testid="link-pedir-mesa">
+                {t('home.hero.pedirMesa')} {mesaActual} <ArrowRight size={18} />
+              </Link>
+              <p className="home-hero-order-hint">{t('home.hero.hintMesa')}</p>
+            </div>
+          ) : (
+            <div className="home-order-actions">
+              <Link className="button button-gold home-hero-btn" href="/carta?entrega=domicilio" data-testid="link-pedir-domicilio">
+                {t('home.hero.pedirDomicilio')} <ArrowRight size={18} />
+              </Link>
+              <Link className="button button-outline home-pickup-btn" href="/carta?entrega=recogida" data-testid="link-pedir-recogida">
+                {t('home.hero.recoger')}
+              </Link>
+              <p className="home-hero-order-hint">{t('home.hero.hintPedido')}</p>
+            </div>
+          )}
         </div>
       </section>
 
@@ -400,9 +426,23 @@ function App() {
               <p className="menu-download-note">{t('carta.download')}</p>
             </div>
             <div className="menu-panel" role="tabpanel" id="menu-panel" aria-labelledby={`tab-${categorias.findIndex((c) => c.slug === activeCategory.slug)}`} key={activeCategory.slug}>
-              <div className="panel-title"><div><span className="eyebrow">{t('carta.enMesa')}</span><h3>{activeCategory.name}</h3></div><span className="dish-count">{String(productos.length).padStart(2, '0')} opciones</span></div>
+              <div className="panel-title"><div><span className="eyebrow">{t('carta.enMesa')}</span><h3>{activeCategory.name}</h3></div><span className="dish-count" aria-live="polite">{productosFiltrados.length} {textoBusqueda ? t(productosFiltrados.length === 1 ? 'carta.resultado' : 'carta.resultados') : t(productosFiltrados.length === 1 ? 'carta.producto' : 'carta.productos')}</span></div>
+              <div className="carta-busqueda-wrap">
+                <label className="carta-busqueda">
+                  <Search size={18} aria-hidden="true" />
+                  <input
+                    type="search"
+                    value={busquedaCarta}
+                    onChange={(event) => setBusquedaCarta(event.target.value)}
+                    placeholder={t('carta.buscar')}
+                    aria-label={t('carta.buscarAria')}
+                    data-testid="input-buscar-carta"
+                  />
+                  {busquedaCarta && <button type="button" onClick={() => setBusquedaCarta('')} aria-label={t('carta.borrarBusqueda')}>×</button>}
+                </label>
+              </div>
               <div className="dish-list dish-grid grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-                {productosActivos.slice(0, productosVisibles).map((producto) => (
+                {productosFiltrados.slice(0, productosVisibles).map((producto) => (
                   <ProductCard
                     key={producto.id}
                     product={producto}
@@ -420,9 +460,16 @@ function App() {
                     showSizeSelector={false}
                   />
                 ))}
+                {productosFiltrados.length === 0 && (
+                  <div className="carta-sin-resultados">
+                    <strong>{t('carta.noEncontrado')}</strong>
+                    <span>{t('carta.pruebaBusqueda')}</span>
+                    {busquedaCarta && <button type="button" onClick={() => setBusquedaCarta('')}>{t('carta.verCategoria')}</button>}
+                  </div>
+                )}
               </div>
 
-              {productosActivos.length > productosVisibles && (
+              {productosFiltrados.length > productosVisibles && (
                 <div className="carta-mas-wrap">
                   <button
                     type="button"
@@ -430,7 +477,7 @@ function App() {
                     onClick={() => setProductosVisibles((n) => n + 12)}
                     data-testid="button-cargar-mas"
                   >
-                    Ver más ({productosActivos.length - productosVisibles} restantes) <ArrowDown size={16} />
+                    Ver más ({productosFiltrados.length - productosVisibles} restantes) <ArrowDown size={16} />
                   </button>
                 </div>
               )}
@@ -580,7 +627,9 @@ function App() {
                 <div>
                   <strong>{t('pedido.confirmado')}</strong>
                   <p>
-                    Te hemos enviado la confirmación por correo.
+                    {avisoPedido.mesa
+                      ? `Tu pedido para la mesa ${avisoPedido.mesa} está confirmado.`
+                      : 'Te hemos enviado la confirmación por correo.'}
                     {avisoPedido.codigo && <>{' '}{t('pedido.codigo')} <b>{avisoPedido.codigo}</b>.</>}
                     {avisoPedido.idPedido && <>{' '}{t('pedido.referencia')} <b>{avisoPedido.idPedido}</b>.</>}
                     {avisoPedido.total && <>{' '}{t('pedido.total')} <b>{avisoPedido.total} €</b>.</>}
@@ -696,7 +745,7 @@ function App() {
         <div className="shell footer-details">
           <div className="footer-hours"><span className="footer-label">Horario</span>{hours.map(([day, time]) => <p key={day}><span>{day}</span><strong>{time}</strong></p>)}</div>
           <div className="footer-contact"><span className="footer-label">Contacto</span><a href={phoneHref}>{phone}</a><a href={mapsUrl} target="_blank" rel="noreferrer">Pintor Antonio Padrón, 59 · Cómo llegar</a></div>
-          <div className="footer-social min-w-0"><span className="footer-label">Redes y reseñas</span><span>Instagram: {instagramUrl ? <a href={instagramUrl} target="_blank" rel="noreferrer">{t('contacto.verPerfil')}</a> : 'enlace pendiente de añadir'}</span><span>Facebook: {facebookUrl ? <a href={facebookUrl} target="_blank" rel="noreferrer">{t('contacto.verPerfil')}</a> : 'enlace pendiente de añadir'}</span><span>Reseñas Google: {reviewsUrl ? <a href={reviewsUrl} target="_blank" rel="noreferrer">{t('contacto.compartir')}</a> : 'enlace pendiente de añadir'}</span></div>
+          <div className="footer-social min-w-0"><span className="footer-label">Redes y reseñas</span>{instagramUrl && <span>Instagram: <a href={instagramUrl} target="_blank" rel="noreferrer">{t('contacto.verPerfil')}</a></span>}{facebookUrl && <span>Facebook: <a href={facebookUrl} target="_blank" rel="noreferrer">{t('contacto.verPerfil')}</a></span>}{reviewsUrl && <span>Reseñas Google: <a href={reviewsUrl} target="_blank" rel="noreferrer">{t('contacto.compartir')}</a></span>}</div>
         </div>
         <div className="shell footer-bottom"><span>© Pizzeria Las Mesas</span><span>Pintor Antonio Padrón, 59 · Las Mesas Bajas · Las Palmas de Gran Canaria</span></div>
         <div className="shell"><p style={{ fontSize: '.7rem', opacity: .75, lineHeight: 1.6, margin: '10px 0 0' }}>Condiciones de envío: Los precios de la carta son para consumo en local o recogida. Los pedidos a domicilio tienen un recargo del 25% sobre el precio de los productos y un coste de envío de 1,50 €/km (máximo 8 km).</p></div>
