@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link, Route, Switch, useLocation } from 'wouter';
-import { ArrowDown, ArrowRight, ArrowUpRight, CalendarDays, Clock3, MapPin, Menu as MenuIcon, Moon, Phone, Search, ShoppingBag, Sun, X } from 'lucide-react';
+import { ArrowDown, ArrowRight, ArrowUpRight, CalendarDays, Clock3, MapPin, Menu as MenuIcon, Moon, PartyPopper, Phone, Search, ShoppingBag, Sun, X } from 'lucide-react';
 import './index.css';
 import { useCart } from '@/CartContext';
 import { useTheme } from '@/ThemeContext';
@@ -140,6 +140,7 @@ function App() {
     ? String(Number(mesaQuery))
     : '';
   const rutaActual = location.replace(/\/+$/, '').toLowerCase();
+  const esInicio = rutaActual === '' || rutaActual === '/';
   const esRutaLogin = rutaActual === '/login';
   const esRutaOpciones = rutaActual === '/admin/opciones';
   const esRutaCocina = rutaActual === '/admin/cocina';
@@ -359,98 +360,46 @@ function App() {
   if (esRutaAdmin) return <Inventario />;
 
 
-  // ===== Páginas (contenido por ruta) =====
+  // ===== Portada compacta: pedir, reservar, celebrar y llegar =====
   const paginaInicio = (
-    <>
-      {/* ===== HERO con imagen de fondo + overlay ===== */}
-      <section className="home-hero">
-        <div className="home-hero-bg" aria-hidden="true" />
-        <div className="home-hero-overlay" aria-hidden="true" />
-        <div className="shell home-hero-content">
-          <p className="eyebrow"><span className="gold-dot" /> Pizzeria Las Mesas</p>
-          <h1 className="home-hero-title">{t('home.hero.titulo1')}<br /><em>{t('home.hero.titulo2')}</em></h1>
-          <p className="home-hero-desc">{t('home.hero.desc2')}</p>
-          {mesaActual ? (
-            <div className="home-order-actions">
-              <Link className="button button-gold home-hero-btn" href={`/carta?mesa=${encodeURIComponent(mesaActual)}`} data-testid="link-pedir-mesa">
-                {t('home.hero.pedirMesa')} {mesaActual} <ArrowRight size={18} />
-              </Link>
-              <p className="home-hero-order-hint">{t('home.hero.hintMesa')}</p>
-            </div>
-          ) : (
-            <div className="home-order-actions">
-              <Link className="button button-gold home-hero-btn" href="/carta?entrega=domicilio" data-testid="link-pedir-domicilio">
-                {t('home.hero.pedirDomicilio')} <ArrowRight size={18} />
-              </Link>
-              <Link className="button button-outline home-pickup-btn" href="/carta?entrega=recogida" data-testid="link-pedir-recogida">
-                {t('home.hero.recoger')}
-              </Link>
-              <p className="home-hero-order-hint">{t('home.hero.hintPedido')}</p>
-            </div>
-          )}
-        </div>
-      </section>
+    <section className="home-hero home-compact" aria-labelledby="home-title">
+      <div className="home-hero-bg" aria-hidden="true" />
+      <div className="home-hero-overlay" aria-hidden="true" />
+      <div className="shell home-hero-content">
+        <p className="eyebrow"><span className="gold-dot" /> Pizzeria Las Mesas · Gran Canaria</p>
+        <h1 className="home-hero-title" id="home-title">{t('home.hero.titulo1')}<br /><em>{t('home.hero.titulo2')}</em></h1>
+        <p className="home-hero-desc">{t('home.hero.desc2')}</p>
 
-      {/* ===== ASÍ SE DISFRUTA: fila de 3 imágenes grandes ===== */}
-      <section className="home-gallery section-pad" id="local" aria-labelledby="gallery-title">
-        <div className="shell">
-          <div className="home-section-head">
-            <p className="eyebrow"><span className="gold-dot" /> Una mesa para cada plan</p>
-            <h2 id="gallery-title">{t('home.galeria.titulo')}<span>.</span></h2>
-            <p>{t('home.galeria.desc')}</p>
-          </div>
-          <div className="home-gallery-grid">
-            <figure className="home-gallery-card home-gallery-card-tall">
-              <img src="/assets/local-billar-1.webp" alt="Mesa de billar y mesas del comedor de Las Mesas" width="896" height="1195" loading="lazy" decoding="async" />
-              <figcaption><span>{t('home.galeria.billar')}</span></figcaption>
-            </figure>
-            <figure className="home-gallery-card">
-              <img src="/assets/platos-compartir.jpg" alt="Platos para compartir de la carta" width="550" height="440" loading="lazy" decoding="async" />
-              <figcaption><span>{t('home.galeria.compartir')}</span></figcaption>
-            </figure>
-            <figure className="home-gallery-card">
-              <img src="/assets/hero-las-mesas.webp" alt="El comedor de Las Mesas" width="640" height="854" loading="lazy" decoding="async" />
-              <figcaption><span>{t('home.galeria.quedarse')}</span></figcaption>
-            </figure>
-          </div>
-          <div className="house-note"><span className="note-mark">LM</span><p>«La mejor jugada<br />{t('home.galeria.cita')}»</p><span className="note-rule" /><span className="eyebrow">Las Mesas · Gran Canaria</span></div>
-        </div>
-      </section>
-
-      {/* ===== NUESTROS FAVORITOS: 3 platos destacados ===== */}
-      <section className="home-favorites section-pad" aria-labelledby="favoritos-title">
-        <div className="shell">
-          <div className="home-fav-head">
-            <div>
-              <p className="eyebrow"><span className="gold-dot" /> Los más pedidos</p>
-              <h2 id="favoritos-title">{t('home.fav.titulo')}<span>.</span></h2>
-            </div>
-            <Link className="button button-outline" href="/carta" data-testid="link-toda-carta">{t('home.fav.verToda')} <ArrowRight size={16} /></Link>
-          </div>
-          <div className="home-fav-grid" role="region" aria-label={t('home.fav.titulo')} tabIndex={0}>
-            {[
-              { nombre: 'Burger Pizza', imagen: '/images/Burger-Pizza.jpg', precio: '14,80 €' },
-              { nombre: 'Costilla a la BBQ', imagen: '/images/Costillas-BBQ.jpg', precio: '15,95 €' },
-              { nombre: 'La Suprema', imagen: '/images/La-Suprema.jpg', precio: '6,50 €' },
-              { nombre: 'La tradicional', imagen: '/images/La-tradicional.jpg', precio: '3,60 €' },
-            ].map((p) => (
-              <article className="home-fav-card" key={p.nombre}>
-                <img src={p.imagen} alt={p.nombre} loading="lazy" decoding="async" onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/images/logo.png'; }} />
-                <div className="home-fav-info"><h3>{p.nombre}</h3><strong>{p.precio}</strong></div>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="carta-cta-section section-pad">
-        <div className="shell">
-          <Link className="button button-gold carta-cta-button" href="/carta" data-testid="link-ver-carta-bottom">
-            Ver la carta <ArrowRight size={18} />
+        <div className="home-actions-grid" aria-label={t('home.acceso.titulo')}>
+          <Link className="home-action-card home-action-primary" href={mesaActual ? `/carta?mesa=${encodeURIComponent(mesaActual)}` : '/carta'} data-testid="link-pedir-inicio">
+            <span className="home-action-icon"><ShoppingBag size={21} aria-hidden="true" /></span>
+            <span className="home-action-copy"><strong>{mesaActual ? `${t('home.hero.pedirMesa')} ${mesaActual}` : t('home.acceso.pedir')}</strong><small>{t('home.acceso.pedir.desc')}</small></span>
+            <ArrowRight className="home-action-arrow" size={19} aria-hidden="true" />
           </Link>
+          <Link className="home-action-card" href="/reservas" data-testid="link-reservar-inicio">
+            <span className="home-action-icon"><CalendarDays size={21} aria-hidden="true" /></span>
+            <span className="home-action-copy"><strong>{t('home.acceso.reserva')}</strong><small>{t('home.acceso.reserva.desc')}</small></span>
+            <ArrowRight className="home-action-arrow" size={19} aria-hidden="true" />
+          </Link>
+          <Link className="home-action-card" href="/celebraciones" data-testid="link-celebraciones-inicio">
+            <span className="home-action-icon"><PartyPopper size={21} aria-hidden="true" /></span>
+            <span className="home-action-copy"><strong>{t('home.acceso.celebraciones')}</strong><small>{t('home.acceso.celebraciones.desc')}</small></span>
+            <ArrowRight className="home-action-arrow" size={19} aria-hidden="true" />
+          </Link>
+          <a className="home-action-card" href={mapsUrl} target="_blank" rel="noreferrer" data-testid="link-como-llegar-inicio">
+            <span className="home-action-icon"><MapPin size={21} aria-hidden="true" /></span>
+            <span className="home-action-copy"><strong>{t('home.acceso.llegar')}</strong><small>{t('home.acceso.llegar.desc')}</small></span>
+            <ArrowUpRight className="home-action-arrow" size={19} aria-hidden="true" />
+          </a>
         </div>
-      </section>
-    </>
+
+        <div className="home-info-strip">
+          <div className="home-info-hours"><span className={`home-open-dot ${estadoHorario.abierto ? 'is-open' : ''}`} aria-hidden="true" /><span>{textoEstadoHorario}</span><Link href="/local#horario">{t('home.acceso.horarioCompleto')}</Link></div>
+          <a className="home-info-phone" href={phoneHref}><Phone size={17} aria-hidden="true" /><span>{phone}</span></a>
+        </div>
+        <Link className="home-about-link" href="/local">{t('home.acceso.conocenos')} <ArrowRight size={15} aria-hidden="true" /></Link>
+      </div>
+    </section>
   );
 
   const paginaCarta = (
@@ -565,7 +514,7 @@ function App() {
       </section>
       <section className="contact-section section-pad" id="contacto" aria-labelledby="contacto-title">
         <div className="shell">
-          <div className="contact-heading"><div><p className="eyebrow"><span className="gold-dot" /> {t('contacto.titulo')}</p><h2 id="contacto-title">{t('contacto.ven')}<span>.</span></h2></div><a className="button button-outline" href={mapsUrl} target="_blank" rel="noreferrer" data-testid="link-maps">{t('contacto.comoLlegar')} <ArrowUpRight size={16} /></a></div>
+          <div className="contact-heading"><div><p className="eyebrow"><span className="gold-dot" /> {t('contacto.titulo')}</p><h2 id="contacto-title">{t('contacto.ven')}<span>.</span></h2><p className="contact-lede">{t('contacto.intro')}</p></div><a className="button button-outline" href={mapsUrl} target="_blank" rel="noreferrer" data-testid="link-maps">{t('contacto.comoLlegar')} <ArrowUpRight size={16} /></a></div>
           <div className="contact-grid">
             <div className="address-block"><MapPin size={21} aria-hidden="true" /><span className="eyebrow">{t('contacto.direccion')}</span><address className="break-words">{address}</address></div>
             <div className="hours-block" id="horario" aria-labelledby="horario-title"><Clock3 size={21} aria-hidden="true" /><h3 className="eyebrow" id="horario-title">{t('contacto.horario')}</h3><dl className="hours-list">{hours.map(([day, time]) => <div className="hours-row" key={day}><dt>{t(day)}</dt><dd>{time}</dd></div>)}</dl><p className={`hours-status ${estadoHorario.abierto ? 'is-open' : 'is-closed'}`} role="status" aria-live="polite" aria-atomic="true"><span aria-hidden="true" />{textoEstadoHorario}</p></div>
@@ -700,7 +649,7 @@ function App() {
           <img className="logo-3d" src="/images/logo.png" alt="Logo de Pizzeria Las Mesas" />
         </a>
 
-        <button
+        {!esInicio && <button
           type="button"
           className={mobileOpen ? 'mobile-toggle is-open' : 'mobile-toggle'}
           aria-label={mobileOpen ? 'Cerrar menú' : 'Abrir menú'}
@@ -710,7 +659,7 @@ function App() {
           data-testid="button-mobile-menu"
         >
           <span className="hamb-linea" /><span className="hamb-linea" /><span className="hamb-linea" />
-        </button>
+        </button>}
 
 
         <div className="header-controles">
@@ -731,7 +680,7 @@ function App() {
         </div>
       </header>
 
-        <nav id="menu-principal" ref={menuRef} className={mobileOpen ? 'main-nav open' : 'main-nav'} aria-label="Navegación principal">
+        {!esInicio && <nav id="menu-principal" ref={menuRef} className={mobileOpen ? 'main-nav open' : 'main-nav'} aria-label="Navegación principal">
           <div className="nav-cabecera-movil">
             <img className="logo-3d" src="/images/logo.png" alt="" />
             <strong>Pizzeria Las Mesas</strong>
@@ -757,7 +706,7 @@ function App() {
               {tema === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
             </button>
           </div>
-        </nav>
+        </nav>}
       </div>
 
       <main id="contenido-principal" tabIndex={-1}>
@@ -772,7 +721,7 @@ function App() {
       </main>
 
       <footer className="site-footer">
-        <div className="shell footer-main"><a href="#inicio" className="footer-brand"><img src="/assets/logo-las-mesas.jpeg" alt="" /><span>Pizzeria Las Mesas</span></a><p>{t('footer.lema')}</p><nav aria-label="Navegación de pie">{[['La casa','#esencia'],['El local','#local'],['La carta','#carta'],['Celebraciones','#celebraciones'],['Reservas','#reserva']].map(([label,href]) => <a key={href} href={href}>{label}</a>)}</nav></div>
+        <div className="shell footer-main"><a href="/" className="footer-brand"><img src="/assets/logo-las-mesas.jpeg" alt="" /><span>Pizzeria Las Mesas</span></a><p>{t('footer.lema')}</p><nav aria-label="Navegación de pie">{[[t('nav.casa'),'/local#esencia'],[t('nav.local'),'/local#local-galeria'],[t('nav.carta'),'/carta'],[t('nav.celebraciones'),'/celebraciones'],[t('nav.reserva'),'/reservas']].map(([label,href]) => <a key={href} href={href}>{label}</a>)}</nav></div>
         <div className="shell footer-details">
           <div className="footer-hours"><span className="footer-label">{t('contacto.horario')}</span>{hours.map(([day, time]) => <p key={day}><span>{t(day)}</span><strong>{time}</strong></p>)}</div>
           <div className="footer-contact"><span className="footer-label">{t('nav.contacto')}</span><a href={phoneHref}>{phone}</a><a href={mapsUrl} target="_blank" rel="noreferrer">Pintor Antonio Padrón, 59 · {t('contacto.comoLlegar')}</a></div>
