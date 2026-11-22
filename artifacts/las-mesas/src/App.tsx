@@ -360,8 +360,9 @@ function App() {
   if (esRutaAdmin) return <Inventario />;
 
 
-  // ===== Portada compacta: pedir, reservar, celebrar y llegar =====
+  // ===== Portada: pedidos, reservas y la información del local =====
   const paginaInicio = (
+    <>
     <section className="home-hero home-compact" aria-labelledby="home-title">
       <div className="home-hero-bg" aria-hidden="true" />
       <div className="home-hero-overlay" aria-hidden="true" />
@@ -371,9 +372,14 @@ function App() {
         <p className="home-hero-desc">{t('home.hero.desc2')}</p>
 
         <div className="home-actions-grid" aria-label={t('home.acceso.titulo')}>
-          <Link className="home-action-card home-action-primary" href={mesaActual ? `/carta?mesa=${encodeURIComponent(mesaActual)}` : '/carta'} data-testid="link-pedir-inicio">
+          <Link className="home-action-card home-action-primary" href={mesaActual ? `/carta?mesa=${encodeURIComponent(mesaActual)}` : '/carta?entrega=domicilio'} data-testid="link-pedir-domicilio-inicio">
             <span className="home-action-icon"><ShoppingBag size={21} aria-hidden="true" /></span>
-            <span className="home-action-copy"><strong>{mesaActual ? `${t('home.hero.pedirMesa')} ${mesaActual}` : t('home.acceso.pedir')}</strong><small>{t('home.acceso.pedir.desc')}</small></span>
+            <span className="home-action-copy"><strong>{mesaActual ? `${t('home.hero.pedirMesa')} ${mesaActual}` : t('home.hero.pedirDomicilio')}</strong><small>{mesaActual ? t('home.hero.hintMesa') : t('home.acceso.domicilio.desc')}</small></span>
+            <ArrowRight className="home-action-arrow" size={19} aria-hidden="true" />
+          </Link>
+          <Link className="home-action-card" href={mesaActual ? `/carta?mesa=${encodeURIComponent(mesaActual)}` : '/carta?entrega=recogida'} data-testid="link-pedir-recogida-inicio">
+            <span className="home-action-icon"><ShoppingBag size={21} aria-hidden="true" /></span>
+            <span className="home-action-copy"><strong>{mesaActual ? t('home.hero.verCarta') : t('home.hero.recoger')}</strong><small>{mesaActual ? t('home.acceso.pedir.desc') : t('home.acceso.recogida.desc')}</small></span>
             <ArrowRight className="home-action-arrow" size={19} aria-hidden="true" />
           </Link>
           <Link className="home-action-card" href="/reservas" data-testid="link-reservar-inicio">
@@ -386,20 +392,51 @@ function App() {
             <span className="home-action-copy"><strong>{t('home.acceso.celebraciones')}</strong><small>{t('home.acceso.celebraciones.desc')}</small></span>
             <ArrowRight className="home-action-arrow" size={19} aria-hidden="true" />
           </Link>
-          <a className="home-action-card" href={mapsUrl} target="_blank" rel="noreferrer" data-testid="link-como-llegar-inicio">
-            <span className="home-action-icon"><MapPin size={21} aria-hidden="true" /></span>
-            <span className="home-action-copy"><strong>{t('home.acceso.llegar')}</strong><small>{t('home.acceso.llegar.desc')}</small></span>
-            <ArrowUpRight className="home-action-arrow" size={19} aria-hidden="true" />
-          </a>
         </div>
 
         <div className="home-info-strip">
-          <div className="home-info-hours"><span className={`home-open-dot ${estadoHorario.abierto ? 'is-open' : ''}`} aria-hidden="true" /><span>{textoEstadoHorario}</span><Link href="/local#horario">{t('home.acceso.horarioCompleto')}</Link></div>
+          <div className="home-info-hours"><span className={`home-open-dot ${estadoHorario.abierto ? 'is-open' : ''}`} aria-hidden="true" /><span>{textoEstadoHorario}</span><a href="#horario-inicio">{t('home.acceso.horarioCompleto')}</a></div>
           <a className="home-info-phone" href={phoneHref}><Phone size={17} aria-hidden="true" /><span>{phone}</span></a>
         </div>
-        <Link className="home-about-link" href="/local">{t('home.acceso.conocenos')} <ArrowRight size={15} aria-hidden="true" /></Link>
       </div>
     </section>
+    <section className="home-about section-pad" id="conocenos" aria-labelledby="home-about-title">
+      <div className="shell home-about-grid">
+        <figure className="home-about-photo">
+          <img src="/assets/local-billar-1.webp" alt="Mesas y billar en el interior de Pizzeria Las Mesas" width="896" height="1195" loading="lazy" decoding="async" />
+          <figcaption>{t('home.galeria.billar')} <span>· Las Mesas, Gran Canaria</span></figcaption>
+        </figure>
+        <div className="home-about-copy">
+          <p className="eyebrow"><span className="gold-dot" /> {t('casa.titulo')}</p>
+          <h2 id="home-about-title">{t('local.volver.cena')}<br /><em>{t('local.quedate')}</em></h2>
+          <p>{t('local.esencia.p1')}</p>
+          <p>{t('local.esencia.p2')}</p>
+          <div className="home-about-tags"><span>{t('home.galeria.compartir')}</span><span>{t('home.galeria.billar')}</span><span>Las Mesas · Gran Canaria</span></div>
+          <Link className="home-about-more" href="/local">{t('home.acceso.conocenos')} <ArrowRight size={16} aria-hidden="true" /></Link>
+        </div>
+      </div>
+    </section>
+    <section className="home-visit section-pad" id="como-llegar" aria-labelledby="home-visit-title">
+      <div className="shell">
+        <div className="home-visit-heading">
+          <div><p className="eyebrow"><span className="gold-dot" /> {t('contacto.titulo')}</p><h2 id="home-visit-title">{t('contacto.ven')}<span>.</span></h2><p>{t('contacto.intro')}</p></div>
+        </div>
+        <div className="home-visit-grid">
+          <article className="home-visit-card home-visit-address">
+            <span className="home-visit-icon"><MapPin size={22} aria-hidden="true" /></span>
+            <p className="eyebrow">{t('contacto.direccion')}</p>
+            <address>{address}</address>
+            <a href={mapsUrl} target="_blank" rel="noreferrer">{t('contacto.comoLlegar')} <ArrowUpRight size={15} aria-hidden="true" /></a>
+          </article>
+          <article className="home-visit-card home-visit-hours" id="horario-inicio">
+            <div className="home-visit-card-title"><span className="home-visit-icon"><Clock3 size={22} aria-hidden="true" /></span><div><p className="eyebrow">{t('contacto.horario')}</p><p className={`hours-status ${estadoHorario.abierto ? 'is-open' : 'is-closed'}`} role="status" aria-live="polite"><span aria-hidden="true" />{textoEstadoHorario}</p></div></div>
+            <dl className="home-visit-schedule">{hours.map(([day, time]) => <div className="hours-row" key={day}><dt>{t(day)}</dt><dd>{time}</dd></div>)}</dl>
+            <a className="home-visit-phone" href={phoneHref}><Phone size={17} aria-hidden="true" />{phone}</a>
+          </article>
+        </div>
+      </div>
+    </section>
+    </>
   );
 
   const paginaCarta = (

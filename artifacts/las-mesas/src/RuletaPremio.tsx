@@ -7,6 +7,7 @@ type Sector = { id: string; name: string; image?: string | null; weight: number;
 type Premio = { id: string; name: string; price: number; image?: string | null };
 
 const CLIENTE_KEY = 'lm_ruleta_cliente_v1';
+const RULETA_SESION_VISTA_KEY = 'lm_ruleta_vista_sesion_v1';
 function idCliente(): string {
   let id = window.localStorage.getItem(CLIENTE_KEY);
   if (!id) {
@@ -34,7 +35,17 @@ export default function RuletaPremio({ onAbrirCarrito }: { onAbrirCarrito: () =>
   const temporizador = useRef<number | null>(null);
 
   useEffect(() => {
-    const id = window.setTimeout(() => setAbierta(true), 700);
+    // sessionStorage conserva esta marca al recargar o volver desde Stripe,
+    // pero permite una nueva visita en otra sesión del navegador.
+    try {
+      if (window.sessionStorage.getItem(RULETA_SESION_VISTA_KEY) === '1') return;
+    } catch {
+      // Si el navegador bloquea el almacenamiento, se mantiene el comportamiento habitual.
+    }
+    const id = window.setTimeout(() => {
+      try { window.sessionStorage.setItem(RULETA_SESION_VISTA_KEY, '1'); } catch { /* almacenamiento opcional */ }
+      setAbierta(true);
+    }, 700);
     return () => window.clearTimeout(id);
   }, []);
 
@@ -75,6 +86,7 @@ export default function RuletaPremio({ onAbrirCarrito }: { onAbrirCarrito: () =>
 
   function cerrar() {
     if (girando) return;
+    try { window.sessionStorage.setItem(RULETA_SESION_VISTA_KEY, '1'); } catch { /* almacenamiento opcional */ }
     setAbierta(false);
   }
 
@@ -126,10 +138,11 @@ export default function RuletaPremio({ onAbrirCarrito }: { onAbrirCarrito: () =>
         setGirando(false);
         setResultado(gano ? 'ganador' : 'sin-premio');
         temporizador.current = window.setTimeout(() => {
+          try { window.sessionStorage.setItem(RULETA_SESION_VISTA_KEY, '1'); } catch { /* almacenamiento opcional */ }
           setAbierta(false);
           if (gano) onAbrirCarrito();
         }, gano ? 1400 : 2300);
-      }, 5200);
+      }, 5750);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo iniciar la ruleta. Inténtalo de nuevo.');
       setGirando(false);
@@ -162,7 +175,7 @@ export default function RuletaPremio({ onAbrirCarrito }: { onAbrirCarrito: () =>
           <span className="ruleta-puntero" aria-hidden="true" />
           <div className="ruleta-rueda" style={{ background: colores, transform: `rotate(${rotacion}deg)` }}>
             {sectoresVisibles.map((sector, i) => (
-              <span key={`${sector.id}-${i}`} className={`ruleta-sector-label${sector.premiable ? ' ruleta-sector-premio' : sector.sinPremio ? ' ruleta-sector-perdedor' : ''}`} style={{ transform: `rotate(${sector.centro}deg) translateY(-88px) rotate(90deg)` }}>
+              <span key={`${sector.id}-${i}`} className={`ruleta-sector-label${sector.premiable ? ' ruleta-sector-premio' : sector.sinPremio ? ' ruleta-sector-perdedor' : ''}`} style={{ transform: `rotate(${sector.centro}deg) translateY(-39cqw) rotate(90deg)` }}>
                 {(sector.premiable || sector.sinPremio) && sector.name}
               </span>
             ))}
