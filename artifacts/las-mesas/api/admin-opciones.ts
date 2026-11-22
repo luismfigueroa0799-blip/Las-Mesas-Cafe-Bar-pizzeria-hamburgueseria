@@ -139,8 +139,18 @@ async function listarGrupos(): Promise<any[]> {
   const grupos = await consultar('select * from public.option_groups order by name, id');
   const ops = await consultar('select * from public.product_options order by group_id, name, id');
   return grupos.map((grp) => ({
-    ...grp,
-    options: ops.filter((o) => Number(o.group_id) === Number(grp.id)),
+    id: String(grp.id),
+    name: String(grp.name ?? ''),
+    type: ['quitar', 'extra', 'elegir'].includes(String(grp.type)) ? String(grp.type) : 'extra',
+    required: grp.required === true,
+    min: Number(grp.min_choices ?? 0),
+    max: Number(grp.max_choices ?? 1),
+    options: ops.filter((o) => Number(o.group_id) === Number(grp.id)).map((op) => ({
+      id: String(op.id),
+      name: String(op.name ?? ''),
+      extraPrice: Number(op.extra_price ?? 0),
+      available: op.available !== false,
+    })),
   }));
 }
 
@@ -199,11 +209,40 @@ export default async function handler(req: Req, res: Res): Promise<void> {
       const min = Math.max(0, Number(body.min_choices ?? 0) || 0);
       const max = Math.max(1, Number(body.max_choices ?? 1) || 1);
       if (!name) { responder(res, { error: 'Falta el nombre del grupo' }, 400); return; }
-      const filas = await consultar(
-        'insert into public.option_groups (name, type, required, min_choices, max_choices) values ($1,$2,$3,$4,$5) returning id',
-        [name, type, required, min, max],
-      );
-      responder(res, { ok: true, id: filas[0]?.id, grupos: await listarGrupos() });
+      const categoryIds = Array.isArray(body.category_ids)
+        ? [...new Set(body.category_ids.map(Number).filter((id: number) => Number.isInteger(id) && id >= 1 && id <= 14))]
+        : [];
+      const pool = await poolDeNeon();
+      if (!pool) throw new Error('No hay conexión con la base de datos.');
+      const client = await pool.connect();
+      let productosActualizados = 0;
+      let groupId: string;
+      try {
+        await client.query('begin');
+        const creada = await client.query(
+          'insert into public.option_groups (name, type, required, min_choices, max_choices) values ($1,$2,$3,$4,$5) returning id',
+          [name, type, required, min, max],
+        );
+        groupId = String(creada.rows?.[0]?.id ?? '');
+        if (!groupId) throw new Error('No se pudo crear el grupo.');
+        if (categoryIds.length) {
+          const asociacion = await client.query(
+            `update public.products
+             set option_group_ids = array_append(coalesce(option_group_ids, ARRAY[]::text[]), $1)
+             where category_id = any($2::int[])
+               and not ($1 = any(coalesce(option_group_ids, ARRAY[]::text[])))`,
+            [groupId, categoryIds],
+          );
+          productosActualizados = Number(asociacion.rowCount ?? 0);
+        }
+        await client.query('commit');
+      } catch (error) {
+        await client.query('rollback');
+        throw error;
+      } finally {
+        client.release();
+      }
+      responder(res, { ok: true, id: groupId, productosActualizados, grupos: await listarGrupos() });
       return;
     }
 

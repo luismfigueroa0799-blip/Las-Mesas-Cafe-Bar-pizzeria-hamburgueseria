@@ -292,6 +292,7 @@ const Inventario: React.FC = () => {
         image_url: datos.imagen,
         category_id: datos.categoria_id,
         is_available: datos.disponible,
+        option_group_ids: datos.option_group_ids ?? [],
       }),
     });
     const texto = await r.text();

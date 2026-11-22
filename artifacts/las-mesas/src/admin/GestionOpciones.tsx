@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { ArrowLeft, Moon, Plus, Sun, Trash2, Pencil } from 'lucide-react';
 import { Link } from 'wouter';
 import { useTheme } from '@/ThemeContext';
+import { CATEGORIES } from '@/products';
+import { leerToken } from '@/admin/Login';
 
 interface OptionItem {
   id: string;
@@ -25,6 +27,7 @@ export default function GestionOpciones() {
   const [token, setToken] = useState('');
   const [grupos, setGrupos] = useState<Group[]>([]);
   const [error, setError] = useState('');
+  const [aviso, setAviso] = useState('');
   const [cargando, setCargando] = useState(true);
   // Formulario de nuevo grupo
   const [nombre, setNombre] = useState('');
@@ -32,12 +35,14 @@ export default function GestionOpciones() {
   const [obligatorio, setObligatorio] = useState(false);
   const [min, setMin] = useState(0);
   const [max, setMax] = useState(1);
+  const [categoriasSeleccionadas, setCategoriasSeleccionadas] = useState<number[]>([]);
+  const [guardandoGrupo, setGuardandoGrupo] = useState(false);
   // Formulario de nueva opción por grupo
   const [opcionNombre, setOpcionNombre] = useState<Record<string, string>>({});
   const [opcionPrecio, setOpcionPrecio] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    const t = window.localStorage.getItem('lm_admin_token') ?? '';
+    const t = leerToken();
     setToken(t);
     if (!t) {
       setError('Tu sesión de administrador ha caducado. Vuelve al inventario e inicia sesión otra vez.');
@@ -50,7 +55,7 @@ export default function GestionOpciones() {
     try {
       const r = await fetch('/api/admin-opciones', { headers: { Authorization: 'Bearer ' + t } });
       const j = await r.json();
-      if (r.ok) setGrupos(j.grupos ?? []);
+      if (r.ok) setGrupos(Array.isArray(j.grupos) ? j.grupos.map((g: any) => ({ ...g, options: Array.isArray(g.options) ? g.options : [] })) : []);
       else setError(j.error ?? 'Error al cargar');
     } catch (e) {
       setError((e as Error).message);
@@ -62,6 +67,7 @@ export default function GestionOpciones() {
 
   async function enviar(body: Record<string, unknown>) {
     setError('');
+    setAviso('');
     try {
       const r = await fetch('/api/admin-opciones', {
         method: 'POST',
@@ -69,7 +75,14 @@ export default function GestionOpciones() {
         body: JSON.stringify(body),
       });
       const j = await r.json();
-      if (r.ok) { setGrupos(j.grupos ?? []); return true; }
+      if (r.ok) {
+        setGrupos(Array.isArray(j.grupos) ? j.grupos : []);
+        if (body.accion === 'crear_grupo' && Array.isArray(body.category_ids) && body.category_ids.length) {
+          const cantidad = Number(j.productosActualizados ?? 0);
+          setAviso(cantidad ? `Grupo creado y aplicado a ${cantidad} ${cantidad === 1 ? 'producto' : 'productos'}.` : 'Grupo creado. No había productos guardados en las categorías elegidas.');
+        }
+        return true;
+      }
       setError(j.error ?? 'Error');
       return false;
     } catch (e) { setError((e as Error).message); return false; }
@@ -77,10 +90,13 @@ export default function GestionOpciones() {
 
   async function crearGrupo(e: React.FormEvent) {
     e.preventDefault();
-    if (!nombre.trim()) return;
-    if (await enviar({ accion: 'crear_grupo', name: nombre, type: tipo, required: obligatorio, min_choices: min, max_choices: max })) {
+    if (!nombre.trim() || guardandoGrupo) return;
+    setGuardandoGrupo(true);
+    if (await enviar({ accion: 'crear_grupo', name: nombre, type: tipo, required: obligatorio, min_choices: min, max_choices: max, category_ids: categoriasSeleccionadas })) {
       setNombre('');
+      setCategoriasSeleccionadas([]);
     }
+    setGuardandoGrupo(false);
   }
 
   return (
@@ -107,6 +123,7 @@ export default function GestionOpciones() {
         </div>
       </header>
       {error && <p className="admin-error">{error}</p>}
+      {aviso && <p className="admin-aviso" role="status">{aviso}</p>}
 
       <main className="admin-opciones-layout">
         <form className="admin-card admin-nuevo-grupo" onSubmit={crearGrupo}>
@@ -119,6 +136,19 @@ export default function GestionOpciones() {
             <label className="admin-opciones-campo admin-opciones-nombre">Nombre del grupo
               <input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Ej. Extras de hamburguesa" />
             </label>
+            <fieldset className="admin-opciones-categorias">
+              <legend>Aplicar a categorías <small>(opcional)</small></legend>
+              <p>El grupo se añadirá a todos los productos de las categorías elegidas. También puedes asignarlo producto por producto al editar la carta.</p>
+              <div>
+                {CATEGORIES.filter((c) => c.id !== 15).map((categoria) => {
+                  const id = Number(categoria.id);
+                  return <label key={categoria.slug}>
+                    <input type="checkbox" checked={categoriasSeleccionadas.includes(id)} onChange={(e) => setCategoriasSeleccionadas((actuales) => e.target.checked ? [...actuales, id] : actuales.filter((x) => x !== id))} />
+                    <span>{categoria.name}</span>
+                  </label>;
+                })}
+              </div>
+            </fieldset>
             <label className="admin-opciones-campo">Tipo de opciones
               <select value={tipo} onChange={(e) => setTipo(e.target.value as typeof tipo)}>
                 <option value="extra">Añadir extra</option>
@@ -137,7 +167,7 @@ export default function GestionOpciones() {
               <span><strong>Elección obligatoria</strong><small>El cliente debe completar este grupo</small></span>
             </label>
           </div>
-          <button className="admin-boton admin-opciones-crear" type="submit"><Plus size={16} /> Crear grupo</button>
+          <button className="admin-boton admin-opciones-crear" type="submit" disabled={guardandoGrupo}><Plus size={16} /> {guardandoGrupo ? 'Creando…' : 'Crear grupo'}</button>
         </form>
 
         <section className="admin-opciones-contenido" aria-label="Grupos de opciones">

@@ -948,6 +948,13 @@ html:not(.dark) .admin .admin-lista .admin-item + .admin-item {
   box-sizing: border-box; width: 100%; min-height: 46px; padding: 0 12px;
   border-radius: 8px; font: 500 .88rem var(--app-font-sans); letter-spacing: 0; text-transform: none;
 }
+.admin-opciones-categorias { grid-column: 1 / -1; min-width: 0; margin: 0; padding: 12px; border: 1px solid rgba(127,116,91,.22); border-radius: 10px; }
+.admin-opciones-categorias legend { padding: 0 5px; font-size: .76rem; font-weight: 800; }
+.admin-opciones-categorias legend small { font-weight: 500; opacity: .72; }
+.admin-opciones-categorias > p { margin: 0 0 10px; font-size: .73rem; line-height: 1.45; }
+.admin-opciones-categorias > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; max-height: 190px; overflow: auto; }
+.admin-opciones-categorias > div label { display: flex; align-items: flex-start; gap: 8px; min-width: 0; padding: 7px 8px; border: 1px solid rgba(127,116,91,.16); border-radius: 7px; font-size: .72rem; line-height: 1.35; cursor: pointer; }
+.admin-opciones-categorias input { flex: none; margin: 2px 0 0; accent-color: #caa52b; }
 .admin-opciones-obligatorio {
   grid-column: 1 / -1; display: flex; align-items: center; gap: 11px; padding: 12px 13px;
   border: 1px solid rgba(212,175,55,.25); border-radius: 10px;
@@ -957,6 +964,7 @@ html:not(.dark) .admin .admin-lista .admin-item + .admin-item {
 .admin-opciones-obligatorio strong { font-size: .8rem; }
 .admin-opciones-obligatorio small { font-size: .72rem; font-weight: 400; }
 .admin-opciones-page .admin-opciones-crear { width: 100%; border-radius: 9px; }
+.admin-opciones-page .admin-aviso { margin: 12px 0; padding: 11px 13px; border-left: 3px solid #5b9d67; border-radius: 7px; background: rgba(91,157,103,.12); color: #347342; font-size: .82rem; line-height: 1.5; }
 .admin-opciones-contenido { min-width: 0; }
 .admin-opciones-lista-head { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin: 2px 0 16px; }
 .admin-opciones-lista-head > div { display: grid; gap: 5px; }
@@ -997,6 +1005,8 @@ html:not(.dark) .admin-opciones-page .admin-boton-claro,
 html:not(.dark) .admin-opciones-page .admin-theme-toggle { background: #fff !important; color: #4d4433 !important; border-color: #d8c797 !important; }
 html:not(.dark) .admin-opciones-page .admin-op-lista li { background: #fbfaf7 !important; border-color: #ece6d9 !important; }
 html:not(.dark) .admin-opciones-page .admin-opciones-contador { background: #fffaf0 !important; }
+html:not(.dark) .admin-opciones-categorias { border-color: #e8dfca; background: #fcfaf5; }
+html:not(.dark) .admin-opciones-categorias > div label { color: #302c25; background: #fff; border-color: #ece6d9; }
 html.dark .admin-opciones-page { background: radial-gradient(ellipse at 85% 0%, #24211c 0, #1a1817 48%, #171615 100%) !important; color: #f5f0e6 !important; }
 html.dark .admin-opciones-page .admin-card { background: rgba(42,39,36,.94) !important; border-color: rgba(212,175,55,.23) !important; box-shadow: 0 14px 34px rgba(0,0,0,.18) !important; }
 html.dark .admin-opciones-page .admin-opciones-form-head p,
@@ -1006,6 +1016,8 @@ html.dark .admin-opciones-page .admin-opciones-obligatorio,
 html.dark .admin-opciones-page .admin-op-lista li { background: rgba(26,24,23,.45) !important; border-color: rgba(212,175,55,.2) !important; }
 html.dark .admin-opciones-page input,
 html.dark .admin-opciones-page select { background: #1f1d1b !important; color: #f5f0e6 !important; border-color: rgba(212,175,55,.28) !important; }
+html.dark .admin-opciones-categorias { background: rgba(26,24,23,.45); border-color: rgba(212,175,55,.2); }
+html.dark .admin-opciones-categorias > div label { background: #1f1d1b; border-color: rgba(212,175,55,.2); color: #f5f0e6; }
 html.dark .admin-opciones-page .admin-theme-toggle { color: #f5f0e6 !important; background: #2a2725 !important; }
 
 /* Acabado uniforme y controles táctiles para el inventario en tablet. */
