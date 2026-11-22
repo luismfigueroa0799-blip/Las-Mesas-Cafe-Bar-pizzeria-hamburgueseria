@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { CalendarClock, ClipboardList, FileText, LogOut, Moon, Pencil, RefreshCw, Search, Settings, Sun, UtensilsCrossed } from 'lucide-react';
 import { Link } from 'wouter';
-import { notificarMenuActualizado } from '@/products';
+import { CATEGORIES, CATEGORIA_RESERVA, PRODUCTS_LOCALES, notificarMenuActualizado } from '@/products';
 import Login, { borrarToken, leerToken } from '@/admin/Login';
 import ProductoEditorForm, { type ProductoEditor } from '@/admin/ProductoEditor';
 import HorarioAdmin from '@/admin/HorarioAdmin';
@@ -28,7 +28,7 @@ interface ProductoInventario {
   precio: number;
   imagen: string | null;
   categoria_id: number | null;
-  /** Nombre de la categoria (lo resuelve la API). */
+  /** Nombre de la categoría, completado desde la carta si la API no lo envía. */
   categoria?: string | null;
   disponible: boolean;
   option_group_ids?: string[];
@@ -36,6 +36,18 @@ interface ProductoInventario {
 
 function precioTexto(valor: number): string {
   return `${Number(valor || 0).toFixed(2).replace('.', ',')} €`;
+}
+
+const categoriaLocalPorNombre = new Map(
+  PRODUCTS_LOCALES.map((producto) => [producto.name.trim().toLocaleLowerCase('es'), producto.category]),
+);
+
+function categoriaDelProducto(producto: ProductoInventario): string {
+  const recibida = producto.categoria?.trim();
+  if (recibida) return recibida;
+  const porId = CATEGORIES.find((categoria) => categoria.id === Number(producto.categoria_id));
+  if (porId) return porId.name;
+  return categoriaLocalPorNombre.get(producto.nombre.trim().toLocaleLowerCase('es')) ?? CATEGORIA_RESERVA;
 }
 
 const Inventario: React.FC = () => {
@@ -76,7 +88,10 @@ const Inventario: React.FC = () => {
         }
         return;
       }
-      setProductos(Array.isArray(datos) ? datos : []);
+      setProductos(Array.isArray(datos) ? datos.map((producto) => ({
+        ...producto,
+        categoria: categoriaDelProducto(producto),
+      })) : []);
       setError('');
     } catch {
       setError('No se pudo conectar con el servidor');
