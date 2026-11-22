@@ -268,6 +268,83 @@
   .admin-item-info { flex-basis: calc(100% - 70px); }
   .admin-switch { width: 100%; justify-content: space-between; padding-top: 4px; }
 }
+
+/* Búsqueda, filtros y acciones de inventario para listas grandes y tablet. */
+.admin-inventory-tools { display: grid; grid-template-columns: minmax(220px,1fr) minmax(190px,260px); gap: 9px; margin: 0 0 12px; }
+.admin-inventory-search { display: flex; align-items: center; gap: 9px; min-height: 44px; padding: 0 12px; border: 1px solid rgba(150,120,40,.3); border-radius: 9px; color: #827765; background: var(--fondo-tarjeta,#fff); }
+.admin-inventory-search input { width: 100%; min-width: 0; border: 0; outline: 0; color: var(--texto-oscuro,#2c2c2c); background: transparent; font: inherit; font-size: .82rem; }
+.admin-category-select { min-height: 44px; min-width: 0; padding: 0 12px; border: 1px solid rgba(150,120,40,.3); border-radius: 9px; color: var(--texto-oscuro,#2c2c2c); background: var(--fondo-tarjeta,#fff); font: inherit; font-size: .78rem; }
+.admin-selection-controls { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin: 0 0 12px; }
+.admin-select-all { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; color: var(--texto-oscuro,#2c2c2c); font-size: .77rem; font-weight: 750; cursor: pointer; }
+.admin-select-all input, .admin-item-select input { width: 19px; height: 19px; margin: 0; accent-color: #a8842c; }
+.admin-bulk-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
+.admin-bulk-actions strong { margin-right: 3px; color: var(--texto-oscuro,#2c2c2c); font-size: .76rem; }
+.admin-bulk-actions button { min-height: 44px; padding: 0 12px; border: 1px solid #a8842c; border-radius: 8px; color: #312609; background: #e5c45b; font: inherit; font-size: .72rem; font-weight: 800; cursor: pointer; }
+.admin-bulk-actions button:hover { background: #f0d477; }
+.admin-bulk-actions button.admin-bulk-clear { border-color: rgba(100,85,60,.3); color: var(--texto-oscuro,#2c2c2c); background: transparent; }
+.admin-bulk-actions button:disabled { opacity: .55; cursor: wait; }
+.admin-item-select { display: grid; place-items: center; flex: 0 0 22px; min-height: 44px; cursor: pointer; }
+.admin-item-select span { display: none; }
+html.dark .admin-inventory-search, html.dark .admin-category-select { color: #eee8dc; background: #252321; border-color: rgba(212,175,55,.28); }
+html.dark .admin-inventory-search input { color: #eee8dc; }
+html.dark .admin-select-all, html.dark .admin-bulk-actions strong { color: #eee8dc; }
+html.dark .admin-bulk-actions button.admin-bulk-clear { color: #eee8dc; border-color: rgba(212,175,55,.3); }
+@media (max-width: 700px) {
+  .admin-inventory-tools { grid-template-columns: 1fr; }
+  .admin-selection-controls { align-items: stretch; flex-direction: column; gap: 4px; }
+  .admin-bulk-actions { display: grid; grid-template-columns: 1fr 1fr; }
+  .admin-bulk-actions strong { grid-column: 1 / -1; }
+  .admin-bulk-actions button { min-height: 46px; }
+  .admin-bulk-actions .admin-bulk-clear { grid-column: 1 / -1; }
+  .admin-item-select { flex-basis: 24px; }
+}
+
+.admin-horario { display: grid; gap: 20px; max-width: 1050px; margin: 22px auto 0; }
+.admin-horario-cabecera { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 20px; border: 1px solid rgba(212,175,55,.25); border-radius: 14px; background: #24211f; }
+.admin-horario-cabecera h2 { margin: 8px 0 5px; font-family: var(--app-font-serif, Georgia,serif); font-size: clamp(1.5rem,3vw,2rem); }
+.admin-horario-cabecera p, .admin-horario-semanal > p, .admin-horario-festivos > p { margin: 0; color: #bcb3a5; font-size: .8rem; line-height: 1.55; }
+.admin-horario-guardar { min-height: 46px; flex: 0 0 auto; }
+.admin-horario-semanal, .admin-horario-festivos { padding: 20px; border: 1px solid rgba(212,175,55,.2); border-radius: 14px; background: #201e1c; }
+.admin-horario-semanal h3, .admin-horario-festivos h3 { margin: 0 0 5px; font-size: 1.12rem; }
+.admin-horario-dia { display: grid; grid-template-columns: minmax(100px,.65fr) minmax(110px,.55fr) minmax(250px,1.5fr) minmax(145px,.9fr); align-items: center; gap: 12px; padding: 13px 0; border-bottom: 1px solid rgba(212,175,55,.15); }
+.admin-horario-dia:first-of-type { margin-top: 10px; }
+.admin-horario-dia > strong { text-transform: capitalize; }
+.admin-horario-cerrado { display: inline-flex; align-items: center; gap: 8px; min-height: 42px; font-size: .78rem; cursor: pointer; }
+.admin-horario-cerrado input { width: 18px; height: 18px; accent-color: #d4af37; }
+.admin-horario-tramos { display: grid; gap: 8px; }
+.admin-horario-tramo { display: flex; align-items: end; gap: 8px; }
+.admin-horario-tramo label, .admin-horario-nuevo-festivo > label:not(.admin-horario-cerrado), .admin-horario-festivo-head > label { display: grid; gap: 4px; color: #bcb3a5; font-size: .68rem; }
+.admin-horario-tramo input, .admin-horario-nuevo-festivo input:not([type="checkbox"]), .admin-horario-festivo input:not([type="checkbox"]) { min-height: 40px; max-width: 100%; padding: 0 9px; border: 1px solid rgba(212,175,55,.27); border-radius: 7px; color: #f5f0e6; background: #191817; font: inherit; font-size: .8rem; }
+.admin-horario-icono { display: grid; place-items: center; width: 40px; height: 40px; flex: 0 0 40px; border: 1px solid rgba(212,175,55,.25); border-radius: 8px; color: #eee8dc; background: transparent; cursor: pointer; }
+.admin-horario-borrar { color: #e89a8e; }
+.admin-horario-anadir-tramo { display: inline-flex; align-items: center; gap: 5px; width: fit-content; min-height: 38px; border: 0; color: #e1c253; background: transparent; font: inherit; font-size: .72rem; font-weight: 750; cursor: pointer; }
+.admin-horario-resumen { color: #c8b783; font-size: .76rem; }
+.admin-horario-nuevo-festivo { display: grid; grid-template-columns: minmax(150px,.8fr) minmax(200px,1.2fr) auto auto; align-items: end; gap: 12px; margin: 16px 0; padding: 14px; border: 1px solid rgba(212,175,55,.18); border-radius: 10px; background: #272421; }
+.admin-horario-nuevo-festivo .admin-boton { min-height: 42px; white-space: nowrap; }
+.admin-horario-festivos-lista { display: grid; gap: 10px; }
+.admin-horario-festivo { display: grid; gap: 8px; padding: 14px; border: 1px solid rgba(212,175,55,.18); border-radius: 10px; background: #272421; }
+.admin-horario-festivo-head { display: grid; grid-template-columns: minmax(150px,.7fr) minmax(200px,1.3fr) 40px; align-items: end; gap: 12px; }
+.admin-horario-tramos-festivo { margin-left: 24px; }
+.admin-horario-vacio, .admin-horario-cargando { padding: 16px; color: #bcb3a5; font-size: .8rem; }
+html:not(.dark) .admin-horario-cabecera, html:not(.dark) .admin-horario-semanal, html:not(.dark) .admin-horario-festivos { background: #fff; border-color: #e4dcc9; }
+html:not(.dark) .admin-horario-cabecera p, html:not(.dark) .admin-horario-semanal > p, html:not(.dark) .admin-horario-festivos > p, html:not(.dark) .admin-horario-tramo label, html:not(.dark) .admin-horario-nuevo-festivo > label:not(.admin-horario-cerrado), html:not(.dark) .admin-horario-festivo-head > label, html:not(.dark) .admin-horario-vacio { color: #716b60; }
+html:not(.dark) .admin-horario-dia { border-color: #e8e1d4; }
+html:not(.dark) .admin-horario-tramo input, html:not(.dark) .admin-horario-nuevo-festivo input:not([type="checkbox"]), html:not(.dark) .admin-horario-festivo input:not([type="checkbox"]) { color: #302c25; background: #fff; border-color: #d9d1c1; }
+html:not(.dark) .admin-horario-icono { color: #514735; border-color: #d8c797; }
+html:not(.dark) .admin-horario-resumen { color: #756025; }
+html:not(.dark) .admin-horario-nuevo-festivo, html:not(.dark) .admin-horario-festivo { background: #faf8f2; border-color: #e4dcc9; }
+@media (max-width: 760px) {
+  .admin-horario-cabecera { align-items: stretch; flex-direction: column; }
+  .admin-horario-guardar { width: 100%; }
+  .admin-horario-dia { grid-template-columns: 1fr auto; gap: 4px 10px; }
+  .admin-horario-tramos { grid-column: 1 / -1; }
+  .admin-horario-resumen { grid-column: 1 / -1; }
+  .admin-horario-nuevo-festivo { grid-template-columns: 1fr; align-items: stretch; }
+  .admin-horario-nuevo-festivo .admin-boton { width: 100%; }
+  .admin-horario-festivo-head { grid-template-columns: 1fr 40px; }
+  .admin-horario-festivo-head label:nth-child(2) { grid-column: 1; grid-row: 2; }
+  .admin-horario-festivo-head .admin-horario-icono { grid-column: 2; grid-row: 1; }
+}
 .admin-error-detalle {
   display: block;
   margin-top: 4px;

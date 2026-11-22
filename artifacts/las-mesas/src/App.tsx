@@ -8,6 +8,7 @@ import { useI18n, type Idioma } from '@/I18nContext';
 import CartSidebar from '@/CartSidebar';
 import RuletaPremio from '@/RuletaPremio';
 import ProductCard from '@/ProductCard';
+import { CLAVES_DIAS, HORARIO_PREDETERMINADO, fechaCanarias, normalizarHorario, obtenerEstadoHorario, textoTramos, type ConfiguracionHorario } from '@/horarios';
 import Inventario from '@/admin/Inventario';
 import GestionOpciones from '@/admin/GestionOpciones';
 import Cocina from '@/admin/Cocina';
@@ -30,43 +31,7 @@ const whatsapp = '34928896097';
 const reviewsUrl = 'https://www.google.com/maps/place//data=!4m3!3m2!1s0xc409545c15692dd:0x541a55e1c584b7c7!12e1?source=g.page.m.ia._&laa=nmx-review-solicitation-ia2';
 const instagramUrl = 'https://www.instagram.com/lasmesascafebar/';
 const facebookUrl = ''; // Añadir aquí el perfil oficial cuando esté disponible.
-const hours: [string, string][] = [
-  ['contacto.horario.lunesViernes', '18:00–23:00'],
-  ['contacto.horario.sabado', '12:00–15:00 · 18:00–23:00'],
-  ['contacto.horario.domingo', '12:00–17:00'],
-];
-const HORARIO_SEMANAL: [number, number][][] = [
-  [[18 * 60, 23 * 60]], [[18 * 60, 23 * 60]], [[18 * 60, 23 * 60]],
-  [[18 * 60, 23 * 60]], [[18 * 60, 23 * 60]], [[12 * 60, 15 * 60], [18 * 60, 23 * 60]],
-  [[12 * 60, 17 * 60]],
-];
 const DIAS_SEMANA = ['contacto.dia.lunes', 'contacto.dia.martes', 'contacto.dia.miercoles', 'contacto.dia.jueves', 'contacto.dia.viernes', 'contacto.dia.sabado', 'contacto.dia.domingo'];
-
-type EstadoHorario =
-  | { abierto: true; cierre: number; dia: number }
-  | { abierto: false; apertura: number; dia: number; hoy: boolean };
-
-function obtenerEstadoHorario(fecha: Date): EstadoHorario {
-  const parts = new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Atlantic/Canary', weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
-  }).formatToParts(fecha);
-  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
-  const indiceDia = ({ Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5, Sun: 6 } as Record<string, number>)[values.weekday] ?? 0;
-  const minutosAhora = Number(values.hour) * 60 + Number(values.minute);
-  for (const [inicio, fin] of HORARIO_SEMANAL[indiceDia]) {
-    if (minutosAhora >= inicio && minutosAhora < fin) return { abierto: true, cierre: fin, dia: indiceDia };
-  }
-  for (let desplazamiento = 0; desplazamiento < 7; desplazamiento++) {
-    const dia = (indiceDia + desplazamiento) % 7;
-    const proxima = HORARIO_SEMANAL[dia].find(([inicio]) => desplazamiento > 0 || inicio > minutosAhora);
-    if (proxima) return { abierto: false, apertura: proxima[0], dia, hoy: desplazamiento === 0 };
-  }
-  return { abierto: false, apertura: 18 * 60, dia: 0, hoy: false };
-}
-
-function horaDeMinutos(minutos: number) {
-  return `${String(Math.floor(minutos / 60)).padStart(2, '0')}:${String(minutos % 60).padStart(2, '0')}`;
-}
 
 function formatLocalDate(date: Date) {
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -74,20 +39,19 @@ function formatLocalDate(date: Date) {
   return `${date.getFullYear()}-${month}-${day}`;
 }
 
-function timesBetween(startHour: number, endHour: number) {
-  return Array.from({ length: (endHour - startHour) * 2 }, (_, index) => {
-    const hour = startHour + Math.floor(index / 2);
-    const minute = index % 2 === 0 ? '00' : '30';
-    return `${String(hour).padStart(2, '0')}:${minute}`;
-  });
-}
-
-function timesForDate(date: string) {
+function timesForDate(date: string, horario: ConfiguracionHorario) {
   if (!date) return [];
-  const day = new Date(`${date}T12:00:00`).getDay();
-  if (day === 0) return timesBetween(12, 17);
-  if (day === 6) return [...timesBetween(12, 15), ...timesBetween(18, 23)];
-  return timesBetween(18, 23);
+  const festivo = horario.festivos.find((item) => item.fecha === date);
+  if (festivo?.cerrado) return [];
+  const dia = (new Date(`${date}T12:00:00`).getDay() + 6) % 7;
+  const tramos = festivo ? festivo.tramos : horario.semanal[dia] ?? [];
+  return tramos.flatMap(({ inicio, fin }) => {
+    const minutosInicio = Number(inicio.slice(0, 2)) * 60 + Number(inicio.slice(3, 5));
+    const minutosFin = Number(fin.slice(0, 2)) * 60 + Number(fin.slice(3, 5));
+    const horas: string[] = [];
+    for (let minuto = minutosInicio; minuto < minutosFin; minuto += 30) horas.push(`${String(Math.floor(minuto / 60)).padStart(2, '0')}:${String(minuto % 60).padStart(2, '0')}`);
+    return horas;
+  });
 }
 
 // Estado del aviso de pedido (confirmación o cancelación tras el pago).
@@ -99,9 +63,19 @@ type AvisoPedido =
 
 function App() {
   const [horaActual, setHoraActual] = useState(() => new Date());
+  const [configuracionHorario, setConfiguracionHorario] = useState<ConfiguracionHorario>(() => HORARIO_PREDETERMINADO);
   useEffect(() => {
     const timer = window.setInterval(() => setHoraActual(new Date()), 60_000);
     return () => window.clearInterval(timer);
+  }, []);
+  useEffect(() => {
+    let vigente = true;
+    fetch('/api/productos?vista=horario', { cache: 'no-store' }).then(async (respuesta) => {
+      if (!respuesta.ok) return;
+      const datos = await respuesta.json();
+      if (vigente) setConfiguracionHorario(normalizarHorario(datos.horario));
+    }).catch(() => undefined);
+    return () => { vigente = false; };
   }, []);
   const [activeSlug, setActiveSlug] = useState(CATEGORIES[0].slug);
   const [productos, setProductos] = useState<Product[]>([]);
@@ -150,12 +124,18 @@ function App() {
   const { cart, addToCart, clearCart } = useCart();
   const { tema, alternarTema } = useTheme();
   const { idioma, cambiarIdioma, t } = useI18n();
-  const estadoHorario = useMemo(() => obtenerEstadoHorario(horaActual), [horaActual]);
+  const estadoHorario = useMemo(() => obtenerEstadoHorario(horaActual, configuracionHorario), [horaActual, configuracionHorario]);
   const textoEstadoHorario = estadoHorario.abierto
-    ? `${t('contacto.estado.abierto')} · ${t('contacto.estado.cierra').replace('{hora}', horaDeMinutos(estadoHorario.cierre))}`
-    : `${t('contacto.estado.cerrado')} · ${estadoHorario.hoy
-      ? t('contacto.estado.abreHoy').replace('{hora}', horaDeMinutos(estadoHorario.apertura))
-      : t('contacto.estado.proxima').replace('{dia}', t(DIAS_SEMANA[estadoHorario.dia])).replace('{hora}', horaDeMinutos(estadoHorario.apertura))}`;
+    ? `${t('contacto.estado.abierto')} · ${t('contacto.estado.cierra').replace('{hora}', estadoHorario.cierre)}`
+    : `${t('contacto.estado.cerrado')}${estadoHorario.hoy
+      ? ` · ${t('contacto.estado.abreHoy').replace('{hora}', estadoHorario.apertura)}`
+      : estadoHorario.apertura
+        ? ` · ${t('contacto.estado.proxima').replace('{dia}', t(DIAS_SEMANA[estadoHorario.dia])).replace('{hora}', estadoHorario.apertura)}`
+        : ` · ${t('contacto.estado.sinProxima')}`}`;
+  const hours: [string, string][] = configuracionHorario.semanal.map((tramos, indice) => [CLAVES_DIAS[indice], tramos.length ? textoTramos(tramos) : t('contacto.horario.cerrado')] as [string, string]);
+  const festivosVisibles = configuracionHorario.festivos.filter((festivo) => festivo.fecha >= fechaCanarias(horaActual)).slice(0, 4);
+  const idiomaFecha = idioma === 'en' ? 'en-GB' : idioma === 'fr' ? 'fr-FR' : idioma === 'de' ? 'de-DE' : 'es-ES';
+  const listaFestivos = festivosVisibles.length > 0 && <div className="home-holiday-hours"><span>{t('contacto.horario.especiales')}</span>{festivosVisibles.map((festivo) => <p key={festivo.fecha}><strong>{festivo.nombre}</strong><time dateTime={festivo.fecha}>{new Intl.DateTimeFormat(idiomaFecha, { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Atlantic/Canary' }).format(new Date(`${festivo.fecha}T12:00:00Z`))}</time><b>{festivo.cerrado || !festivo.tramos.length ? t('contacto.horario.cerrado') : textoTramos(festivo.tramos)}</b></p>)}</div>;
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
   const activeCategory = categorias.find((c) => c.slug === activeSlug) ?? categorias[0];
   const productosActivos = productos.filter((p) => p.category_slug === activeCategory.slug);
@@ -201,7 +181,7 @@ function App() {
       );
     }
   }, [productos]);
-  const reservationTimes = timesForDate(reservationDate);
+  const reservationTimes = timesForDate(reservationDate, configuracionHorario);
   const minDate = formatLocalDate(new Date());
 
   useEffect(() => {
@@ -433,7 +413,7 @@ function App() {
           </article>
           <article className="home-visit-card home-visit-hours" id="horario-inicio">
             <div className="home-visit-card-title"><span className="home-visit-icon"><Clock3 size={22} aria-hidden="true" /></span><div><p className="eyebrow">{t('contacto.horario')}</p><p className={`hours-status ${estadoHorario.abierto ? 'is-open' : 'is-closed'}`} role="status" aria-live="polite"><span aria-hidden="true" />{textoEstadoHorario}</p></div></div>
-            <dl className="home-visit-schedule">{hours.map(([day, time]) => <div className="hours-row" key={day}><dt>{t(day)}</dt><dd>{time}</dd></div>)}</dl>
+            <dl className="home-visit-schedule">{hours.map(([day, time]) => <div className="hours-row" key={day}><dt>{t(day)}</dt><dd>{time}</dd></div>)}</dl>{listaFestivos}
             <a className="home-visit-phone" href={phoneHref}><Phone size={17} aria-hidden="true" />{phone}</a>
           </article>
         </div>
@@ -574,7 +554,7 @@ function App() {
           <div className="contact-heading"><div><p className="eyebrow"><span className="gold-dot" /> {t('contacto.titulo')}</p><h2 id="contacto-title">{t('contacto.ven')}<span>.</span></h2><p className="contact-lede">{t('contacto.intro')}</p></div><a className="button button-outline" href={mapsUrl} target="_blank" rel="noreferrer" data-testid="link-maps">{t('contacto.comoLlegar')} <ArrowUpRight size={16} /></a></div>
           <div className="contact-grid">
             <div className="address-block"><MapPin size={21} aria-hidden="true" /><span className="eyebrow">{t('contacto.direccion')}</span><address className="break-words">{address}</address></div>
-            <div className="hours-block" id="horario" aria-labelledby="horario-title"><Clock3 size={21} aria-hidden="true" /><h3 className="eyebrow" id="horario-title">{t('contacto.horario')}</h3><dl className="hours-list">{hours.map(([day, time]) => <div className="hours-row" key={day}><dt>{t(day)}</dt><dd>{time}</dd></div>)}</dl><p className={`hours-status ${estadoHorario.abierto ? 'is-open' : 'is-closed'}`} role="status" aria-live="polite" aria-atomic="true"><span aria-hidden="true" />{textoEstadoHorario}</p></div>
+            <div className="hours-block" id="horario" aria-labelledby="horario-title"><Clock3 size={21} aria-hidden="true" /><h3 className="eyebrow" id="horario-title">{t('contacto.horario')}</h3><dl className="hours-list">{hours.map(([day, time]) => <div className="hours-row" key={day}><dt>{t(day)}</dt><dd>{time}</dd></div>)}</dl>{listaFestivos}<p className={`hours-status ${estadoHorario.abierto ? 'is-open' : 'is-closed'}`} role="status" aria-live="polite" aria-atomic="true"><span aria-hidden="true" />{textoEstadoHorario}</p></div>
             <div className="phone-block"><Phone size={21} aria-hidden="true" /><span className="eyebrow">{t('contacto.llamanos')}</span><a href={phoneHref} data-testid="link-call-footer">{phone}</a><p>{t('contacto.llamamos.desc')}</p></div>
           </div>
           {/* La URL de las reseñas NO se imprime: se muestra como enlace para
@@ -638,7 +618,7 @@ function App() {
               <label>{t('form.nombre')}<input name="name" required autoComplete="name" placeholder={t('form.nombre.ph')} data-testid="input-reservation-name" /></label>
               <label>{t('form.contacto')}<input name="contact" required autoComplete="email" pattern="(?:[^@ ]+@[^@ ]+\\.[^@ ]+|\\+?[0-9][0-9 \\-]{6,})" title="Introduce un teléfono válido o un correo electrónico." placeholder={t('form.nombre.ph')} data-testid="input-reservation-contact" /></label>
               <label>{t('form.fechaReserva')}<input type="date" name="date" min={minDate} required value={reservationDate} onChange={(event) => { setReservationDate(event.target.value); setReservationTime(''); }} data-testid="input-reservation-date" /></label>
-              <label>{t('form.hora')}<select name="time" required value={reservationTime} onChange={(event) => setReservationTime(event.target.value)} disabled={!reservationDate} data-testid="select-reservation-time"><option value="" disabled>{reservationDate ? 'Elige una hora' : 'Elige primero una fecha'}</option>{reservationTimes.map((time) => <option key={time}>{time}</option>)}</select></label>
+              <label>{t('form.hora')}<select name="time" required value={reservationTime} onChange={(event) => setReservationTime(event.target.value)} disabled={!reservationDate || !reservationTimes.length} data-testid="select-reservation-time"><option value="" disabled>{!reservationDate ? 'Elige primero una fecha' : reservationTimes.length ? 'Elige una hora' : t('form.horaNoDisponible')}</option>{reservationTimes.map((time) => <option key={time}>{time}</option>)}</select></label>
               <label>{t('form.personas')}<input type="number" min="1" max="20" name="people" required placeholder="Ej. 4" data-testid="input-reservation-people" /></label>
               <label className="full-field">{t('form.comentarios')} <span className="optional">{t('form.opcional')}</span><textarea name="comments" rows={2} placeholder={t('form.comentarios.ph')} data-testid="input-reservation-comments" /></label>
             </div>
@@ -781,7 +761,7 @@ function App() {
       <footer className="site-footer">
         <div className="shell footer-main"><a href="/" className="footer-brand"><img src="/assets/logo-las-mesas.jpeg" alt="" /><span>Pizzeria Las Mesas</span></a><p>{t('footer.lema')}</p><nav aria-label="Navegación de pie">{[[t('nav.casa'),'/local#esencia'],[t('nav.local'),'/local#local-galeria'],[t('nav.carta'),'/carta'],[t('nav.celebraciones'),'/celebraciones'],[t('nav.reserva'),'/reservas']].map(([label,href]) => <a key={href} href={href}>{label}</a>)}</nav></div>
         <div className="shell footer-details">
-          <div className="footer-hours"><span className="footer-label">{t('contacto.horario')}</span>{hours.map(([day, time]) => <p key={day}><span>{t(day)}</span><strong>{time}</strong></p>)}</div>
+          <div className="footer-hours"><span className="footer-label">{t('contacto.horario')}</span>{hours.map(([day, time]) => <p key={day}><span>{t(day)}</span><strong>{time}</strong></p>)}{listaFestivos}</div>
           <div className="footer-contact"><span className="footer-label">{t('nav.contacto')}</span><a href={phoneHref}>{phone}</a><a href={mapsUrl} target="_blank" rel="noreferrer">Pintor Antonio Padrón, 59 · {t('contacto.comoLlegar')}</a></div>
           <div className="footer-social min-w-0"><span className="footer-label">{t('contacto.social')}</span>{instagramUrl && <span>{t('contacto.instagram')}: <a href={instagramUrl} target="_blank" rel="noreferrer">{t('contacto.verPerfil')}</a></span>}{facebookUrl && <span>{t('contacto.facebook')}: <a href={facebookUrl} target="_blank" rel="noreferrer">{t('contacto.verPerfil')}</a></span>}{reviewsUrl && <span>{t('contacto.googleResenas')}: <a href={reviewsUrl} target="_blank" rel="noreferrer">{t('contacto.compartir')}</a></span>}</div>
         </div>

@@ -72,6 +72,32 @@ async function consultarNeon(sql: string, valores: unknown[] = []): Promise<any[
   }
 }
 
+const HORARIO_INICIAL = {
+  semanal: [
+    [{ inicio: '18:00', fin: '23:00' }], [{ inicio: '18:00', fin: '23:00' }],
+    [{ inicio: '18:00', fin: '23:00' }], [{ inicio: '18:00', fin: '23:00' }],
+    [{ inicio: '18:00', fin: '23:00' }],
+    [{ inicio: '12:00', fin: '15:00' }, { inicio: '18:00', fin: '23:00' }],
+    [{ inicio: '12:00', fin: '17:00' }],
+  ], festivos: [],
+};
+
+async function horarioPublico(): Promise<unknown> {
+  const pool = await poolDeNeon();
+  if (!pool) return HORARIO_INICIAL;
+  try {
+    await pool.query(`create table if not exists public.business_hours (
+      id text primary key, config jsonb not null, updated_at timestamptz not null default now()
+    )`);
+    await pool.query('insert into public.business_hours (id, config) values ($1, $2::jsonb) on conflict (id) do nothing', ['local', JSON.stringify(HORARIO_INICIAL)]);
+    const resultado = await pool.query('select config from public.business_hours where id = $1', ['local']);
+    return resultado.rows?.[0]?.config ?? HORARIO_INICIAL;
+  } catch (error) {
+    g.console?.error?.('[productos] no se pudo leer el horario:', error);
+    return HORARIO_INICIAL;
+  }
+}
+
 // ── Supabase (respaldo) ──
 
 /** Proyecto de Supabase (la tabla de productos de respaldo y la autenticacion). */
@@ -217,6 +243,11 @@ async function gruposConOpciones(): Promise<any[]> {
 }
 
 export default async function handler(req: Req, res: Res): Promise<void> {
+  const vista = String(req?.query?.vista ?? '');
+  if ((!req?.method || req.method === 'GET') && vista === 'horario') {
+    responder(res, { horario: await horarioPublico() });
+    return;
+  }
   if (req?.method === 'POST') {
     const accionRuleta = req.body?.action;
     if (accionRuleta !== 'ruleta' && accionRuleta !== 'preparar-ruleta') {

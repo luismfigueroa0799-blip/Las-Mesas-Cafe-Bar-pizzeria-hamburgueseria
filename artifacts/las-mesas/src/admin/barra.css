@@ -19,6 +19,9 @@
 .barra-heading p { margin: 0; color: #817565; font-size: .88rem; }
 .barra-live { display: flex; align-items: center; gap: 8px; color: #756b5c; font-size: .72rem; white-space: nowrap; }
 .barra-live > span { width: 8px; height: 8px; border-radius: 50%; background: #7e995c; box-shadow: 0 0 0 4px #7e995c20; }
+.barra-live.conectando > span { background: #c59a36; box-shadow: 0 0 0 4px #c59a3620; }
+.barra-live.sin-conexion { color: #a33f35; }
+.barra-live.sin-conexion > span { background: #bd4e43; box-shadow: 0 0 0 4px #bd4e4320; }
 .barra-live small { margin-left: 5px; color: #a69b89; }
 .barra-resumen { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; margin-bottom: 19px; }
 .barra-resumen > div { display: grid; gap: 8px; padding: 15px 18px; border: 1px solid #e6dbc8; border-radius: 12px; background: #fffefa; }
@@ -28,6 +31,11 @@
 .barra-busqueda { display: flex; align-items: center; gap: 9px; min-height: 43px; padding: 0 12px; border: 1px solid #ded2bd; border-radius: 9px; color: #8c806d; background: #fffefa; }
 .barra-busqueda input { width: 100%; border: 0; outline: 0; color: #42352a; background: transparent; font: inherit; font-size: .78rem; }
 .barra-filtros select { min-height: 43px; padding: 0 12px; border: 1px solid #ded2bd; border-radius: 9px; color: #554534; background: #fffefa; font: inherit; font-size: .76rem; }
+.barra-estado-filtros { display: flex; gap: 7px; margin: -7px 0 18px; padding: 2px 1px 7px; overflow-x: auto; scrollbar-width: thin; }
+.barra-estado-filtros button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; flex: 0 0 auto; min-height: 42px; padding: 0 13px; border: 1px solid #ded2bd; border-radius: 999px; color: #625541; background: #fffefa; font: inherit; font-size: .72rem; font-weight: 750; cursor: pointer; }
+.barra-estado-filtros button.activo { border-color: #788957; color: #fff; background: #788957; }
+.barra-estado-filtros button span { min-width: 20px; padding: 2px 6px; border-radius: 999px; color: #685b43; background: #efe9dc; font-size: .64rem; font-weight: 850; text-align: center; }
+.barra-estado-filtros button.activo span { color: #3d492d; background: #fff; }
 .barra-lista { display: grid; gap: 13px; }
 .barra-pedido { padding: 17px 18px 15px; border: 1px solid #e6dbc8; border-radius: 14px; background: #fffefa; box-shadow: 0 4px 15px rgba(70,50,24,.045); }
 .barra-pedido-cabeza, .barra-codigo-wrap, .barra-pedido-pie { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -206,3 +214,8 @@ html.dark .barra-page .barra-factura-hoja :is(p,h2,span,strong,small,td,th,foote
   .barra-factura-hoja { width: 100%; max-width: none; padding: 12mm; }
   @page { margin: 8mm; size: A4; }
 }
+
+html.dark .barra-page .barra-estado-filtros button:not(.activo) { color: #f5f0e6 !important; background: #2a2725 !important; border-color: rgba(212,175,55,.24) !important; }
+html.dark .barra-page .barra-estado-filtros button span { color: #f5f0e6 !important; background: #45413c !important; }
+html.dark .barra-page .barra-live.sin-conexion { color: #ffb6ad !important; }
+@media (max-width: 780px) { .barra-estado-filtros { margin-top: -8px; } }

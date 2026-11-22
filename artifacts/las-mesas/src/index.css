@@ -2712,6 +2712,18 @@ html.dark .social-editable a { color: #f0d37a; }
 .home-visit-schedule { margin: 18px 0 12px; }
 .home-visit-schedule .hours-row { border-color: rgba(232,218,186,.17); color: #e8e1d4; font-size: .83rem; }
 .home-visit-schedule .hours-row dd { color: #fff8e9; }
+.home-holiday-hours { display: grid; gap: 7px; margin: 13px 0; padding: 12px; border: 1px solid rgba(224,190,91,.3); border-radius: 10px; background: rgba(14,13,11,.22); }
+.home-holiday-hours > span { color: #e5c76e; font-size: .63rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.home-holiday-hours p { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; margin: 0; color: #f5f0e6; font-size: .76rem; }
+.home-holiday-hours time { color: #d1c5a9; font-size: .7rem; }
+.home-holiday-hours b { grid-column: 1 / -1; color: #e8d79f; font-size: .7rem; font-weight: 650; }
+.hours-block .home-holiday-hours { border-color: #ddd1b8; background: #f5f1e7; }
+.hours-block .home-holiday-hours p { color: #453a2e; }
+.hours-block .home-holiday-hours time { color: #766c5d; }
+.hours-block .home-holiday-hours b { color: #756025; }
+html.dark .hours-block .home-holiday-hours { border-color: rgba(212,175,55,.25); background: #292621; }
+html.dark .hours-block .home-holiday-hours p { color: #f5f0e6; }
+html.dark .hours-block .home-holiday-hours time { color: #d1c5a9; }
 .home-visit-phone { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; margin-top: 4px; color: #f1d16a; font-weight: 800; text-decoration: none; }
 .home-visit-phone:hover { color: #fff0b7; }
 .home-about a:focus-visible, .home-visit a:focus-visible { outline: 3px solid #f2cf64; outline-offset: 3px; }

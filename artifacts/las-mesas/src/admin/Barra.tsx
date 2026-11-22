@@ -20,6 +20,20 @@ interface PedidoBarra {
   estadoCocina: string;
   fecha: string | null;
 }
+type FiltroEstadoBarra = 'todos' | 'nuevos' | 'en-curso' | 'listos' | 'finalizados' | 'archivo';
+
+function coincideFiltroEstado(pedido: PedidoBarra, filtro: FiltroEstadoBarra) {
+  const estado = String(pedido.estadoCocina || 'pendiente').toLowerCase();
+  const finalizado = estado === 'servido' || estado === 'entregado';
+  const fechaMs = pedido.fecha ? new Date(pedido.fecha).getTime() : Number.NaN;
+  const archivado = finalizado && Number.isFinite(fechaMs) && fechaMs > 0 && Date.now() - fechaMs > 24 * 60 * 60 * 1000;
+  if (filtro === 'todos') return !archivado;
+  if (filtro === 'nuevos') return estado === 'pendiente';
+  if (filtro === 'en-curso') return estado === 'confirmado' || estado === 'preparando';
+  if (filtro === 'listos') return estado === 'listo' || estado === 'en_reparto';
+  if (filtro === 'finalizados') return finalizado && !archivado;
+  return archivado;
+}
 
 function euros(valor: unknown) {
   const numero = typeof valor === 'string'
@@ -67,6 +81,7 @@ const Barra: React.FC = () => {
   const [error, setError] = useState('');
   const [busqueda, setBusqueda] = useState('');
   const [filtroTipo, setFiltroTipo] = useState<'todos' | 'mesa' | 'domicilio'>('todos');
+  const [filtroEstado, setFiltroEstado] = useState<FiltroEstadoBarra>('todos');
   const [facturaId, setFacturaId] = useState<number | null>(null);
   const [imprimirAlAbrir, setImprimirAlAbrir] = useState(false);
   const [pushActivo, setPushActivo] = useState(false);
@@ -219,8 +234,10 @@ const Barra: React.FC = () => {
     const coincideTexto = !texto || [pedido.codigo, pedido.cliente, pedido.telefono, pedido.direccion, ...pedido.productos.map((item) => item.nombre ?? item.name ?? '')]
       .some((valor) => String(valor ?? '').toLowerCase().includes(texto));
     const coincideTipo = filtroTipo === 'todos' || (filtroTipo === 'mesa' ? mesa : !mesa);
-    return coincideTexto && coincideTipo;
-  }), [pedidos, busqueda, filtroTipo]);
+    return coincideTexto && coincideTipo && coincideFiltroEstado(pedido, filtroEstado);
+  }), [pedidos, busqueda, filtroTipo, filtroEstado]);
+
+  const conteoEstado = (filtro: FiltroEstadoBarra) => pedidos.filter((pedido) => coincideFiltroEstado(pedido, filtro)).length;
 
   const factura = pedidos.find((pedido) => pedido.id === facturaId) ?? null;
   const articulosFactura = factura ? lineasDe(factura) : [];
@@ -255,7 +272,7 @@ const Barra: React.FC = () => {
       <section className="barra-contenido">
         <div className="barra-heading">
           <div><span className="barra-eyebrow"><FileText size={15} /> Control de pedidos pagados</span><h1>Comandas de barra</h1><p>Se muestran cuando Stripe confirma el pago.</p></div>
-          <div className="barra-live"><span /> Cocina sincronizada · actualización cada 3 segundos{actualizada && <small>Actualizada {new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(actualizada)}</small>}</div>
+          <div className={`barra-live ${error ? 'sin-conexion' : actualizada ? 'conectado' : 'conectando'}`} role="status" aria-live="polite"><span />{error ? 'Sin conexión con los pedidos' : actualizada ? 'Conectado · sincronizado cada 3 segundos' : 'Conectando con los pedidos…'}{actualizada && <small>Actualizada {new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(actualizada)}</small>}</div>
         </div>
 
         {pushMensaje && <div className={`barra-push-mensaje ${pushActivo ? 'activo' : ''}`} role="status">{pushMensaje}</div>}
@@ -270,6 +287,12 @@ const Barra: React.FC = () => {
           <select value={filtroTipo} onChange={(event) => setFiltroTipo(event.target.value as typeof filtroTipo)} aria-label="Filtrar por tipo">
             <option value="todos">Todos los pedidos</option><option value="mesa">Mesas</option><option value="domicilio">A domicilio</option>
           </select>
+        </div>
+
+        <div className="barra-estado-filtros" role="group" aria-label="Filtrar comandas por estado de preparación">
+          {([['todos','Activos'],['nuevos','Nuevos'],['en-curso','En preparación'],['listos','Listos'],['finalizados','Finalizados'],['archivo','Archivo · +24 h']] as const).map(([valor, texto]) => (
+            <button key={valor} type="button" className={filtroEstado === valor ? 'activo' : ''} aria-pressed={filtroEstado === valor} onClick={() => setFiltroEstado(valor)}>{texto}<span>{conteoEstado(valor)}</span></button>
+          ))}
         </div>
 
         {error && <div className="barra-error" role="alert">{error}</div>}

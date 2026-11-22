@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ClipboardList, FileText, LogOut, Moon, Pencil, RefreshCw, Settings, Sun, UtensilsCrossed } from 'lucide-react';
+import { CalendarClock, ClipboardList, FileText, LogOut, Moon, Pencil, RefreshCw, Search, Settings, Sun, UtensilsCrossed } from 'lucide-react';
 import { Link } from 'wouter';
 import { notificarMenuActualizado } from '@/products';
 import Login, { borrarToken, leerToken } from '@/admin/Login';
 import ProductoEditorForm, { type ProductoEditor } from '@/admin/ProductoEditor';
+import HorarioAdmin from '@/admin/HorarioAdmin';
 import { supabaseNavegador } from '@/lib/supabase';
 import { useTheme } from '@/ThemeContext';
 
@@ -48,9 +49,13 @@ const Inventario: React.FC = () => {
   const [cargando, setCargando] = useState(false);
   const [guardando, setGuardando] = useState<number | null>(null);
   const [filtro, setFiltro] = useState<'todos' | 'agotados' | 'disponibles'>('todos');
-  const [seccion, setSeccion] = useState<'disponibilidad' | 'carta'>('disponibilidad');
+  const [seccion, setSeccion] = useState<'disponibilidad' | 'carta' | 'horario'>('disponibilidad');
   const [editor, setEditor] = useState<ProductoEditor | null>(null);
   const [busqueda, setBusqueda] = useState('');
+  const [busquedaDisponibilidad, setBusquedaDisponibilidad] = useState('');
+  const [categoriaFiltro, setCategoriaFiltro] = useState('todas');
+  const [seleccionados, setSeleccionados] = useState<number[]>([]);
+  const [bulkCargando, setBulkCargando] = useState(false);
   const [gruposDisponibles, setGruposDisponibles] = useState<
     Array<{ id: string; name: string; type: string; max: number }>
   >([]);
@@ -115,21 +120,79 @@ const Inventario: React.FC = () => {
     }).catch(() => setGruposDisponibles([]));
   }, [token]);
 
+  const categorias = useMemo(() => Array.from(new Set(productos.map((p) => p.categoria?.trim()).filter((c): c is string => Boolean(c)))).sort((a, b) => a.localeCompare(b, 'es')), [productos]);
+
   const visibles = useMemo(() => {
-    if (filtro === 'agotados') return productos.filter((p) => !p.disponible);
-    if (filtro === 'disponibles') return productos.filter((p) => p.disponible);
-    return productos;
-  }, [productos, filtro]);
+    const texto = busquedaDisponibilidad.trim().toLocaleLowerCase('es');
+    return productos.filter((p) => {
+      if (filtro === 'agotados' && p.disponible) return false;
+      if (filtro === 'disponibles' && !p.disponible) return false;
+      if (categoriaFiltro !== 'todas' && (p.categoria ?? '') !== categoriaFiltro) return false;
+      if (texto && !`${p.nombre} ${p.descripcion ?? ''}`.toLocaleLowerCase('es').includes(texto)) return false;
+      return true;
+    });
+  }, [productos, filtro, busquedaDisponibilidad, categoriaFiltro]);
 
   const productosCarta = useMemo(() => {
     const texto = busqueda.trim().toLowerCase();
-    if (!texto) return productos;
-    return productos.filter(
-      (p) =>
-        p.nombre.toLowerCase().includes(texto) ||
-        String(p.descripcion ?? '').toLowerCase().includes(texto),
+    return productos.filter((p) =>
+      (categoriaFiltro === 'todas' || (p.categoria ?? '') === categoriaFiltro) &&
+      (!texto || p.nombre.toLocaleLowerCase('es').includes(texto) || String(p.descripcion ?? '').toLocaleLowerCase('es').includes(texto)),
     );
-  }, [productos, busqueda]);
+  }, [productos, busqueda, categoriaFiltro]);
+
+  const listaSeleccionable = seccion === 'disponibilidad' ? visibles : productosCarta;
+
+  function alternarSeleccion(id: number) {
+    setSeleccionados((actuales) => actuales.includes(id) ? actuales.filter((item) => item !== id) : [...actuales, id]);
+  }
+
+  function alternarSeleccionVisibles() {
+    const ids = listaSeleccionable.map((p) => p.id);
+    const yaEstanTodosSeleccionados = ids.length > 0 && ids.every((id) => seleccionados.includes(id));
+    setSeleccionados((actuales) => yaEstanTodosSeleccionados
+      ? actuales.filter((id) => !ids.includes(id))
+      : Array.from(new Set([...actuales, ...ids])));
+  }
+
+  async function cambiarSeleccionados(disponible: boolean) {
+    const lista = productos.filter((p) => seleccionados.includes(p.id) && p.disponible !== disponible);
+    if (!lista.length) { setSeleccionados([]); return; }
+    const accion = disponible ? 'marcar disponibles' : 'marcar agotados';
+    if (!window.confirm(`¿Quieres ${accion} ${lista.length} producto${lista.length === 1 ? '' : 's'}?`)) return;
+    setBulkCargando(true);
+    setError('');
+    setAviso('');
+    setProductos((actuales) => actuales.map((p) => seleccionados.includes(p.id) ? { ...p, disponible } : p));
+    try {
+      let fallidos = 0;
+      for (let inicio = 0; inicio < lista.length; inicio += 5) {
+        const bloque = lista.slice(inicio, inicio + 5);
+        const resultados = await Promise.allSettled(bloque.map(async (producto) => {
+          const respuesta = await fetch('/api/admin/toggle-availability', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+            body: JSON.stringify({ id: producto.id, is_available: disponible }),
+          });
+          const datos = await respuesta.json().catch(() => ({}));
+          if (!respuesta.ok) throw new Error(datos?.error ?? `No se pudo actualizar ${producto.nombre}`);
+        }));
+        fallidos += resultados.filter((resultado) => resultado.status === 'rejected').length;
+      }
+      if (fallidos) {
+        await cargar(token);
+        setError(fallidos === 1
+          ? 'No se pudo actualizar un producto. Se ha vuelto a cargar el inventario.'
+          : `No se pudieron actualizar ${fallidos} productos. Se ha vuelto a cargar el inventario.`);
+      } else {
+        setAviso(`${lista.length} producto${lista.length === 1 ? '' : 's'} actualizado${lista.length === 1 ? '' : 's'} como ${disponible ? 'disponible' : 'agotado'}${lista.length === 1 ? '' : 's'}.`);
+      }
+      setSeleccionados([]);
+      notificarMenuActualizado();
+    } finally {
+      setBulkCargando(false);
+    }
+  }
 
   const agotados = productos.filter((p) => !p.disponible).length;
 
@@ -171,6 +234,21 @@ const Inventario: React.FC = () => {
     } finally {
       setGuardando(null);
     }
+  }
+
+  function controlesSeleccion(lista: ProductoInventario[]) {
+    const ids = new Set(lista.map((producto) => producto.id));
+    const seleccionVisible = seleccionados.filter((id) => ids.has(id)).length;
+    const todos = lista.length > 0 && lista.every((producto) => seleccionados.includes(producto.id));
+    return <div className="admin-selection-controls">
+      <label className="admin-select-all"><input type="checkbox" checked={todos} disabled={bulkCargando || !lista.length} onChange={() => alternarSeleccionVisibles()} /><span>Seleccionar {lista.length} visibles</span></label>
+      {seleccionVisible > 0 && <div className="admin-bulk-actions">
+        <strong>{seleccionVisible} seleccionados</strong>
+        <button type="button" disabled={bulkCargando} onClick={() => void cambiarSeleccionados(false)}>{bulkCargando ? 'Guardando…' : 'Marcar agotados'}</button>
+        <button type="button" disabled={bulkCargando} onClick={() => void cambiarSeleccionados(true)}>Marcar disponibles</button>
+        <button type="button" className="admin-bulk-clear" disabled={bulkCargando} onClick={() => setSeleccionados([])}>Quitar selección</button>
+      </div>}
+    </div>;
   }
 
   /** Importar la carta desde Supabase a la tabla products de Neon. */
@@ -319,7 +397,7 @@ const Inventario: React.FC = () => {
           >
             <UtensilsCrossed size={16} /> {importando ? 'Importando…' : 'Importar carta'}
           </button>
-          <Link className="admin-boton admin-boton-claro" href={'/admin/opciones?token=' + encodeURIComponent(token)}>
+          <Link className="admin-boton admin-boton-claro" href="/admin/opciones">
             <Settings size={16} /> Opciones
           </Link>
           <button
@@ -356,16 +434,23 @@ const Inventario: React.FC = () => {
           className={
             seccion === 'disponibilidad' ? 'admin-pestana admin-pestana-activa' : 'admin-pestana'
           }
-          onClick={() => setSeccion('disponibilidad')}
+          onClick={() => { setSeleccionados([]); setSeccion('disponibilidad'); }}
         >
           Disponibilidad
         </button>
         <button
           type="button"
           className={seccion === 'carta' ? 'admin-pestana admin-pestana-activa' : 'admin-pestana'}
-          onClick={() => setSeccion('carta')}
+          onClick={() => { setSeleccionados([]); setSeccion('carta'); }}
         >
           Editar carta ({productos.length})
+        </button>
+        <button
+          type="button"
+          className={seccion === 'horario' ? 'admin-pestana admin-pestana-activa' : 'admin-pestana'}
+          onClick={() => { setSeleccionados([]); setSeccion('horario'); }}
+        >
+          <CalendarClock size={15} /> Horario
         </button>
       </div>
 
@@ -383,16 +468,24 @@ const Inventario: React.FC = () => {
                 key={valor}
                 type="button"
                 className={filtro === valor ? 'admin-ficha admin-ficha-activa' : 'admin-ficha'}
-                onClick={() => setFiltro(valor)}
+                onClick={() => { setSeleccionados([]); setFiltro(valor); }}
               >
                 {texto}
               </button>
             ))}
           </div>
+          <div className="admin-inventory-tools">
+            <label className="admin-inventory-search"><Search size={17} aria-hidden="true" /><input type="search" value={busquedaDisponibilidad} onChange={(e) => { setBusquedaDisponibilidad(e.target.value); setSeleccionados([]); }} placeholder="Buscar producto…" aria-label="Buscar en disponibilidad" /></label>
+            <select className="admin-category-select" value={categoriaFiltro} onChange={(e) => { setCategoriaFiltro(e.target.value); setSeleccionados([]); }} aria-label="Filtrar disponibilidad por categoría">
+              <option value="todas">Todas las categorías</option>{categorias.map((categoria) => <option key={categoria} value={categoria}>{categoria}</option>)}
+            </select>
+          </div>
+          {controlesSeleccion(visibles)}
 
           <ul className="admin-lista">
             {visibles.map((producto) => (
               <li key={producto.id} className="admin-item">
+                <label className="admin-item-select"><input type="checkbox" checked={seleccionados.includes(producto.id)} onChange={() => alternarSeleccion(producto.id)} aria-label={`Seleccionar ${producto.nombre}`} /><span /></label>
                 {producto.imagen ? (
                   <img className="admin-item-img" src={producto.imagen} alt="" loading="lazy" />
                 ) : (
@@ -435,10 +528,13 @@ const Inventario: React.FC = () => {
               className="admin-buscar"
               type="search"
               value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
+              onChange={(e) => { setBusqueda(e.target.value); setSeleccionados([]); }}
               placeholder="Buscar producto…"
               data-testid="input-buscar-producto"
             />
+            <select className="admin-category-select" value={categoriaFiltro} onChange={(e) => { setCategoriaFiltro(e.target.value); setSeleccionados([]); }} aria-label="Filtrar carta por categoría">
+              <option value="todas">Todas las categorías</option>{categorias.map((categoria) => <option key={categoria} value={categoria}>{categoria}</option>)}
+            </select>
             <button
               type="button"
               className="admin-boton"
@@ -448,10 +544,12 @@ const Inventario: React.FC = () => {
               + Añadir Nuevo Producto
             </button>
           </div>
+          {controlesSeleccion(productosCarta)}
 
           <ul className="admin-lista">
             {productosCarta.map((producto) => (
               <li key={producto.id} className="admin-item">
+                <label className="admin-item-select"><input type="checkbox" checked={seleccionados.includes(producto.id)} onChange={() => alternarSeleccion(producto.id)} aria-label={`Seleccionar ${producto.nombre}`} /><span /></label>
                 {producto.imagen ? (
                   <img className="admin-item-img" src={producto.imagen} alt="" loading="lazy" />
                 ) : (
@@ -488,6 +586,8 @@ const Inventario: React.FC = () => {
           </ul>
         </>
       )}
+
+      {seccion === 'horario' && <HorarioAdmin token={token} />}
 
       {editor && (
         <ProductoEditorForm

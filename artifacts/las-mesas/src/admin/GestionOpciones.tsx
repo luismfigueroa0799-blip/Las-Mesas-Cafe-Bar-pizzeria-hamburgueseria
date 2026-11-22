@@ -37,7 +37,7 @@ export default function GestionOpciones() {
   const [opcionPrecio, setOpcionPrecio] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    const t = new URLSearchParams(window.location.search).get('token') ?? window.localStorage.getItem('lm_admin_token') ?? '';
+    const t = window.localStorage.getItem('lm_admin_token') ?? '';
     setToken(t);
     if (!t) {
       setError('Tu sesión de administrador ha caducado. Vuelve al inventario e inicia sesión otra vez.');

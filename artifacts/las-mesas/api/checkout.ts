@@ -314,21 +314,39 @@ function generarCodigoPedido(): string {
 /**
  * Comprueba si ahora mismo el local esta abierto.
  *
- * Mismo horario que valida el flujo de n8n: de 08:00 a 23:00, todos los
- * dias, en hora de Canarias (Atlantic/Canary).
+ * Consulta el horario guardado en Neon, incluidos los cierres festivos,
+ * usando la hora de Canarias (Atlantic/Canary). Si aún no hay configuración,
+ * aplica el horario habitual del local.
  */
-function localAbierto(): boolean {
+async function localAbierto(): Promise<boolean> {
   try {
+    const pool = await poolDeNeon();
+    const filas = pool ? await pool.query('select config from public.business_hours where id=$1', ['local']).catch(() => ({ rows: [] })) : { rows: [] };
+    const horario = filas.rows?.[0]?.config ?? {
+      semanal: [
+        [{ inicio: '18:00', fin: '23:00' }], [{ inicio: '18:00', fin: '23:00' }],
+        [{ inicio: '18:00', fin: '23:00' }], [{ inicio: '18:00', fin: '23:00' }],
+        [{ inicio: '18:00', fin: '23:00' }], [{ inicio: '12:00', fin: '15:00' }, { inicio: '18:00', fin: '23:00' }],
+        [{ inicio: '12:00', fin: '17:00' }],
+      ], festivos: [],
+    };
     const partes = new Intl.DateTimeFormat('es-ES', {
-      timeZone: 'Atlantic/Canary',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
+      timeZone: 'Atlantic/Canary', weekday: 'short', year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
     }).formatToParts(new Date());
-    const hora = Number(partes.find((p) => p.type === 'hour')?.value ?? '0');
-    const minuto = Number(partes.find((p) => p.type === 'minute')?.value ?? '0');
+    const valor = Object.fromEntries(partes.map((p) => [p.type, p.value]));
+    const dia = ({ lun: 0, mar: 1, mié: 2, jue: 3, vie: 4, sáb: 5, dom: 6 } as Record<string, number>)[String(valor.weekday).toLowerCase()] ?? 0;
+    const fecha = `${valor.year}-${valor.month}-${valor.day}`;
+    const festivo = Array.isArray(horario.festivos) ? horario.festivos.find((item: any) => item.fecha === fecha) : undefined;
+    const tramos = festivo ? (festivo.cerrado ? [] : festivo.tramos ?? []) : horario.semanal?.[dia] ?? [];
+    const hora = Number(valor.hour ?? '0');
+    const minuto = Number(valor.minute ?? '0');
     const minutos = hora * 60 + minuto;
-    return minutos >= 8 * 60 && minutos < 23 * 60;
+    return tramos.some((tramo: any) => {
+      const inicio = Number(String(tramo.inicio).slice(0, 2)) * 60 + Number(String(tramo.inicio).slice(3, 5));
+      const fin = Number(String(tramo.fin).slice(0, 2)) * 60 + Number(String(tramo.fin).slice(3, 5));
+      return minutos >= inicio && minutos < fin;
+    });
   } catch (error) {
     log('[checkout] no se pudo comprobar el horario:', error);
     return true;
@@ -1155,7 +1173,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   }
 
   // Horario del local (mismo que valida el flujo de n8n).
-  if (!localAbierto()) {
+  if (!await localAbierto()) {
     responder(
       res,
       { error: 'Estamos fuera del horario de atención. No se aceptan pedidos ahora.' },

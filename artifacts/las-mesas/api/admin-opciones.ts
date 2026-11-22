@@ -15,7 +15,8 @@ const g = globalThis as unknown as Global;
 
 interface Req {
   method?: string;
-  headers?: { get?: (nombre: string) => string | null };
+  headers?: { get?: (nombre: string) => string | null } | Record<string, string | string[] | undefined>;
+  query?: Record<string, string | string[] | undefined>;
   body?: unknown;
 }
 interface Res {
@@ -60,6 +61,58 @@ async function consultar(sql: string, valores: unknown[] = []): Promise<any[]> {
   return r?.rows ?? [];
 }
 
+const HORARIO_INICIAL = {
+  semanal: [
+    [{ inicio: '18:00', fin: '23:00' }], [{ inicio: '18:00', fin: '23:00' }],
+    [{ inicio: '18:00', fin: '23:00' }], [{ inicio: '18:00', fin: '23:00' }],
+    [{ inicio: '18:00', fin: '23:00' }],
+    [{ inicio: '12:00', fin: '15:00' }, { inicio: '18:00', fin: '23:00' }],
+    [{ inicio: '12:00', fin: '17:00' }],
+  ], festivos: [],
+};
+
+async function prepararTablaHorario(pool: any) {
+  await pool.query(`create table if not exists public.business_hours (
+    id text primary key, config jsonb not null, updated_at timestamptz not null default now()
+  )`);
+  await pool.query('insert into public.business_hours (id, config) values ($1, $2::jsonb) on conflict (id) do nothing', ['local', JSON.stringify(HORARIO_INICIAL)]);
+}
+
+function validarTramos(valor: unknown, permitirVacio = true): Array<{ inicio: string; fin: string }> {
+  if (!Array.isArray(valor) || valor.length > 4 || (!permitirVacio && !valor.length)) throw new Error('Añade al menos un tramo horario válido.');
+  const tramos = valor.map((tramo: any) => {
+    const inicio = String(tramo?.inicio ?? ''); const fin = String(tramo?.fin ?? '');
+    const minutos = (hora: string) => /^([01]\d|2[0-3]):[0-5]\d$/.test(hora) ? Number(hora.slice(0, 2)) * 60 + Number(hora.slice(3, 5)) : -1;
+    if (minutos(inicio) < 0 || minutos(fin) <= minutos(inicio)) throw new Error('Revisa las horas: cada cierre debe ser posterior a su apertura.');
+    return { inicio, fin };
+  }).sort((a, b) => a.inicio.localeCompare(b.inicio));
+  for (let i = 1; i < tramos.length; i += 1) if (tramos[i].inicio < tramos[i - 1].fin) throw new Error('Los tramos de un día no pueden solaparse.');
+  return tramos;
+}
+
+function validarHorario(valor: any) {
+  if (!Array.isArray(valor?.semanal) || valor.semanal.length !== 7) throw new Error('Falta el horario de algún día de la semana.');
+  const semanal = valor.semanal.map((tramos: unknown) => validarTramos(tramos));
+  const dias = new Set<string>();
+  const festivos = (Array.isArray(valor.festivos) ? valor.festivos : []).slice(0, 100).map((item: any) => {
+    const fecha = String(item?.fecha ?? ''); const nombre = String(item?.nombre ?? '').trim().slice(0, 80);
+    const date = /^\d{4}-\d{2}-\d{2}$/.test(fecha) ? new Date(`${fecha}T12:00:00Z`) : null;
+    const fechaValida = Boolean(date && Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === fecha);
+    if (!fechaValida || !nombre || dias.has(fecha)) throw new Error('Revisa las fechas y nombres de los festivos; no puede repetirse una fecha.');
+    dias.add(fecha);
+    const cerrado = item?.cerrado === true;
+    const tramos = cerrado ? [] : validarTramos(item?.tramos, false);
+    return { fecha, nombre, cerrado, tramos };
+  });
+  return { semanal, festivos };
+}
+
+async function leerHorario(pool: any) {
+  await prepararTablaHorario(pool);
+  const filas = await consultar('select config from public.business_hours where id=$1', ['local']);
+  return filas[0]?.config ?? HORARIO_INICIAL;
+}
+
 /** Validar token de staff con Supabase Auth. */
 const SUPABASE_URL_POR_DEFECTO = 'https://fohxajfpnriusuybdteu.supabase.co';
 async function usuarioDelToken(token: string): Promise<any | null> {
@@ -92,7 +145,9 @@ async function listarGrupos(): Promise<any[]> {
 }
 
 export default async function handler(req: Req, res: Res): Promise<void> {
-  const token = String(req.headers?.get?.('authorization') ?? '').replace(/^Bearer\s+/i, '').trim();
+  const cabeceras: any = req.headers;
+  const authorization = typeof cabeceras?.get === 'function' ? cabeceras.get('authorization') : cabeceras?.authorization;
+  const token = String(Array.isArray(authorization) ? authorization[0] : authorization ?? '').replace(/^Bearer\s+/i, '').trim();
   const user = await usuarioDelToken(token);
   if (!user || !esStaff(user)) {
     responder(res, { error: 'No autorizado' }, 401);
@@ -101,6 +156,17 @@ export default async function handler(req: Req, res: Res): Promise<void> {
 
   const metodo = String(req.method ?? 'GET').toUpperCase();
   if (metodo === 'GET') {
+    if (String(req.query?.vista ?? '') === 'horario') {
+      try {
+        const pool = await poolDeNeon();
+        if (!pool) throw new Error('No hay conexión con la base de datos.');
+        responder(res, { horario: await leerHorario(pool) });
+      } catch (error) {
+        g.console?.error?.('[admin-opciones] horario:', error);
+        responder(res, { error: (error as Error)?.message ?? 'No se pudo cargar el horario.' }, 503);
+      }
+      return;
+    }
     responder(res, { grupos: await listarGrupos() });
     return;
   }
@@ -113,6 +179,19 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   const accion = String(body.accion ?? '').toLowerCase();
 
   try {
+    if (accion === 'guardar_horario') {
+      const horario = validarHorario(body.horario);
+      const pool = await poolDeNeon();
+      if (!pool) throw new Error('No hay conexión con la base de datos.');
+      await prepararTablaHorario(pool);
+      await pool.query(
+        'insert into public.business_hours (id, config, updated_at) values ($1, $2::jsonb, now()) on conflict (id) do update set config=excluded.config, updated_at=now()',
+        ['local', JSON.stringify(horario)],
+      );
+      responder(res, { ok: true, horario });
+      return;
+    }
+
     if (accion === 'crear_grupo') {
       const name = String(body.name ?? '').trim();
       const type = ['quitar','extra','elegir'].includes(String(body.type)) ? String(body.type) : 'extra';

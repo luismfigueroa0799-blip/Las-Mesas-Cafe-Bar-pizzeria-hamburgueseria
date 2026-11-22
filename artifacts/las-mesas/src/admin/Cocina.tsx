@@ -44,6 +44,13 @@ function horaPedido(fecha: string | null) {
   return Number.isNaN(date.getTime()) ? 'Hora no disponible' : new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit' }).format(date);
 }
 
+function minutosEspera(fecha: string | null) {
+  if (!fecha) return null;
+  const valor = new Date(fecha).getTime();
+  if (!Number.isFinite(valor)) return null;
+  return Math.max(0, Math.floor((Date.now() - valor) / 60_000));
+}
+
 function euro(value: number) {
   return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(Number.isFinite(value) ? value : 0);
 }
@@ -111,6 +118,7 @@ const Cocina: React.FC = () => {
   const [pushPublicKey, setPushPublicKey] = useState('');
   const [pushMensaje, setPushMensaje] = useState('');
   const [avisoNuevo, setAvisoNuevo] = useState('');
+  const [pedidosNuevos, setPedidosNuevos] = useState<number[]>([]);
   const pedidosVistos = useRef<Set<number> | null>(null);
   const peticionActiva = useRef(false);
   const sonidoRef = useRef(false);
@@ -157,6 +165,8 @@ const Cocina: React.FC = () => {
         const nuevos = lista.filter((pedido) => !vistos.has(pedido.id));
         nuevos.forEach((pedido) => vistos.add(pedido.id));
         if (nuevos.length) {
+          const nuevosPendientes = nuevos.filter((pedido) => pedido.estadoCocina === 'pendiente').map((pedido) => pedido.id);
+          if (nuevosPendientes.length) setPedidosNuevos((actuales) => Array.from(new Set([...actuales, ...nuevosPendientes])));
           setAvisoNuevo(nuevos.length === 1 ? '¡Nuevo pedido recibido!' : `¡Han llegado ${nuevos.length} pedidos nuevos!`);
           if (sonidoRef.current && audioRef.current) tocarAviso(audioRef.current);
           if (avisoTimer.current) window.clearTimeout(avisoTimer.current);
@@ -164,6 +174,7 @@ const Cocina: React.FC = () => {
         }
       }
       setPedidos(lista);
+      setPedidosNuevos((actuales) => actuales.filter((id) => lista.some((pedido) => pedido.id === id && pedido.estadoCocina === 'pendiente')));
       setError('');
       setUltimaActualizacion(new Date());
     } catch (e) {
@@ -289,6 +300,7 @@ const Cocina: React.FC = () => {
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error || 'No se pudo actualizar el pedido.');
       setPedidos((actuales) => actuales.map((item) => item.id === pedido.id ? { ...item, estadoCocina: nuevoEstado } : item));
+      if (nuevoEstado === 'confirmado') setPedidosNuevos((actuales) => actuales.filter((id) => id !== pedido.id));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo actualizar el pedido.');
       void cargarPedidos(true);
@@ -312,6 +324,15 @@ const Cocina: React.FC = () => {
     if (estado !== 'todos' && pedido.estadoCocina !== estado) return false;
     return true;
   }), [pedidos, tipo, estado]);
+
+  const pedidosOrdenados = useMemo(() => [...filtrados].sort((a, b) => {
+    const prioridad = (pedido: PedidoCocina) => ({ pendiente: 0, confirmado: 1, preparando: 2, listo: 3, en_reparto: 3, servido: 4, entregado: 4 }[pedido.estadoCocina] ?? 5);
+    const diferenciaPrioridad = prioridad(a) - prioridad(b);
+    if (diferenciaPrioridad) return diferenciaPrioridad;
+    const fechaA = a.fecha ? new Date(a.fecha).getTime() : Number.MAX_SAFE_INTEGER;
+    const fechaB = b.fecha ? new Date(b.fecha).getTime() : Number.MAX_SAFE_INTEGER;
+    return fechaA - fechaB;
+  }), [filtrados]);
 
   if (comprobandoSesion) return <div className="cocina-cargando"><RefreshCw className="cocina-spin" /> Comprobando acceso…</div>;
   if (!token) return <Login destino="/admin/cocina" />;
@@ -343,7 +364,7 @@ const Cocina: React.FC = () => {
             <h1>Pedidos de cocina</h1>
             <p>Mesas y pedidos a domicilio en un solo lugar.</p>
           </div>
-          <div className="cocina-actualizacion"><span className="cocina-live-dot" /> Comprobando cada 3 segundos{ultimaActualizacion && <small>Última: {horaPedido(ultimaActualizacion.toISOString())}</small>}</div>
+          <div className={`cocina-actualizacion ${error ? 'sin-conexion' : ultimaActualizacion ? 'conectado' : 'conectando'}`} role="status" aria-live="polite"><span className="cocina-live-dot" />{error ? 'Sin conexión con los pedidos' : ultimaActualizacion ? 'Conectado · actualización cada 3 segundos' : 'Conectando con los pedidos…'}{ultimaActualizacion && <small>Última: {horaPedido(ultimaActualizacion.toISOString())}</small>}</div>
         </div>
 
         <div className="cocina-tipo-filtros" role="group" aria-label="Filtrar por tipo de pedido">
@@ -371,12 +392,14 @@ const Cocina: React.FC = () => {
         {!cargando && !error && filtrados.length === 0 && <div className="cocina-vacio"><ChefHat size={28} /><strong>No hay pedidos en esta vista</strong><span>Los pedidos nuevos aparecerán automáticamente.</span></div>}
 
         <div className="cocina-lista">
-          {filtrados.map((pedido) => {
+          {pedidosOrdenados.map((pedido) => {
             const mesa = esMesa(pedido);
             const proxima = siguienteAccion(pedido);
             const items = articulosPedido(pedido);
+            const minutos = minutosEspera(pedido.fecha);
+            const nuevoSinConfirmar = pedidosNuevos.includes(pedido.id);
             return (
-              <article className={`cocina-pedido cocina-pedido-${pedido.estadoCocina}`} key={pedido.id}>
+              <article className={`cocina-pedido cocina-pedido-${pedido.estadoCocina}${nuevoSinConfirmar ? ' cocina-pedido-nuevo' : ''}`} key={pedido.id}>
                 <div className="cocina-pedido-head">
                   <div className="cocina-pedido-origen">
                     <span className={`cocina-tipo-tag ${mesa ? 'mesa' : 'domicilio'}`}>
@@ -384,6 +407,8 @@ const Cocina: React.FC = () => {
                     </span>
                     <span className="cocina-hora"><Clock3 size={13} /> {horaPedido(pedido.fecha)}</span>
                     <span className="cocina-codigo">#{pedido.codigo}</span>
+                    {nuevoSinConfirmar && <span className="cocina-nuevo-tag">Nuevo</span>}
+                    {minutos !== null && <span className={`cocina-espera ${minutos >= 15 ? 'retrasado' : ''}`}><Clock3 size={13} /> {minutos} min</span>}
                   </div>
                   <span className={`cocina-estado-tag ${pedido.estadoCocina}`}>{textoEstado(pedido.estadoCocina)}</span>
                 </div>

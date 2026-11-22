@@ -68,6 +68,42 @@ function urlWebhookN8n(produccion: boolean): string {
   );
 }
 
+let poolHorario: any = null;
+async function pedidoPermitidoPorHorario(): Promise<boolean> {
+  const horarioInicial = { semanal: [
+    [{ inicio: '18:00', fin: '23:00' }], [{ inicio: '18:00', fin: '23:00' }],
+    [{ inicio: '18:00', fin: '23:00' }], [{ inicio: '18:00', fin: '23:00' }],
+    [{ inicio: '18:00', fin: '23:00' }], [{ inicio: '12:00', fin: '15:00' }, { inicio: '18:00', fin: '23:00' }],
+    [{ inicio: '12:00', fin: '17:00' }],
+  ], festivos: [] as any[] };
+  try {
+    const env = (g.process?.env ?? {}) as Record<string, string | undefined>;
+    const connection = String(env.DATABASE_URL ?? env.NEON_DATABASE_URL ?? '').trim();
+    if (connection && !poolHorario) {
+      const pg: any = await import('pg'); const Pool = pg?.default?.Pool ?? pg?.Pool;
+      if (Pool) poolHorario = new Pool({ connectionString: connection, max: 1, idleTimeoutMillis: 10000, connectionTimeoutMillis: 5000, ssl: connection.includes('sslmode=disable') ? undefined : { rejectUnauthorized: false } });
+    }
+    const filas = poolHorario ? await poolHorario.query('select config from public.business_hours where id=$1', ['local']).then((r: any) => r.rows ?? []).catch(() => []) : [];
+    const horario = filas[0]?.config ?? horarioInicial;
+    const parts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Atlantic/Canary', weekday: 'short', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date());
+    const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+    const dia = ({ Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5, Sun: 6 } as Record<string, number>)[values.weekday] ?? 0;
+    const fecha = `${values.year}-${values.month}-${values.day}`;
+    const festivo = Array.isArray(horario.festivos) ? horario.festivos.find((item: any) => item.fecha === fecha) : undefined;
+    if (festivo?.cerrado) return false;
+    const tramos = festivo ? festivo.tramos ?? [] : horario.semanal?.[dia] ?? [];
+    const minutos = Number(values.hour) * 60 + Number(values.minute);
+    return tramos.some((tramo: any) => {
+      const inicio = Number(String(tramo.inicio).slice(0, 2)) * 60 + Number(String(tramo.inicio).slice(3, 5));
+      const fin = Number(String(tramo.fin).slice(0, 2)) * 60 + Number(String(tramo.fin).slice(3, 5));
+      return minutos >= inicio && minutos < fin;
+    });
+  } catch (error) {
+    log('No se pudo consultar el horario guardado; se mantiene el horario habitual.', error);
+    return true;
+  }
+}
+
 export default async function handler(req: Req, res: Res): Promise<void> {
   if ((req.method ?? '').toUpperCase() !== 'POST') {
     return responder(res, { error: 'Método no permitido' }, 405);
@@ -100,6 +136,10 @@ export default async function handler(req: Req, res: Res): Promise<void> {
       { error: 'Mesa inválida: debe ser un número del 1 al 9' },
       400
     );
+  }
+
+  if (!(await pedidoPermitidoPorHorario())) {
+    return responder(res, { error: 'El local está cerrado en este momento y no se pueden enviar pedidos por mesa.' }, 403);
   }
 
   // Validar items

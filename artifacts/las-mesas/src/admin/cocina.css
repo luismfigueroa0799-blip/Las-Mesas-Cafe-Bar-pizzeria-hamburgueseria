@@ -90,15 +90,22 @@
 .cocina-actualizacion { display: flex; align-items: center; gap: 9px; color: #756b5c; font-size: .74rem; white-space: nowrap; }
 .cocina-actualizacion small { margin-left: 6px; color: #a69b89; }
 .cocina-live-dot { width: 11px; height: 11px; border-radius: 50%; background: #788c55; box-shadow: 0 0 0 4px #e7ecd9; }
+.cocina-actualizacion.conectando .cocina-live-dot { background: #c59a36; box-shadow: 0 0 0 4px #f2e8cd; }
+.cocina-actualizacion.sin-conexion { color: #9b453d; }
+.cocina-actualizacion.sin-conexion .cocina-live-dot { background: #bd4e43; box-shadow: 0 0 0 4px #f5dedb; }
 .cocina-tipo-filtros { display: flex; gap: 9px; margin-bottom: 14px; overflow-x: auto; }
 .cocina-tipo-filtros button { flex: 0 0 auto; gap: 8px; min-height: 42px; padding: 0 16px; border: 1px solid #e0d6c4; border-radius: 999px; color: #685844; background: #fffdf8; font-size: .78rem; font-weight: 700; cursor: pointer; transition: .18s ease; }
 .cocina-tipo-filtros button.activo { border-color: #73834e; color: #fff; background: #73834e; box-shadow: 0 5px 14px #73834e2b; }
 .cocina-estado-filtros { display: flex; gap: 8px; margin: 18px 0 23px; padding-bottom: 11px; overflow-x: auto; border-bottom: 1px solid #e8dfd0; }
-.cocina-estado-filtros button { flex: 0 0 auto; justify-content: center; min-height: 34px; padding: 0 14px; border: 1px solid #ded2bd; border-radius: 999px; color: #655745; background: transparent; font-size: .72rem; font-weight: 650; cursor: pointer; }
+.cocina-estado-filtros button { flex: 0 0 auto; justify-content: center; min-height: 44px; padding: 0 14px; border: 1px solid #ded2bd; border-radius: 999px; color: #655745; background: transparent; font-size: .72rem; font-weight: 650; cursor: pointer; }
 .cocina-estado-filtros button.activo { border-color: #c6b18f; color: #503b2b; background: #eee6d7; }
 .cocina-lista { display: grid; gap: 16px; }
 .cocina-pedido { padding: 20px 21px 18px; border: 1px solid #e6dbc8; border-radius: 15px; background: #fffefa; box-shadow: 0 5px 17px rgba(70, 50, 24, .055); transition: border-color .2s ease, box-shadow .2s ease; }
 .cocina-pedido-pendiente { border-left: 4px solid #c69a56; background: linear-gradient(100deg, #fffaf0, #fffefa 52%); }
+.cocina-pedido-nuevo { border-color: #bd8f28; box-shadow: 0 0 0 3px rgba(212,175,55,.2),0 8px 22px rgba(70,50,24,.1); }
+.cocina-nuevo-tag { display: inline-flex; align-items: center; min-height: 24px; padding: 0 9px; border-radius: 999px; color: #5e4510; background: #f5df91; font-size: .66rem; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; }
+.cocina-espera { display: inline-flex; align-items: center; gap: 5px; color: #85765d; font-size: .7rem; font-weight: 750; }
+.cocina-espera.retrasado { color: #a53f35; }
 .cocina-pedido-confirmado { border-left: 4px solid #7e8c5c; }
 .cocina-pedido-preparando { border-left: 4px solid #ce9f3c; }
 .cocina-pedido-listo { border-left: 4px solid #4e9780; }
@@ -203,3 +210,8 @@ html.dark .cocina-items li strong { color: #f5f0e6 !important; }
 html.dark .cocina-items li small { color: #c9c1b5 !important; }
 html.dark .cocina-estado-tag { color: #fff !important; }
 html.dark .cocina-pedido-pendiente { background: linear-gradient(100deg,#30291e,#24211f 55%) !important; }
+html.dark .cocina-actualizacion.sin-conexion { color: #ffb6ad !important; }
+html.dark .cocina-actualizacion.sin-conexion .cocina-live-dot { box-shadow: 0 0 0 4px rgba(189,78,67,.2); }
+html.dark .cocina-nuevo-tag { color: #251c0a; background: #f1cf67; }
+html.dark .cocina-espera { color: #d4c8b2; }
+html.dark .cocina-espera.retrasado { color: #ffb6ad; }
