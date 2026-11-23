@@ -52,7 +52,10 @@ async function authCall(path: string, method: string, body: unknown): Promise<an
 
 function cabecera(req: Req, nombre: string): string {
   const headers = req.headers;
-  const raw = typeof headers?.get === 'function' ? headers.get(nombre) : headers?.[nombre] ?? headers?.[nombre.toLowerCase()];
+  if (!headers) return '';
+  if (typeof headers.get === 'function') return String(headers.get(nombre) ?? '');
+  const mapa = headers as Record<string, string | string[] | undefined>;
+  const raw = mapa[nombre] ?? mapa[nombre.toLowerCase()];
   return String(Array.isArray(raw) ? raw[0] ?? '' : raw ?? '');
 }
 function nombreCookiePendiente(): string {
