@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Gift, LoaderCircle, X } from 'lucide-react';
 import { useCart } from '@/CartContext';
 import { formatearPrecio } from '@/precio';
+import { EVENTO_CONSENTIMIENTO, leerConsentimiento } from '@/privacidad-consentimiento';
 
 type Sector = { id: string; name: string; image?: string | null; weight: number; premiable?: boolean; sinPremio?: boolean; color?: string };
 type Premio = { id: string; name: string; price: number; image?: string | null };
@@ -35,18 +36,25 @@ export default function RuletaPremio({ onAbrirCarrito }: { onAbrirCarrito: () =>
   const temporizador = useRef<number | null>(null);
 
   useEffect(() => {
-    // sessionStorage conserva esta marca al recargar o volver desde Stripe,
-    // pero permite una nueva visita en otra sesión del navegador.
-    try {
-      if (window.sessionStorage.getItem(RULETA_SESION_VISTA_KEY) === '1') return;
-    } catch {
-      // Si el navegador bloquea el almacenamiento, se mantiene el comportamiento habitual.
-    }
-    const id = window.setTimeout(() => {
-      try { window.sessionStorage.setItem(RULETA_SESION_VISTA_KEY, '1'); } catch { /* almacenamiento opcional */ }
-      setAbierta(true);
-    }, 700);
-    return () => window.clearTimeout(id);
+    let timer: number | undefined;
+    const abrirSiConsentido = () => {
+      if (!leerConsentimiento()?.ruleta) return;
+      // sessionStorage evita reabrirla al recargar durante la misma sesión.
+      try {
+        if (window.sessionStorage.getItem(RULETA_SESION_VISTA_KEY) === '1') return;
+      } catch { /* se puede seguir usando la ruleta en esta sesión */ }
+      if (timer !== undefined) window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        try { window.sessionStorage.setItem(RULETA_SESION_VISTA_KEY, '1'); } catch { /* almacenamiento opcional */ }
+        setAbierta(true);
+      }, 700);
+    };
+    abrirSiConsentido();
+    window.addEventListener(EVENTO_CONSENTIMIENTO, abrirSiConsentido);
+    return () => {
+      if (timer !== undefined) window.clearTimeout(timer);
+      window.removeEventListener(EVENTO_CONSENTIMIENTO, abrirSiConsentido);
+    };
   }, []);
 
   useEffect(() => () => { if (temporizador.current) window.clearTimeout(temporizador.current); }, []);
