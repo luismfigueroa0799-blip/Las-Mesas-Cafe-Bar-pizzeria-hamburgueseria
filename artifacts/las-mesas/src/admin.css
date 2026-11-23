@@ -1060,6 +1060,66 @@ html.dark .admin .admin-modal-cuerpo .admin-field > span,
 html.dark .admin .admin-modal .admin-check { color: #f5f0e6 !important; }
 html.dark .admin .admin-modal-pie { border-top-color: rgba(255,255,255,.1) !important; }
 html.dark .admin .admin-modal .admin-error { color: #ffd0cb !important; background: rgba(190,58,48,.18) !important; border-left-color: #f0786d !important; }
+
+/* Pantalla de acceso clara para que se distinga de los paneles operativos. */
+html .admin-login {
+  background:
+    radial-gradient(ellipse at 15% 12%, rgba(212,175,55,.14), transparent 34%),
+    radial-gradient(ellipse at 88% 86%, rgba(151,119,52,.10), transparent 32%),
+    #f4f0e7 !important;
+  color: #302c25 !important;
+}
+html .admin-login .admin-card {
+  background: rgba(255,253,248,.97) !important;
+  color: #302c25 !important;
+  border: 1px solid #dfd2b4 !important;
+  border-radius: 18px !important;
+  box-shadow: 0 24px 70px rgba(56,45,22,.13), 0 4px 14px rgba(56,45,22,.06) !important;
+}
+html .admin-login h1 { color: #29251f !important; }
+html .admin-login .admin-sub { color: #6b655b !important; }
+html .admin-login .admin-eyebrow { color: #96762d !important; }
+html .admin-login .admin-field > span { color: #655b45 !important; }
+html .admin-login input {
+  background: #fff !important;
+  color: #28251f !important;
+  border: 1px solid #d8ceb9 !important;
+  border-radius: 9px !important;
+}
+html .admin-login input::placeholder { color: #898276 !important; }
+html .admin-login input:focus {
+  border-color: #b18b31 !important;
+  box-shadow: 0 0 0 3px rgba(177,139,49,.18) !important;
+}
+html .admin-login button {
+  color: #241f14 !important;
+  background: #d8b13b !important;
+  border-radius: 9px !important;
+}
+html .admin-login button:hover { background: #e4c45e !important; }
+html .admin-login .admin-nota a { color: #5d4b24 !important; }
+html .admin-login .admin-error {
+  color: #7e302a !important;
+  background: #fff0ed !important;
+  border-left-color: #c65347 !important;
+}
+html .admin-login .admin-error-fuerte {
+  width: min(100%, 560px);
+  padding: 14px 16px;
+  color: #684b16 !important;
+  background: #fff8e6 !important;
+  border: 1px solid #e5d3a6 !important;
+  border-left: 4px solid #c49b37 !important;
+  border-radius: 10px;
+}
+html .admin-login .admin-error-fuerte a { color: #493712 !important; }
+html .admin-login .admin-mfa { display: grid; gap: 12px; margin: 18px 0; }
+html .admin-login .admin-mfa h2 { margin: 0; color: #29251f; font-size: 1.2rem; }
+html .admin-login .admin-mfa p { margin: 0; color: #625c52; line-height: 1.5; }
+html .admin-login .admin-mfa-qr { display: block; width: min(220px, 100%); height: auto; padding: 10px; margin: 4px auto; background: #fff; border: 1px solid #ded5c6; border-radius: 12px; }
+html .admin-login .admin-mfa-secret { overflow-wrap: anywhere; font-size: .88rem; }
+html .admin-login .admin-mfa-secret strong { color: #43330f; }
+html .admin-login .admin-mfa button.admin-nota { width: fit-content; padding: 4px 0; background: transparent !important; color: #5d4b24 !important; text-decoration: underline; }
 @media (max-width: 760px) {
   .admin-head { align-items: flex-start; }
   .admin-acciones { width: 100%; justify-content: flex-start; }

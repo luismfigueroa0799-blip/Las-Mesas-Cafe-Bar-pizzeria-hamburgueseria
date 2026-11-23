@@ -32,10 +32,11 @@ export function sitioSinApi(): boolean {
 
 export function guardarToken(token: string) {
   try {
-    // La sesión del staff debe sobrevivir a cambios de ruta, pestaña y al
-    // cierre/reapertura del navegador. Solo se elimina al pulsar "Salir".
-    localStorage.setItem('lm_admin_token', token);
+    // Solo guardamos un marcador de interfaz; la credencial real vive en una
+    // cookie HttpOnly que JavaScript no puede leer.
+    if (token) localStorage.setItem('lm_admin_session', '1');
     sessionStorage.removeItem('lm_admin_token');
+    localStorage.removeItem('lm_admin_token');
   } catch {
     /* el navegador puede bloquear el almacenamiento */
   }
@@ -43,12 +44,9 @@ export function guardarToken(token: string) {
 
 export function leerToken(): string {
   try {
-    const token = localStorage.getItem('lm_admin_token') ?? sessionStorage.getItem('lm_admin_token') ?? '';
-    if (token && !localStorage.getItem('lm_admin_token')) {
-      localStorage.setItem('lm_admin_token', token);
-      sessionStorage.removeItem('lm_admin_token');
-    }
-    return token;
+    localStorage.removeItem('lm_admin_token');
+    sessionStorage.removeItem('lm_admin_token');
+    return localStorage.getItem('lm_admin_session') === '1' ? 'cookie-session' : '';
   } catch {
     return '';
   }
@@ -58,9 +56,11 @@ export function borrarToken() {
   try {
     localStorage.removeItem('lm_admin_token');
     sessionStorage.removeItem('lm_admin_token');
+    localStorage.removeItem('lm_admin_session');
   } catch {
     /* el navegador puede bloquear el almacenamiento */
   }
+  void fetch('/api/admin-login', { method: 'DELETE', keepalive: true }).catch(() => undefined);
 }
 
 const Login: React.FC<{ destino?: string; aviso?: string }> = ({ destino = '/admin/inventario', aviso = '' }) => {
@@ -69,6 +69,8 @@ const Login: React.FC<{ destino?: string; aviso?: string }> = ({ destino = '/adm
   const [error, setError] = useState('');
   const [detalle, setDetalle] = useState('');
   const [entrando, setEntrando] = useState(false);
+  const [mfa, setMfa] = useState<{ pending_token: string; factor_id: string; challenge_id?: string; qr_code?: string; secret?: string; setup: boolean } | null>(null);
+  const [codigoMfa, setCodigoMfa] = useState('');
 
   const sinApi = sitioSinApi();
 
@@ -84,7 +86,9 @@ const Login: React.FC<{ destino?: string; aviso?: string }> = ({ destino = '/adm
       const r = await fetch('/api/admin-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, panel }),
+        body: JSON.stringify(mfa
+          ? { action: 'verify_mfa', pending_token: mfa.pending_token, factor_id: mfa.factor_id, challenge_id: mfa.challenge_id, code: codigoMfa }
+          : { email, password, panel }),
       });
 
       const texto = await r.text();
@@ -108,7 +112,20 @@ const Login: React.FC<{ destino?: string; aviso?: string }> = ({ destino = '/adm
         return;
       }
 
-      guardarToken(String(datos.token ?? ''));
+      if (datos?.mfa_required || datos?.mfa_setup) {
+        setMfa({
+          pending_token: String(datos.pending_token),
+          factor_id: String(datos.factor_id),
+          challenge_id: datos.challenge_id ? String(datos.challenge_id) : undefined,
+          qr_code: datos.qr_code ? String(datos.qr_code) : undefined,
+          secret: datos.secret ? String(datos.secret) : undefined,
+          setup: Boolean(datos.mfa_setup),
+        });
+        setPassword('');
+        return;
+      }
+
+      guardarToken('cookie-session');
       window.location.assign(destino);
     } catch (error) {
       setError('No se pudo iniciar sesión');
@@ -144,6 +161,30 @@ const Login: React.FC<{ destino?: string; aviso?: string }> = ({ destino = '/adm
         <h1>Acceso staff</h1>
         <p className="admin-sub">Acceso seguro para Administración, Barra y Cocina.</p>
 
+        {mfa ? (
+          <div className="admin-mfa" aria-live="polite">
+            {mfa.setup ? (
+              <>
+                <h2>Protege Administración</h2>
+                <p>Escanea este código QR con Google Authenticator, Microsoft Authenticator o una app compatible.</p>
+                {mfa.qr_code && <img className="admin-mfa-qr" src={mfa.qr_code} alt="Código QR para configurar la autenticación" />}
+                <p className="admin-mfa-secret">Si no puedes escanearlo, introduce esta clave en la app: <strong>{mfa.secret}</strong></p>
+              </>
+            ) : (
+              <>
+                <h2>Confirma tu identidad</h2>
+                <p>Escribe el código de 6 dígitos que aparece en tu app autenticadora.</p>
+              </>
+            )}
+            <label className="admin-field">
+              <span>Código de autenticación</span>
+              <input type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9 ]{6,8}" maxLength={8} value={codigoMfa} onChange={(e) => setCodigoMfa(e.target.value.replace(/[^0-9 ]/g, ''))} required />
+            </label>
+            <button type="button" className="admin-nota" onClick={() => { setMfa(null); setCodigoMfa(''); setError(''); }}>Volver al inicio de sesión</button>
+          </div>
+        ) : (
+          <>
+
         {aviso && <p className="admin-error" role="status">{aviso}</p>}
 
         <label className="admin-field">
@@ -160,7 +201,6 @@ const Login: React.FC<{ destino?: string; aviso?: string }> = ({ destino = '/adm
             data-testid="input-admin-email"
           />
         </label>
-
         <label className="admin-field">
           <span>Contraseña</span>
           <input
@@ -174,6 +214,8 @@ const Login: React.FC<{ destino?: string; aviso?: string }> = ({ destino = '/adm
             data-testid="input-admin-password"
           />
         </label>
+          </>
+        )}
 
         {error && (
           <p className="admin-error" data-testid="admin-login-error">
@@ -188,7 +230,7 @@ const Login: React.FC<{ destino?: string; aviso?: string }> = ({ destino = '/adm
           disabled={entrando}
           data-testid="button-admin-login"
         >
-          <LogIn size={16} /> {entrando ? 'Entrando…' : 'Entrar'}
+          <LogIn size={16} /> {entrando ? 'Comprobando…' : mfa ? 'Verificar código' : 'Entrar'}
         </button>
 
         <p className="admin-nota">

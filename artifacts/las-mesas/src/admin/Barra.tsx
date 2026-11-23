@@ -74,7 +74,7 @@ function lineasDe(pedido: PedidoBarra) {
 
 const Barra: React.FC = () => {
   const [token, setToken] = useState(() => leerToken());
-  const [comprobandoSesion, setComprobandoSesion] = useState(() => !leerToken());
+  const [comprobandoSesion, setComprobandoSesion] = useState(false);
   const [pedidos, setPedidos] = useState<PedidoBarra[]>([]);
   const [cargando, setCargando] = useState(false);
   const [actualizada, setActualizada] = useState<Date | null>(null);
@@ -91,18 +91,8 @@ const Barra: React.FC = () => {
   const peticionActiva = useRef(false);
 
   useEffect(() => {
-    if (token) { setComprobandoSesion(false); return; }
-    const supabase = supabaseNavegador();
-    if (!supabase) { setComprobandoSesion(false); return; }
-    let vigente = true;
-    supabase.auth.getSession().then(({ data }) => {
-      if (!vigente) return;
-      const access = data.session?.access_token ?? '';
-      if (access) setToken(access);
-      setComprobandoSesion(false);
-    }).catch(() => { if (vigente) setComprobandoSesion(false); });
-    return () => { vigente = false; };
-  }, [token]);
+    setComprobandoSesion(false);
+  }, []);
 
   const cargarPedidos = useCallback(async (silencioso = false) => {
     if (!token || peticionActiva.current) return;

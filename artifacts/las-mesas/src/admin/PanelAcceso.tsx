@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { LoaderCircle, ShieldAlert } from 'lucide-react';
-import Login, { borrarToken, leerToken } from '@/admin/Login';
+import Login, { borrarToken, guardarToken } from '@/admin/Login';
 
 type Panel = 'admin' | 'barra' | 'cocina';
 
@@ -17,13 +17,7 @@ export default function PanelAcceso({ panel, children }: { panel: Panel; childre
 
   useEffect(() => {
     let vigente = true;
-    const token = leerToken();
-    if (!token) {
-      setEstado('sin-sesion');
-      return () => { vigente = false; };
-    }
-
-    fetch('/api/admin-login', { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' })
+    fetch('/api/admin-login', { cache: 'no-store', credentials: 'same-origin' })
       .then(async (response) => {
         const data = await response.json().catch(() => ({}));
         if (!vigente) return;
@@ -33,6 +27,7 @@ export default function PanelAcceso({ panel, children }: { panel: Panel; childre
           setEstado('sin-sesion');
           return;
         }
+        guardarToken('cookie-session');
         const permitido = data.role === 'admin' || data.role === panel;
         if (!permitido) {
           borrarToken();

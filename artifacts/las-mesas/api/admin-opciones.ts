@@ -10,7 +10,7 @@
 //  POST   -> { accion: 'borrar_opcion', id }
 //
 // Solo Administración (token de Supabase Auth).
-import { rolDeUsuario, tokenDeCabecera, usuarioDelToken } from './_admin-auth.js';
+import { origenDelMismoSitio, rolDeUsuario, usuarioDeSolicitud } from './_admin-auth.js';
 
 type Global = Record<string, any>;
 const g = globalThis as unknown as Global;
@@ -24,6 +24,7 @@ interface Req {
 interface Res {
   status(codigo: number): Res;
   json(cuerpo: unknown): void;
+  setHeader(clave: string, valor: string | string[]): void;
 }
 
 function entorno(): Record<string, string | undefined> {
@@ -135,7 +136,11 @@ async function listarGrupos(): Promise<any[]> {
 }
 
 export default async function handler(req: Req, res: Res): Promise<void> {
-  const user = await usuarioDelToken(tokenDeCabecera(req));
+  if (String(req?.method ?? 'GET').toUpperCase() !== 'GET' && !origenDelMismoSitio(req)) {
+    responder(res, { error: 'Origen no autorizado.' }, 403);
+    return;
+  }
+  const user = await usuarioDeSolicitud(req, res);
   if (!user) {
     responder(res, { error: 'La sesión ha caducado: vuelve a entrar' }, 401);
     return;

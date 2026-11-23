@@ -12,7 +12,7 @@
 //   BLOB_READ_WRITE_TOKEN   token del Blob store (Vercel -> Storage)
 //   SUPABASE_URL / SUPABASE_SECRET_KEY   para validar al usuario
 //   ADMIN_EMAILS                 correos de Administración
-import { rolDeUsuario, tokenDeCabecera, usuarioDelToken } from '../_admin-auth.js';
+import { origenDelMismoSitio, rolDeUsuario, usuarioDeSolicitud } from '../_admin-auth.js';
 
 type Global = Record<string, any>;
 
@@ -77,14 +77,13 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     responder(res, { error: 'Método no permitido' }, 405);
     return;
   }
-
-  // ── 1) Solo el staff ──
-  const token = tokenDeCabecera(req);
-  if (!token) {
-    responder(res, { error: 'Necesitas iniciar sesión' }, 401);
+  if (!origenDelMismoSitio(req)) {
+    responder(res, { error: 'Origen no autorizado.' }, 403);
     return;
   }
-  const usuario = await usuarioDelToken(token);
+
+  // ── 1) Solo el staff ──
+  const usuario = await usuarioDeSolicitud(req, res);
   if (!usuario) {
     responder(res, { error: 'La sesión ha caducado: vuelve a entrar' }, 401);
     return;

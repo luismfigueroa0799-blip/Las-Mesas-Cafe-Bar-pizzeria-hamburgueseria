@@ -9,7 +9,7 @@
 //
 // Los productos viven en NEON, en la tabla `products`
 // (id, name, description, price, image_url, is_available, category_id).
-import { puedeEntrar, rolDeUsuario, tokenDeCabecera, usuarioDelToken } from './_admin-auth.js';
+import { origenDelMismoSitio, puedeEntrar, rolDeUsuario, usuarioDeSolicitud } from './_admin-auth.js';
 
 type Global = Record<string, any>;
 
@@ -105,12 +105,11 @@ async function consultarNeon(sql: string, valores: unknown[] = []): Promise<any[
 }
 
 export default async function handler(req: Req, res: Res): Promise<void> {
-  const token = tokenDeCabecera(req);
-  if (!token) {
-    responder(res, { error: 'Necesitas iniciar sesión' }, 401);
+  if (String(req?.method ?? 'GET').toUpperCase() !== 'GET' && !origenDelMismoSitio(req)) {
+    responder(res, { error: 'Origen no autorizado.' }, 403);
     return;
   }
-  const usuario = await usuarioDelToken(token);
+  const usuario = await usuarioDeSolicitud(req, res);
   if (!usuario) {
     responder(res, { error: 'La sesión ha caducado: vuelve a entrar' }, 401);
     return;
