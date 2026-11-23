@@ -62,13 +62,14 @@ function cookies(req: any): Record<string, string> {
   return result;
 }
 
-function escribirCookies(res: any, access: string, refresh: string, expiresIn = 3600): void {
+function escribirCookies(res: any, access: string, refresh: string, expiresIn = 3600, adicionales: string[] = []): void {
   const secure = esSeguro() ? '; Secure' : '';
   const accessAge = Math.max(60, Math.min(Number(expiresIn) || 3600, 3600));
   const refreshAge = 60 * 60 * 24 * 30;
   res.setHeader('Set-Cookie', [
     `${nombreCookie('access')}=${encodeURIComponent(access)}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${accessAge}${secure}`,
     `${nombreCookie('refresh')}=${encodeURIComponent(refresh)}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${refreshAge}${secure}`,
+    ...adicionales,
   ]);
 }
 
@@ -114,8 +115,8 @@ export async function usuarioDeSolicitud(req: any, res: any): Promise<any | null
   } catch { return null; }
 }
 
-export function guardarSesion(res: any, session: any): void {
-  escribirCookies(res, String(session?.access_token ?? ''), String(session?.refresh_token ?? ''), Number(session?.expires_in));
+export function guardarSesion(res: any, session: any, cookiesAdicionales: string[] = []): void {
+  escribirCookies(res, String(session?.access_token ?? ''), String(session?.refresh_token ?? ''), Number(session?.expires_in), cookiesAdicionales);
 }
 
 export async function cerrarSesion(req: any, res: any): Promise<void> {

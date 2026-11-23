@@ -85,13 +85,13 @@ const Login: React.FC<{ destino?: string; aviso?: string }> = ({ destino = '/adm
     try {
       const panel = destino === '/admin/cocina' ? 'cocina' : destino === '/admin/barra' ? 'barra' : 'admin';
       const action = accesoAdmin
-        ? codigoEnviado ? 'verify_admin_email_code' : 'send_admin_email_code'
+        ? codigoEnviado ? 'verify_admin_email_code' : 'begin_admin_email_code'
         : 'login';
       const r = await fetch('/api/admin-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(accesoAdmin
-          ? { action, email, ...(codigoEnviado ? { code: codigoCorreo } : {}) }
+          ? { action, email, ...(codigoEnviado ? { code: codigoCorreo } : { password }) }
           : { email, password, panel }),
       });
 
@@ -158,7 +158,7 @@ const Login: React.FC<{ destino?: string; aviso?: string }> = ({ destino = '/adm
         </span>
         <h1>Iniciar sesión</h1>
         <p className="admin-sub">{accesoAdmin
-          ? 'Te enviaremos un código de acceso al correo de Administración.'
+          ? 'Escribe tu correo y contraseña. Después te enviaremos un código para confirmar el acceso.'
           : 'Accede con tu cuenta de personal para entrar al panel correspondiente.'}</p>
 
         {aviso && <p className="admin-error" role="status">{aviso}</p>}
@@ -178,6 +178,19 @@ const Login: React.FC<{ destino?: string; aviso?: string }> = ({ destino = '/adm
             data-testid="input-admin-email"
           />
         </label>
+        {accesoAdmin && !codigoEnviado && <label className="admin-field">
+          <span><LockKeyhole size={15} aria-hidden="true" /> Contraseña</span>
+          <input
+            type="password"
+            name="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Tu contraseña"
+            autoComplete="current-password"
+            required
+            data-testid="input-admin-password"
+          />
+        </label>}
         {accesoAdmin && codigoEnviado && (
           <>
             <p className="admin-ok" role="status">Te hemos enviado un código a tu correo. Revisa también la carpeta de spam.</p>
@@ -229,7 +242,7 @@ const Login: React.FC<{ destino?: string; aviso?: string }> = ({ destino = '/adm
           disabled={entrando}
           data-testid="button-admin-login"
         >
-          {entrando ? 'Comprobando…' : accesoAdmin ? codigoEnviado ? 'Verificar código' : 'Enviar código al correo' : 'Entrar'}
+          {entrando ? 'Comprobando…' : accesoAdmin ? codigoEnviado ? 'Verificar código' : 'Validar y enviar código' : 'Entrar'}
         </button>
 
         <p className="admin-nota">

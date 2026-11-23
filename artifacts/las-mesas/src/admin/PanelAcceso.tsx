@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { LoaderCircle, ShieldAlert } from 'lucide-react';
-import Login, { borrarToken, guardarToken } from '@/admin/Login';
+import Login, { borrarToken, guardarToken, leerToken } from '@/admin/Login';
 
 type Panel = 'admin' | 'barra' | 'cocina';
 
@@ -22,8 +22,9 @@ export default function PanelAcceso({ panel, children }: { panel: Panel; childre
         const data = await response.json().catch(() => ({}));
         if (!vigente) return;
         if (!response.ok || !data.role) {
+          const sesionAnterior = leerToken() === 'cookie-session';
           borrarToken();
-          setAviso('La sesión ha caducado. Inicia sesión para continuar.');
+          setAviso(sesionAnterior ? 'La sesión ha caducado. Inicia sesión para continuar.' : '');
           setEstado('sin-sesion');
           return;
         }
