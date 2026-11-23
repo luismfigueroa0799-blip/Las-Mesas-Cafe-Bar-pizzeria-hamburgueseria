@@ -11,7 +11,7 @@
 // publica de la carta no cachea el catalogo, asi que en cuanto se cambia algo
 // la siguiente carga ya ve el producto como agotado. Ademas el panel avisa a
 // las pestanas abiertas para que la carta se refresque sola.
-import { rolDeUsuario, tokenDeCabecera, usuarioDelToken } from '../../server/admin-auth.js';
+import { rolDeUsuario, tokenDeCabecera, usuarioDelToken } from '../_admin-auth.js';
 
 type Global = Record<string, any>;
 

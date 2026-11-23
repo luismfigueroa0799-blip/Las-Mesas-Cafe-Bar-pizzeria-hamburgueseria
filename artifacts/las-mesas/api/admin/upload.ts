@@ -12,7 +12,7 @@
 //   BLOB_READ_WRITE_TOKEN   token del Blob store (Vercel -> Storage)
 //   SUPABASE_URL / SUPABASE_SECRET_KEY   para validar al usuario
 //   ADMIN_EMAILS                 correos de Administración
-import { rolDeUsuario, tokenDeCabecera, usuarioDelToken } from '../../server/admin-auth.js';
+import { rolDeUsuario, tokenDeCabecera, usuarioDelToken } from '../_admin-auth.js';
 
 type Global = Record<string, any>;
 

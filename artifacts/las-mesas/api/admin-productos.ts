@@ -9,7 +9,7 @@
 //
 // Los productos viven en NEON, en la tabla `products`
 // (id, name, description, price, image_url, is_available, category_id).
-import { puedeEntrar, rolDeUsuario, tokenDeCabecera, usuarioDelToken } from '../server/admin-auth.js';
+import { puedeEntrar, rolDeUsuario, tokenDeCabecera, usuarioDelToken } from './_admin-auth.js';
 
 type Global = Record<string, any>;
 

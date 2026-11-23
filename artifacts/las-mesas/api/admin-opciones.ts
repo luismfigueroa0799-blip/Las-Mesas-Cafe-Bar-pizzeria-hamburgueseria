@@ -10,7 +10,7 @@
 //  POST   -> { accion: 'borrar_opcion', id }
 //
 // Solo Administración (token de Supabase Auth).
-import { rolDeUsuario, tokenDeCabecera, usuarioDelToken } from '../server/admin-auth.js';
+import { rolDeUsuario, tokenDeCabecera, usuarioDelToken } from './_admin-auth.js';
 
 type Global = Record<string, any>;
 const g = globalThis as unknown as Global;

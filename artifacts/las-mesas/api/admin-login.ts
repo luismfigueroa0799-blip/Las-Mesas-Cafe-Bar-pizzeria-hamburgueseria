@@ -1,4 +1,4 @@
-import { puedeEntrar, rolDeUsuario, tokenDeCabecera, usuarioDelToken } from '../server/admin-auth.js';
+import { puedeEntrar, rolDeUsuario, tokenDeCabecera, usuarioDelToken } from './_admin-auth.js';
 
 type Global = Record<string, any>;
 const g = globalThis as unknown as Global;
