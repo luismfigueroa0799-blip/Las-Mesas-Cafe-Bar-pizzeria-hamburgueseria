@@ -10,6 +10,7 @@ import RuletaPremio from '@/RuletaPremio';
 import ProductCard from '@/ProductCard';
 import { CLAVES_DIAS, HORARIO_PREDETERMINADO, fechaCanarias, normalizarHorario, obtenerEstadoHorario, textoTramos, type ConfiguracionHorario } from '@/horarios';
 import Inventario from '@/admin/Inventario';
+import CelebracionesAdmin from '@/admin/CelebracionesAdmin';
 import GestionOpciones from '@/admin/GestionOpciones';
 import Cocina from '@/admin/Cocina';
 import Barra from '@/admin/Barra';
@@ -119,6 +120,7 @@ function App() {
   const esRutaLogin = rutaActual === '/login';
   const esRutaVinculacion = rutaActual === '/admin/vincular';
   const esRutaOpciones = rutaActual === '/admin/opciones';
+  const esRutaCelebracionesAdmin = rutaActual === '/admin/celebraciones';
   const esRutaCocina = rutaActual === '/admin/cocina';
   const esRutaBarra = rutaActual === '/admin/barra';
   const esRutaAdmin = rutaActual.startsWith('/admin');
@@ -310,7 +312,7 @@ function App() {
         return;
       }
 
-      setEventStatus('Solicitud enviada correctamente');
+      setEventStatus(`Solicitud recibida${datos?.codigo ? ` · Referencia ${datos.codigo}` : ''}. Te contactaremos para preparar la propuesta; todavía no es una reserva confirmada.`);
       formulario.reset();
     } catch {
       setEventStatus(
@@ -343,6 +345,7 @@ function App() {
   }
   if (esRutaCocina) return <PanelAcceso panel="cocina"><Cocina /></PanelAcceso>;
   if (esRutaBarra) return <PanelAcceso panel="barra"><Barra /></PanelAcceso>;
+  if (esRutaCelebracionesAdmin) return <PanelAcceso panel="admin"><CelebracionesAdmin /></PanelAcceso>;
   if (esRutaOpciones) return <PanelAcceso panel="admin"><GestionOpciones /></PanelAcceso>;
   if (esRutaAdmin) return <PanelAcceso panel="admin"><Inventario /></PanelAcceso>;
 
@@ -596,7 +599,7 @@ function App() {
             <span className="eyebrow">{t('celebrar.boton')}</span><h3>{t('celebrar.submit')}</h3>
             <div className="field-grid">
               <label>{t('form.nombre')}<input name="eventName" required autoComplete="name" placeholder={t('form.nombre.ph')} data-testid="input-event-name" /></label>
-              <label>{t('form.contacto')}<input name="eventContact" required autoComplete="email" pattern="(?:[^@ ]+@[^@ ]+\\.[^@ ]+|\\+?[0-9][0-9 \\-]{6,})" title={t('form.contacto.title')} placeholder={t('form.contacto.ph')} data-testid="input-event-contact" /></label>
+              <label>{t('form.contacto')}<input name="eventContact" required autoComplete="on" pattern="(?:[^@ ]+@[^@ ]+\\.[^@ ]+|\\+?[0-9][0-9 .()\\-]{7,})" title={t('form.contacto.title')} placeholder={t('form.contacto.ph')} data-testid="input-event-contact" /></label>
               <label>{t('form.tipoEvento')}<select name="type" defaultValue="" required data-testid="select-event-type"><option value="" disabled>{t('form.elige')}</option><option>{t('form.cumple')}</option><option>{t('form.cenaEmpresa')}</option><option>{t('form.otro')}</option></select></label>
               <label>{t('form.fecha')}<input type="date" name="eventDate" min={minDate} required data-testid="input-event-date" /></label>
               <label>{t('form.personas')}<input type="number" min="1" max="100" name="eventPeople" required placeholder={t('form.personas.ph')} data-testid="input-event-people" /></label>

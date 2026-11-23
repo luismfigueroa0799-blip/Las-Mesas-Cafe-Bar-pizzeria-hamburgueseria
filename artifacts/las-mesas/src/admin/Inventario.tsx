@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CalendarClock, ClipboardList, FileText, LogOut, Moon, Pencil, RefreshCw, Search, Settings, ShieldCheck, Sun, UtensilsCrossed } from 'lucide-react';
+import { CalendarClock, ClipboardList, FileText, LogOut, Moon, PartyPopper, Pencil, RefreshCw, Search, Settings, ShieldCheck, Sun, UtensilsCrossed } from 'lucide-react';
 import { Link } from 'wouter';
 import { CATEGORIES, CATEGORIA_RESERVA, PRODUCTS_LOCALES, notificarMenuActualizado } from '@/products';
 import Login, { borrarToken, leerToken } from '@/admin/Login';
@@ -393,6 +393,9 @@ const Inventario: React.FC = () => {
           </Link>
           <Link className="admin-boton admin-boton-claro" href="/admin/barra">
             <FileText size={16} /> Barra
+          </Link>
+          <Link className="admin-boton admin-boton-claro" href="/admin/celebraciones">
+            <PartyPopper size={16} /> Celebraciones
           </Link>
           <button
             type="button"

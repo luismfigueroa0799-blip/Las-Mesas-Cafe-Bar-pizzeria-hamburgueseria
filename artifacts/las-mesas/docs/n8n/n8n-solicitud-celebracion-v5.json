@@ -1,0 +1,385 @@
+{
+  "name": "Solicitud de celebración (v5)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "solicitud-celebracion",
+        "options": {},
+        "responseMode": "responseNode"
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        80
+      ],
+      "id": "8c04667b-54b4-492d-afb2-0b73c347772a",
+      "name": "Webhook"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Normaliza los datos y conserva la referencia y el estado inicial.\nconst salida = [];\nfor (const item of items) {\n  const j = item.json ?? {};\n  let b = j.body ?? j;\n  if (typeof b === 'string') { try { b = JSON.parse(b); } catch { b = {}; } }\n  const f = { ...j, ...b };\n  const nombre = String(f.nombre ?? '');\n  const contacto = String(f.contacto ?? '');\n  const tipo = String(f.tipoEvento ?? f.tipo_evento ?? '');\n  const fecha = String(f.fechaAproximada ?? f.fecha_aproximada ?? '');\n  const personas = Number(f.numeroPersonas ?? f.numero_personas ?? 0);\n  const detalles = String(f.detalles ?? '');\n  const codigo = String(f.codigo ?? '');\n  salida.push({ json: {\n    nombre, contacto, tipo_evento: tipo, fecha_aproximada: fecha,\n    numero_personas: personas, detalles, codigo,\n    estado: 'nueva', recordatorio_enviado: false,\n    mensaje: '🎉 NUEVA SOLICITUD DE CELEBRACIÓN 🎉\\n\\n' +\n      'Referencia: ' + codigo + '\\n' +\n      '👤 ' + nombre + '\\n' + '📞 ' + contacto + '\\n' +\n      '🎊 ' + tipo + '\\n' + '📅 ' + fecha + '\\n' +\n      '👥 ' + personas + ' personas\\n\\n' + '📝 ' + detalles\n  } });\n}\nreturn salida;"
+      },
+      "id": "d4e0f9a2-3b5c-4d7e-9f1a-2b3c4d5e6f7a",
+      "name": "Preparar aviso",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "solicitudes_celebracion",
+          "mode": "list",
+          "cachedResultName": "solicitudes_celebracion"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "nombre": "={{ $json.nombre }}",
+            "contacto": "={{ $json.contacto }}",
+            "tipo_evento": "={{ $json.tipo_evento }}",
+            "fecha_aproximada": "={{ $json.fecha_aproximada }}",
+            "numero_personas": "={{ $json.numero_personas }}",
+            "detalles": "={{ $json.detalles }}",
+            "codigo": "={{ $json.codigo }}",
+            "estado": "={{ $json.estado }}",
+            "recordatorio_enviado": "={{ $json.recordatorio_enviado }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "nombre",
+              "displayName": "nombre",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "contacto",
+              "displayName": "contacto",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "tipo_evento",
+              "displayName": "tipo_evento",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "fecha_aproximada",
+              "displayName": "fecha_aproximada",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "numero_personas",
+              "displayName": "numero_personas",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "detalles",
+              "displayName": "detalles",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "fecha_creacion",
+              "displayName": "fecha_creacion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "codigo",
+              "displayName": "codigo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "estado",
+              "displayName": "estado",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "recordatorio_enviado",
+              "displayName": "recordatorio_enviado",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        448,
+        0
+      ],
+      "id": "d3b593d7-6896-4377-828c-bc46143cf804",
+      "name": "Insert rows in a table",
+      "credentials": {
+        "postgres": {
+          "id": "1X9SZfp6WIb993oR",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "8279256563",
+        "text": "={{ $('Preparar aviso').first().json.mensaje }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        448,
+        160
+      ],
+      "id": "06d45116-2ba5-4622-8630-14dd8966824f",
+      "name": "Send a text message",
+      "webhookId": "e2031137-5abf-4f3b-8a74-10d2d7efd965",
+      "credentials": {
+        "telegramApi": {
+          "id": "sIFKDmcGc2Y9u7TU",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "e5f1a0b3-4c6d-4e8f-0a1b-3c4d5e6f7a8b",
+      "name": "Ver datos",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        448,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 30
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        520
+      ],
+      "id": "7a4dc6ee-46e1-4465-84ec-f94c27410b06",
+      "name": "Cada 30 minutos"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select id, codigo, nombre, contacto, tipo_evento, fecha_aproximada, numero_personas from public.solicitudes_celebracion where estado = 'nueva' and recordatorio_enviado = false and fecha_creacion <= now() - interval '2 hours' order by fecha_creacion asc limit 50;"
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        240,
+        520
+      ],
+      "id": "29b3f5be-3251-47df-9f0c-99ec02832879",
+      "name": "Buscar solicitudes pendientes",
+      "credentials": {
+        "postgres": {
+          "id": "1X9SZfp6WIb993oR",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "8279256563",
+        "text": "={{ '⏰ Solicitud de celebración pendiente: ' + $json.codigo + '\\n' + $json.nombre + ' · ' + $json.tipo_evento + '\\nFecha: ' + $json.fecha_aproximada + ' · ' + $json.numero_personas + ' personas\\nContacto: ' + $json.contacto }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        500,
+        520
+      ],
+      "id": "bd06d642-cfba-447b-be66-61001078bc31",
+      "name": "Avisar seguimiento",
+      "credentials": {
+        "telegramApi": {
+          "id": "sIFKDmcGc2Y9u7TU",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ 'update public.solicitudes_celebracion set recordatorio_enviado = true, actualizada_en = now() where id = ' + Number($('Buscar solicitudes pendientes').item.json.id) + ';' }}"
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        760,
+        520
+      ],
+      "id": "d22b1b0b-08f6-4369-a0ad-fe3d285b5fae",
+      "name": "Marcar recordatorio enviado",
+      "credentials": {
+        "postgres": {
+          "id": "1X9SZfp6WIb993oR",
+          "name": "Postgres account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Preparar aviso",
+            "type": "n8n-nodes-base.code",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar aviso": {
+      "main": [
+        [
+          {
+            "node": "Insert rows in a table",
+            "type": "n8n-nodes-base.postgres",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cada 30 minutos": {
+      "main": [
+        [
+          {
+            "node": "Buscar solicitudes pendientes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar solicitudes pendientes": {
+      "main": [
+        [
+          {
+            "node": "Avisar seguimiento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Avisar seguimiento": {
+      "main": [
+        [
+          {
+            "node": "Marcar recordatorio enviado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert rows in a table": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "n8n-nodes-base.telegram",
+            "index": 0
+          },
+          {
+            "node": "Ver datos",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "nodeGroups": [],
+  "tags": []
+}

@@ -114,6 +114,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   const cuerpo = metodo === 'POST' ? leerCuerpo(req) : {};
   const accion = String(cuerpo.accion ?? '').toLowerCase();
   const vistaPedidos = Array.isArray(req.query?.vista) ? req.query?.vista[0] : req.query?.vista;
+  const vistaCelebraciones = Array.isArray(req.query?.vista) ? req.query?.vista[0] : req.query?.vista;
   const usuario = await usuarioDeSolicitud(req, res);
   let rol = rolDeUsuario(usuario);
   let panelSolicitado: 'barra' | 'cocina' | null = null;
@@ -329,6 +330,38 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     return;
   }
 
+  if (metodo === 'GET' && vistaCelebraciones === 'celebraciones') {
+    const pool = await poolDeNeon();
+    if (!pool) {
+      responder(res, { error: 'Neon no está configurado (falta DATABASE_URL)' }, 503);
+      return;
+    }
+    try {
+      await pool.query(`alter table public.solicitudes_celebracion
+        add column if not exists codigo text,
+        add column if not exists estado text not null default 'nueva',
+        add column if not exists recordatorio_enviado boolean not null default false,
+        add column if not exists actualizada_en timestamptz`);
+      await pool.query(`alter table public.solicitudes_celebracion
+        alter column codigo set default ('CEL-' || upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 12)))`);
+      await pool.query(`update public.solicitudes_celebracion
+        set codigo = 'CEL-' || upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 8))
+        where codigo is null or btrim(codigo) = ''`);
+      await pool.query(`create unique index if not exists solicitudes_celebracion_codigo_idx
+        on public.solicitudes_celebracion (codigo)`);
+      const resultado = await pool.query(`select id, codigo, nombre, contacto, tipo_evento,
+          fecha_aproximada, numero_personas, detalles, estado, fecha_creacion, actualizada_en
+        from public.solicitudes_celebracion
+        order by fecha_creacion desc nulls last, id desc
+        limit 250`);
+      responder(res, { solicitudes: resultado.rows ?? [] });
+    } catch (error) {
+      g.console?.error?.('[admin] no se pudieron cargar las celebraciones:', error);
+      responder(res, { error: 'No se pudieron cargar las solicitudes de celebración' }, 502);
+    }
+    return;
+  }
+
   // 2) Listar
   if (!req?.method || req.method === 'GET') {
     const filas = await consultarNeon(
@@ -358,6 +391,35 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   if (req.method === 'POST' || req.method === 'DELETE') {
     const body = leerCuerpo(req);
     const accion = String(body.accion ?? '').toLowerCase();
+
+    if (accion === 'actualizar_celebracion') {
+      const id = Number(body.id);
+      const estado = String(body.estado ?? '');
+      const estadosPermitidos = ['nueva', 'contactada', 'propuesta_enviada', 'confirmada', 'no_concretada'];
+      if (!Number.isInteger(id) || id < 1 || !estadosPermitidos.includes(estado)) {
+        responder(res, { error: 'La solicitud o el estado no son válidos' }, 400);
+        return;
+      }
+      const pool = await poolDeNeon();
+      if (!pool) {
+        responder(res, { error: 'Neon no está configurado (falta DATABASE_URL)' }, 503);
+        return;
+      }
+      try {
+        const r = await pool.query(`update public.solicitudes_celebracion
+          set estado = $2, actualizada_en = now()
+          where id = $1 returning id, estado, actualizada_en`, [id, estado]);
+        if (!r.rows?.length) {
+          responder(res, { error: 'No se encontró esa solicitud' }, 404);
+          return;
+        }
+        responder(res, { ok: true, solicitud: r.rows[0] });
+      } catch (error) {
+        g.console?.error?.('[admin] no se pudo actualizar la celebración:', error);
+        responder(res, { error: 'No se pudo actualizar el estado de la solicitud' }, 502);
+      }
+      return;
+    }
 
     // ---- Borrar ----
     if (accion === 'borrar') {

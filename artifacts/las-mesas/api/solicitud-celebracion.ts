@@ -1,3 +1,5 @@
+import { randomBytes } from 'node:crypto';
+
 // Envia una solicitud de celebracion al flujo de n8n.
 //
 //   POST /api/solicitud-celebracion
@@ -44,6 +46,54 @@ function urlWebhook(): string {
     entorno().N8N_WEBHOOK_SOLICITUD_CELEBRACION ?? WEBHOOK_POR_DEFECTO,
   ).trim();
   return /^https:\/\/[^\s]+$/.test(configurada) ? configurada : WEBHOOK_POR_DEFECTO;
+}
+
+let poolCelebraciones: any = null;
+async function prepararRegistroCelebracion(): Promise<boolean> {
+  const url = String(entorno().DATABASE_URL ?? entorno().NEON_DATABASE_URL ?? '').trim();
+  if (!url) return false;
+  try {
+    if (!poolCelebraciones) {
+      const pg: any = await import('pg');
+      const Pool = pg?.default?.Pool ?? pg?.Pool;
+      if (!Pool) return false;
+      poolCelebraciones = new Pool({
+        connectionString: url,
+        max: 2,
+        idleTimeoutMillis: 10000,
+        connectionTimeoutMillis: 10000,
+        ssl: url.includes('sslmode=disable') ? undefined : { rejectUnauthorized: false },
+      });
+    }
+    await poolCelebraciones.query(`create table if not exists public.solicitudes_celebracion (
+      id serial primary key,
+      nombre varchar(120) not null,
+      contacto varchar(120) not null,
+      tipo_evento varchar(80) not null,
+      fecha_aproximada varchar(40),
+      numero_personas integer not null,
+      detalles text,
+      fecha_creacion timestamp without time zone not null default now()
+    )`);
+    await poolCelebraciones.query(`alter table public.solicitudes_celebracion
+      add column if not exists codigo text,
+      add column if not exists estado text not null default 'nueva',
+      add column if not exists recordatorio_enviado boolean not null default false,
+      add column if not exists actualizada_en timestamptz`);
+    await poolCelebraciones.query(`alter table public.solicitudes_celebracion
+      alter column codigo set default ('CEL-' || upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 12))),
+      alter column estado set default 'nueva',
+      alter column recordatorio_enviado set default false`);
+    await poolCelebraciones.query(`update public.solicitudes_celebracion
+      set codigo = 'CEL-' || upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 8))
+      where codigo is null or btrim(codigo) = ''`);
+    await poolCelebraciones.query(`create unique index if not exists solicitudes_celebracion_codigo_idx
+      on public.solicitudes_celebracion (codigo)`);
+    return true;
+  } catch (error) {
+    g.console?.error?.('[celebracion] no se pudo preparar el registro Neon:', error);
+    return false;
+  }
 }
 
 function responder(res: Res, cuerpo: unknown, estado = 200): void {
@@ -93,14 +143,39 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     responder(res, { error: 'Falta el contacto' }, 400);
     return;
   }
+  const emailValido = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contacto);
+  const telefonoValido = /^\+?[0-9][0-9\s().-]{6,18}$/.test(contacto) && contacto.replace(/\D/g, '').length >= 8;
+  if (!emailValido && !telefonoValido) {
+    responder(res, { error: 'Escribe un correo válido o un teléfono con al menos 8 cifras' }, 400);
+    return;
+  }
   if (!tipoEvento) {
     responder(res, { error: 'Falta el tipo de evento' }, 400);
     return;
   }
-  if (!Number.isFinite(numeroPersonas) || numeroPersonas < 1) {
-    responder(res, { error: 'El número de personas no es válido' }, 400);
+  const fechaParsed = /^\d{4}-\d{2}-\d{2}$/.test(fechaAproximada)
+    ? new Date(`${fechaAproximada}T12:00:00Z`)
+    : null;
+  if (!fechaParsed || Number.isNaN(fechaParsed.getTime()) || fechaParsed.toISOString().slice(0, 10) !== fechaAproximada) {
+    responder(res, { error: 'Elige una fecha válida para la celebración' }, 400);
     return;
   }
+  const hoyCanarias = new Intl.DateTimeFormat('en-CA', { timeZone: 'Atlantic/Canary' }).format(new Date());
+  if (fechaAproximada < hoyCanarias) {
+    responder(res, { error: 'La fecha de celebración no puede estar en el pasado' }, 400);
+    return;
+  }
+  if (!Number.isInteger(numeroPersonas) || numeroPersonas < 1 || numeroPersonas > 100) {
+    responder(res, { error: 'El número de personas debe estar entre 1 y 100' }, 400);
+    return;
+  }
+
+  if (!(await prepararRegistroCelebracion())) {
+    responder(res, { error: 'No se pudo preparar el registro de solicitudes. Inténtalo de nuevo o llámanos al +34 928 896 097.' }, 503);
+    return;
+  }
+
+  const codigo = `CEL-${randomBytes(6).toString('hex').toUpperCase()}`;
 
   // ── Enviar a n8n ──
   //
@@ -124,6 +199,9 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     tipo_evento: tipoEvento,
     fecha_aproximada: fechaAproximada,
     numero_personas: numeroPersonas,
+    codigo,
+    estado: 'nueva',
+    recordatorio_enviado: false,
   };
 
   const destino = urlWebhook();
@@ -135,13 +213,13 @@ export default async function handler(req: Req, res: Res): Promise<void> {
       signal: AbortSignal.timeout(20000),
     });
 
-    const texto = await r.text();
+    const textoRespuesta = await r.text();
 
     if (!r.ok) {
-      g.console?.error?.('[celebracion] n8n respondio', r.status, texto.slice(0, 300));
+      g.console?.error?.('[celebracion] n8n respondio', r.status, textoRespuesta.slice(0, 300));
       let mensaje = `El servidor de solicitudes respondió con el código ${r.status}`;
       try {
-        const datos = JSON.parse(texto);
+        const datos = JSON.parse(textoRespuesta);
         mensaje = String(datos?.error ?? datos?.message ?? mensaje);
       } catch {
         /* respuesta no json */
@@ -152,13 +230,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
 
     log('[celebracion] Solicitud enviada a n8n', { nombre, tipoEvento });
 
-    // ── Aviso opcional a Telegram, enviado desde la web ──
-    // Si hay TELEGRAM_BOT_TOKEN y TELEGRAM_CHAT_ID en el entorno, el aviso
-    // se manda desde aqui (sin depender de n8n). Si no, el aviso lo manda el
-    // nodo de Telegram del flujo de n8n.
-    const aviso = await avisarTelegram({ nombre, contacto, tipoEvento, fechaAproximada, numeroPersonas, detalles });
-
-    responder(res, { ok: true, enviado: true, telegram: aviso });
+    responder(res, { ok: true, recibido: true, codigo, aviso: 'enviado' });
   } catch (error) {
     g.console?.error?.('[celebracion] no se pudo enviar la solicitud:', error);
     responder(
@@ -176,64 +248,4 @@ export default async function handler(req: Req, res: Res): Promise<void> {
 function log(...args: unknown[]): void {
   const c = g.console;
   if (c && typeof c.log === 'function') c.log(...args);
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Aviso a Telegram
-// ─────────────────────────────────────────────────────────────────────────────
-
-interface Solicitud {
-  nombre: string;
-  contacto: string;
-  tipoEvento: string;
-  fechaAproximada: string;
-  numeroPersonas: number;
-  detalles: string;
-}
-
-/**
- * Manda el aviso de la solicitud a Telegram, si estan el token y el chat.
- *
- *   TELEGRAM_BOT_TOKEN   token del bot (lo da @BotFather)
- *   TELEGRAM_CHAT_ID     id del chat o grupo donde avisar
- *
- * Devuelve 'enviado', 'no configurado' o el motivo del fallo. Nunca lanza:
- * si el aviso falla, la solicitud ya esta guardada y no hay que dar error al
- * cliente.
- */
-async function avisarTelegram(s: Solicitud): Promise<string> {
-  const env = entorno();
-  const token = String(env.TELEGRAM_BOT_TOKEN ?? '').trim();
-  const chatId = String(env.TELEGRAM_CHAT_ID ?? '').trim();
-  if (!token || !chatId) return 'no configurado';
-
-  const texto = [
-    '🎉 ¡NUEVA SOLICITUD DE CELEBRACIÓN! 🎉',
-    '',
-    `👤 Nombre: ${s.nombre}`,
-    `📞 Contacto: ${s.contacto}`,
-    `🎊 Tipo: ${s.tipoEvento}`,
-    `📅 Fecha: ${s.fechaAproximada}`,
-    `👥 Personas: ${s.numeroPersonas}`,
-    '',
-    `📝 Detalles: ${s.detalles}`,
-  ].join('\n');
-
-  try {
-    const r = await g.fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: chatId, text: texto }),
-      signal: AbortSignal.timeout(15000),
-    });
-    if (!r.ok) {
-      const detalle = (await r.text()).slice(0, 200);
-      log('[celebracion] Telegram respondio', r.status, detalle);
-      return 'fallo: HTTP ' + r.status;
-    }
-    return 'enviado';
-  } catch (error) {
-    log('[celebracion] no se pudo avisar a Telegram:', error);
-    return 'fallo: ' + (error instanceof Error ? error.message : String(error));
-  }
 }
