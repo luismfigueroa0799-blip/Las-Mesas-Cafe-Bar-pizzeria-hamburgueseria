@@ -1,4 +1,5 @@
 import { cerrarSesion, esCorreoAdministracion, guardarSesion, origenDelMismoSitio, puedeEntrar, rolDeUsuario, usuarioDeSolicitud } from './_admin-auth.js';
+import { autorizarDispositivo, crearCodigoDispositivo, crearCookieDispositivo, listarDispositivos, revocarDispositivo, vincularDispositivo } from './_staff-devices.js';
 
 type Global = Record<string, any>;
 const g = globalThis as unknown as Global;
@@ -7,6 +8,7 @@ interface Req {
   method?: string;
   headers?: { get?: (nombre: string) => string | null } | Record<string, string | string[] | undefined>;
   body?: unknown;
+  query?: Record<string, string | string[] | undefined>;
 }
 interface Res {
   status(codigo: number): Res;
@@ -104,6 +106,13 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     const user = await usuarioDeSolicitud(req, res);
     const role = rolDeUsuario(user);
     if (!user || !role) { responder(res, { error: 'La sesión no es válida o esta cuenta no tiene acceso a los paneles.' }, user ? 403 : 401); return; }
+    if (role !== 'admin') {
+      const requestedPanel = Array.isArray(req.query?.panel) ? req.query?.panel[0] : req.query?.panel;
+      if (requestedPanel !== role || !await autorizarDispositivo(req, role)) {
+        responder(res, { error: 'Este dispositivo aún no está autorizado para ese panel.', device_required: true, role }, 403);
+        return;
+      }
+    }
     responder(res, { email: user.email, role });
     return;
   }
@@ -111,6 +120,32 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   if (!origenDelMismoSitio(req)) { responder(res, { error: 'Origen no autorizado.' }, 403); return; }
   const body = leerCuerpo(req);
   const action = String(body.action ?? 'login');
+
+  if (action === 'listar_dispositivos' || action === 'crear_codigo_dispositivo' || action === 'revocar_dispositivo') {
+    const admin = await usuarioDeSolicitud(req, res);
+    if (rolDeUsuario(admin) !== 'admin') { responder(res, { error: 'Solo Administración puede gestionar los dispositivos.' }, admin ? 403 : 401); return; }
+    try {
+      if (action === 'listar_dispositivos') {
+        responder(res, { devices: await listarDispositivos() });
+        return;
+      }
+      if (action === 'crear_codigo_dispositivo') {
+        const panel = String(body.panel ?? '').toLowerCase();
+        if (panel !== 'barra' && panel !== 'cocina') { responder(res, { error: 'Selecciona Barra o Cocina.' }, 400); return; }
+        const code = await crearCodigoDispositivo(panel, String(body.device_name ?? ''), String(admin.id ?? admin.email ?? 'admin'));
+        responder(res, { code, expires_in_seconds: 600 });
+        return;
+      }
+      const id = String(body.device_id ?? '').trim();
+      if (!id) { responder(res, { error: 'Falta el dispositivo que quieres revocar.' }, 400); return; }
+      const revoked = await revocarDispositivo(id);
+      responder(res, { ok: revoked });
+    } catch (error) {
+      g.console?.error?.('[admin-login] error gestionando dispositivos:', error);
+      responder(res, { error: (error as Error)?.message ?? 'No se pudo gestionar los dispositivos.' }, 503);
+    }
+    return;
+  }
 
   const email = String(body.email ?? '').trim().toLowerCase();
   const { key, url } = apiAuth();
@@ -208,7 +243,20 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     }
 
     if (role === 'admin') { responder(res, { error: 'Para Administración, vuelve al inicio y solicita el código de verificación.' }, 400); return; }
-    guardarSesion(res, data);
+    const dispositivoAutorizado = await autorizarDispositivo(req, role);
+    let cookiesDispositivo: string[] = [];
+    if (!dispositivoAutorizado) {
+      const pairing = await vincularDispositivo(String(body.device_code ?? ''), role, String(user.id ?? user.email ?? 'staff'));
+      if (!pairing) {
+        responder(res, {
+          error: body.device_code ? 'El código no es válido, caducó o corresponde al otro panel.' : 'Este dispositivo no está autorizado todavía. Pide un código a Administración.',
+          device_required: true,
+        }, 403);
+        return;
+      }
+      cookiesDispositivo = [crearCookieDispositivo(pairing.secret)];
+    }
+    guardarSesion(res, data, cookiesDispositivo);
     responder(res, { email: user.email, role, expira_en: Number(data?.expires_in ?? 3600) });
   } catch (error) {
     g.console?.error?.('[admin-login] error:', error);

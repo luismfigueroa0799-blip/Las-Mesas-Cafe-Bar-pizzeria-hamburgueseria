@@ -139,6 +139,13 @@ const Cocina: React.FC = () => {
       });
       const data = await response.json();
       if (!response.ok) {
+        if (response.status === 403) {
+          setPedidos([]);
+          setPedidosNuevos([]);
+          setPushActivo(false);
+          borrarToken();
+          setToken('');
+        }
         if (response.status === 401) {
           borrarToken();
           setToken('');

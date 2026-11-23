@@ -11,16 +11,22 @@ const TITULOS: Record<Panel, string> = {
 };
 
 export default function PanelAcceso({ panel, children }: { panel: Panel; children: ReactNode }) {
-  const [estado, setEstado] = useState<'cargando' | 'sin-sesion' | 'permitido' | 'denegado'>('cargando');
+  const [estado, setEstado] = useState<'cargando' | 'sin-sesion' | 'permitido' | 'denegado' | 'dispositivo'>('cargando');
   const [aviso, setAviso] = useState('');
   const destino = typeof window === 'undefined' ? '/admin/inventario' : window.location.pathname;
 
   useEffect(() => {
     let vigente = true;
-    fetch('/api/admin-login', { cache: 'no-store', credentials: 'same-origin' })
+    fetch(`/api/admin-login?panel=${encodeURIComponent(panel)}`, { cache: 'no-store', credentials: 'same-origin' })
       .then(async (response) => {
         const data = await response.json().catch(() => ({}));
         if (!vigente) return;
+        if (response.status === 403 && data.device_required && data.role === panel) {
+          borrarToken();
+          setAviso(data.error ?? 'Este dispositivo necesita autorización de Administración.');
+          setEstado('dispositivo');
+          return;
+        }
         if (!response.ok || !data.role) {
           const sesionAnterior = leerToken() === 'cookie-session';
           borrarToken();
@@ -48,7 +54,7 @@ export default function PanelAcceso({ panel, children }: { panel: Panel; childre
   }, [panel]);
 
   if (estado === 'permitido') return <>{children}</>;
-  if (estado === 'sin-sesion' || estado === 'denegado') return <Login destino={destino} aviso={aviso} />;
+  if (estado === 'sin-sesion' || estado === 'denegado' || estado === 'dispositivo') return <Login destino={destino} aviso={aviso} requiereCodigoDispositivo={estado === 'dispositivo'} />;
 
   return (
     <div className="admin-login" role="status" aria-live="polite">

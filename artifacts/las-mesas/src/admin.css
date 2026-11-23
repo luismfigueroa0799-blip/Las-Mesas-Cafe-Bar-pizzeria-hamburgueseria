@@ -600,11 +600,50 @@ html:not(.dark) .admin-horario-nuevo-festivo, html:not(.dark) .admin-horario-fes
   font-size: .78rem;
 }
 
+/* Dispositivos con acceso a los paneles de trabajo */
+.dispositivo-modal-fondo { z-index: 420; }
+.dispositivos-modal { width: min(100%, 680px); }
+.dispositivos-eyebrow { display: flex; align-items: center; gap: 7px; margin-bottom: 5px; color: var(--oro); font-size: .66rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+.dispositivos-explicacion, .dispositivos-nota { margin: 0; color: #77716a; font-size: .82rem; line-height: 1.55; }
+.dispositivos-form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 14px; border: 1px solid rgba(170,135,50,.24); border-radius: 12px; background: rgba(170,135,50,.06); }
+.dispositivos-form .admin-boton { grid-column: 1 / -1; justify-content: center; }
+.dispositivos-form .admin-field { display: grid; gap: 6px; color: #65563d; font-size: .75rem; font-weight: 700; }
+.dispositivos-form .admin-field input, .dispositivos-form .admin-field select { width: 100%; min-height: 42px; padding: 0 11px; border: 1px solid #ded4c1; border-radius: 8px; background: #fffdfa; color: #302c25; font: inherit; }
+.dispositivos-codigo { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: center; padding: 14px; border: 1px solid rgba(90,125,75,.32); border-radius: 11px; background: rgba(105,130,79,.09); }
+.dispositivos-codigo strong { color: #3f603d; font: 800 1.55rem/1.2 ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .13em; }
+.dispositivos-codigo button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 38px; padding: 0 11px; border: 1px solid #b7c5a6; border-radius: 8px; background: #fff; color: #415d3b; font: inherit; font-size: .78rem; font-weight: 700; cursor: pointer; }
+.dispositivos-codigo small { grid-column: 1 / -1; color: #666; line-height: 1.45; }
+.dispositivos-lista-cabecera { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 3px; }
+.dispositivos-lista-cabecera h3 { margin: 0; color: #302c25; font: 600 1.05rem var(--app-font-serif); }
+.dispositivos-lista { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.dispositivos-lista li { display: flex; align-items: center; gap: 11px; padding: 11px; border: 1px solid #e7dfd1; border-radius: 9px; color: #77643a; }
+.dispositivos-lista li > div { display: grid; flex: 1; gap: 4px; min-width: 0; }
+.dispositivos-lista li strong { color: #302c25; font-size: .86rem; }
+.dispositivos-lista li span { color: #766f65; font-size: .7rem; line-height: 1.4; }
+.dispositivos-lista li .admin-boton-peligro { min-height: 36px; padding: 0 10px; border-radius: 7px; font-size: .72rem; font-weight: 700; cursor: pointer; }
+.dispositivos-vacio { margin: 0; padding: 14px; border: 1px dashed #d8cdb7; border-radius: 9px; color: #82796a; text-align: center; font-size: .82rem; }
+html.dark .dispositivos-explicacion, html.dark .dispositivos-nota { color: #bbb3a6; }
+html.dark .dispositivos-form { border-color: rgba(212,175,55,.22); background: rgba(212,175,55,.06); }
+html.dark .dispositivos-form .admin-field { color: #e8dbbb; }
+html.dark .dispositivos-form .admin-field input, html.dark .dispositivos-form .admin-field select { border-color: rgba(255,255,255,.17); background: #1b1b1b; color: #f5f0e6; }
+html.dark .dispositivos-codigo { border-color: rgba(125,165,100,.35); background: rgba(105,145,80,.12); }
+html.dark .dispositivos-codigo strong { color: #c6dda9; }
+html.dark .dispositivos-codigo button { border-color: rgba(255,255,255,.2); background: #262522; color: #d7e9c3; }
+html.dark .dispositivos-codigo small, html.dark .dispositivos-lista li span { color: #bbb3a6; }
+html.dark .dispositivos-lista-cabecera h3, html.dark .dispositivos-lista li strong { color: #f5f0e6; }
+html.dark .dispositivos-lista li { border-color: rgba(255,255,255,.13); color: #d8b94a; }
+html.dark .dispositivos-vacio { border-color: rgba(255,255,255,.2); color: #bbb3a6; }
+
 @media (max-width: 560px) {
   .admin-dos-campos { grid-template-columns: 1fr; }
   .admin-modal-acciones { width: 100%; margin-left: 0; }
   .admin-modal-acciones .admin-boton { flex: 1 1 auto; }
   .admin-pestana { padding: 0 12px; font-size: .68rem; }
+  .dispositivos-form { grid-template-columns: 1fr; }
+  .dispositivos-form .admin-boton { grid-column: auto; }
+  .dispositivos-lista li { flex-wrap: wrap; }
+  .dispositivos-lista li > div { flex-basis: calc(100% - 36px); }
+  .dispositivos-lista li .admin-boton-peligro { margin-left: 29px; }
 }
 
 /* =====================================================================

@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CalendarClock, ClipboardList, FileText, LogOut, Moon, Pencil, RefreshCw, Search, Settings, Sun, UtensilsCrossed } from 'lucide-react';
+import { CalendarClock, ClipboardList, FileText, LogOut, Moon, Pencil, RefreshCw, Search, Settings, ShieldCheck, Sun, UtensilsCrossed } from 'lucide-react';
 import { Link } from 'wouter';
 import { CATEGORIES, CATEGORIA_RESERVA, PRODUCTS_LOCALES, notificarMenuActualizado } from '@/products';
 import Login, { borrarToken, leerToken } from '@/admin/Login';
 import ProductoEditorForm, { type ProductoEditor } from '@/admin/ProductoEditor';
 import HorarioAdmin from '@/admin/HorarioAdmin';
+import DispositivosAutorizados from '@/admin/DispositivosAutorizados';
 import { supabaseNavegador } from '@/lib/supabase';
 import { useTheme } from '@/ThemeContext';
 
@@ -68,6 +69,7 @@ const Inventario: React.FC = () => {
   const [categoriaFiltro, setCategoriaFiltro] = useState('todas');
   const [seleccionados, setSeleccionados] = useState<number[]>([]);
   const [bulkCargando, setBulkCargando] = useState(false);
+  const [dispositivosAbierto, setDispositivosAbierto] = useState(false);
   const [gruposDisponibles, setGruposDisponibles] = useState<
     Array<{ id: string; name: string; type: string; max: number }>
   >([]);
@@ -383,6 +385,9 @@ const Inventario: React.FC = () => {
           </p>
         </div>
         <div className="admin-acciones">
+          <button type="button" className="admin-boton admin-boton-claro" onClick={() => setDispositivosAbierto(true)}>
+            <ShieldCheck size={16} /> Dispositivos
+          </button>
           <Link className="admin-boton admin-boton-claro" href="/admin/cocina">
             <ClipboardList size={16} /> Cocina
           </Link>
@@ -427,6 +432,7 @@ const Inventario: React.FC = () => {
 
       {error && <p className="admin-error">{error}</p>}
       {aviso && <p className="admin-ok">{aviso}</p>}
+      <DispositivosAutorizados abierto={dispositivosAbierto} cerrar={() => setDispositivosAbierto(false)} />
 
       <div className="admin-pestanas">
         <button

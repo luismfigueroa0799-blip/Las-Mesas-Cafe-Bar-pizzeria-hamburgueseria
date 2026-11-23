@@ -63,7 +63,7 @@ export function borrarToken() {
   void fetch('/api/admin-login', { method: 'DELETE', keepalive: true }).catch(() => undefined);
 }
 
-const Login: React.FC<{ destino?: string; aviso?: string }> = ({ destino = '/admin/inventario', aviso = '' }) => {
+const Login: React.FC<{ destino?: string; aviso?: string; requiereCodigoDispositivo?: boolean }> = ({ destino = '/admin/inventario', aviso = '', requiereCodigoDispositivo = false }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -72,6 +72,8 @@ const Login: React.FC<{ destino?: string; aviso?: string }> = ({ destino = '/adm
   const [codigoEnviado, setCodigoEnviado] = useState(false);
   const [codigoCorreo, setCodigoCorreo] = useState('');
   const [esperaReenvio, setEsperaReenvio] = useState(0);
+  const [codigoDispositivo, setCodigoDispositivo] = useState('');
+  const [necesitaVincular, setNecesitaVincular] = useState(requiereCodigoDispositivo);
 
   const sinApi = sitioSinApi();
   const accesoAdmin = destino !== '/admin/cocina' && destino !== '/admin/barra';
@@ -121,7 +123,7 @@ const Login: React.FC<{ destino?: string; aviso?: string }> = ({ destino = '/adm
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(accesoAdmin
           ? { action, email, ...(codigoEnviado ? { code: codigoCorreo } : { password }) }
-          : { email, password, panel }),
+          : { email, password, panel, ...(codigoDispositivo ? { device_code: codigoDispositivo } : {}) }),
       });
 
       const texto = await r.text();
@@ -141,6 +143,7 @@ const Login: React.FC<{ destino?: string; aviso?: string }> = ({ destino = '/adm
         return;
       }
       if (!r.ok) {
+        if (datos?.device_required) setNecesitaVincular(true);
         setError(datos?.error ?? 'No se pudo iniciar sesión');
         return;
       }
@@ -263,6 +266,23 @@ const Login: React.FC<{ destino?: string; aviso?: string }> = ({ destino = '/adm
             data-testid="input-admin-password"
           />
         </label>}
+
+        {!accesoAdmin && necesitaVincular && <>
+          <p className="admin-ok" role="status">Administración debe autorizar esta tablet. Escribe el código temporal del panel {destino === '/admin/barra' ? 'Barra' : 'Cocina'}.</p>
+          <label className="admin-field">
+            <span>Código de autorización del dispositivo</span>
+            <input
+              type="text"
+              name="device-code"
+              value={codigoDispositivo}
+              onChange={(e) => setCodigoDispositivo(e.target.value.replace(/[^a-f\d]/gi, '').toUpperCase().slice(0, 10))}
+              placeholder="Código de 10 caracteres"
+              autoComplete="one-time-code"
+              maxLength={10}
+              required
+            />
+          </label>
+        </>}
 
         {error && (
           <p className="admin-error" data-testid="admin-login-error">

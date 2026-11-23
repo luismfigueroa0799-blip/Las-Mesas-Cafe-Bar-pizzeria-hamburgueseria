@@ -104,6 +104,13 @@ const Barra: React.FC = () => {
       });
       const datos = await respuesta.json();
       if (!respuesta.ok) {
+        if (respuesta.status === 403) {
+          setPedidos([]);
+          setPushActivo(false);
+          localStorage.setItem('lasmesas-barra-push', 'inactivo');
+          borrarToken();
+          setToken('');
+        }
         if (respuesta.status === 401) {
           borrarToken();
           setToken('');

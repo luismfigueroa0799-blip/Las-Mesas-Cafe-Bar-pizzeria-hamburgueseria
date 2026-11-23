@@ -10,6 +10,7 @@
 // Los productos viven en NEON, en la tabla `products`
 // (id, name, description, price, image_url, is_available, category_id).
 import { origenDelMismoSitio, puedeEntrar, rolDeUsuario, usuarioDeSolicitud } from './_admin-auth.js';
+import { autorizarDispositivo, idDispositivoAutorizado } from './_staff-devices.js';
 
 type Global = Record<string, any>;
 
@@ -128,6 +129,10 @@ export default async function handler(req: Req, res: Res): Promise<void> {
       responder(res, { error: 'Esta cuenta no tiene acceso a este panel' }, 403);
       return;
     }
+    if (rol !== 'admin' && !await autorizarDispositivo(req, vistaPedidos)) {
+      responder(res, { error: 'Este dispositivo no está autorizado para recibir pedidos de este panel.' }, 403);
+      return;
+    }
     const esVistaBarra = vistaPedidos === 'barra';
     const pool = await poolDeNeon();
     if (!pool) {
@@ -189,6 +194,8 @@ export default async function handler(req: Req, res: Res): Promise<void> {
         responder(res, { error: 'Esta cuenta no puede gestionar los avisos de ese panel' }, 403);
         return;
       }
+      const deviceId = rol === 'admin' ? null : await idDispositivoAutorizado(req, panelPush);
+      if (rol !== 'admin' && !deviceId) { responder(res, { error: 'Este dispositivo no está autorizado para los avisos de ese panel.' }, 403); return; }
       const subscription = body.subscription && typeof body.subscription === 'object' ? body.subscription : null;
       const endpoint = String(subscription?.endpoint ?? '').trim();
       if (!endpoint || !/^https:\/\//i.test(endpoint)) {
@@ -206,29 +213,32 @@ export default async function handler(req: Req, res: Res): Promise<void> {
           subscription jsonb not null,
           paneles text[] not null default array['cocina']::text[],
           created_at timestamptz not null default now(),
-          last_seen timestamptz not null default now()
+          last_seen timestamptz not null default now(),
+          device_id text
         )`);
         await pool.query(`alter table public.cocina_push_subscriptions
           add column if not exists paneles text[] not null default array['cocina']::text[]`);
+        await pool.query(`alter table public.cocina_push_subscriptions add column if not exists device_id text`);
         if (accion === 'registrar_push') {
           await pool.query(
-            `insert into public.cocina_push_subscriptions as push_actual (endpoint, subscription, paneles)
-             values ($1, $2::jsonb, array[$3]::text[])
+            `insert into public.cocina_push_subscriptions as push_actual (endpoint, subscription, paneles, device_id)
+             values ($1, $2::jsonb, array[$3]::text[], $4)
              on conflict (endpoint) do update set
                subscription = excluded.subscription,
                paneles = case when $3 = any(push_actual.paneles)
                  then push_actual.paneles
                  else array_append(push_actual.paneles, $3) end,
+               device_id = excluded.device_id,
                last_seen = now()`,
-            [endpoint, JSON.stringify(subscription), panelPush],
+            [endpoint, JSON.stringify(subscription), panelPush, deviceId],
           );
           responder(res, { ok: true, activo: true });
         } else {
           await pool.query(
             `update public.cocina_push_subscriptions
              set paneles = array_remove(paneles, $2), last_seen = now()
-             where endpoint = $1 and $2 = any(paneles)`,
-            [endpoint, panelPush],
+             where endpoint = $1 and $2 = any(paneles) and ($3::text is null or device_id = $3)`,
+            [endpoint, panelPush, deviceId],
           );
           await pool.query(
             'delete from public.cocina_push_subscriptions where endpoint = $1 and cardinality(paneles) = 0',
@@ -245,6 +255,10 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     if (String(body.accion ?? '').toLowerCase() === 'actualizar_cocina') {
       if (!puedeEntrar(rol, 'cocina')) {
         responder(res, { error: 'Solo Cocina o Administración puede cambiar el estado de preparación' }, 403);
+        return;
+      }
+      if (rol !== 'admin' && !await autorizarDispositivo(req, 'cocina')) {
+        responder(res, { error: 'Este dispositivo no está autorizado para Cocina.' }, 403);
         return;
       }
       const id = Number(body.id);
