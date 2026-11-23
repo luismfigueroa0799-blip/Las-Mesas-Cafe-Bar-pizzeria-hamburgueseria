@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Bell, BellRing, CalendarClock, Check, ChefHat, FileText, LogOut, Printer, RefreshCw, Search, Truck, UtensilsCrossed, X } from 'lucide-react';
-import { Link } from 'wouter';
+import { Bell, BellRing, CalendarClock, Check, ChefHat, FileText, LogOut, Printer, RefreshCw, Search, Truck, UtensilsCrossed, X } from 'lucide-react';
 import Login, { borrarToken, leerToken } from '@/admin/Login';
 import { supabaseNavegador } from '@/lib/supabase';
 import './barra.css';
@@ -247,10 +246,8 @@ const Barra: React.FC = () => {
   return (
     <main className="barra-page">
       <header className="barra-topbar">
-        <Link href="/admin/inventario" className="barra-volver"><ArrowLeft size={17} /> Inventario</Link>
         <div className="barra-brand"><ChefHat size={20} /><span>Las Mesas</span><i /> Barra</div>
         <nav className="barra-acciones">
-          <Link href="/admin/cocina"><UtensilsCrossed size={16} /><span>Cocina</span></Link>
           <button type="button" className={pushActivo ? 'barra-avisos-activos' : ''} onClick={() => void alternarAvisosPush()} disabled={pushCargando} aria-pressed={pushActivo}>
             {pushActivo ? <BellRing size={16} /> : <Bell size={16} />}<span>{pushCargando ? 'Configurando…' : pushActivo ? 'Avisos activos' : 'Activar avisos'}</span>
           </button>
