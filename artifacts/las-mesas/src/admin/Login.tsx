@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { LockKeyhole, Mail } from 'lucide-react';
 
 /**
@@ -71,9 +71,38 @@ const Login: React.FC<{ destino?: string; aviso?: string }> = ({ destino = '/adm
   const [entrando, setEntrando] = useState(false);
   const [codigoEnviado, setCodigoEnviado] = useState(false);
   const [codigoCorreo, setCodigoCorreo] = useState('');
+  const [esperaReenvio, setEsperaReenvio] = useState(0);
 
   const sinApi = sitioSinApi();
   const accesoAdmin = destino !== '/admin/cocina' && destino !== '/admin/barra';
+
+  useEffect(() => {
+    if (esperaReenvio <= 0) return;
+    const temporizador = window.setTimeout(() => setEsperaReenvio((restante) => Math.max(0, restante - 1)), 1000);
+    return () => window.clearTimeout(temporizador);
+  }, [esperaReenvio]);
+
+  async function reenviarCodigo() {
+    if (entrando || esperaReenvio > 0) return;
+    setEntrando(true);
+    setError('');
+    try {
+      const response = await fetch('/api/admin-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'resend_admin_email_code', email }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) { setError(data?.error ?? 'No se pudo reenviar el código.'); return; }
+      setCodigoCorreo('');
+      setEsperaReenvio(120);
+      setError('');
+    } catch {
+      setError('No se pudo reenviar el código. Comprueba tu conexión e inténtalo de nuevo.');
+    } finally {
+      setEntrando(false);
+    }
+  }
 
   async function entrar(e: React.FormEvent) {
     e.preventDefault();
@@ -118,6 +147,7 @@ const Login: React.FC<{ destino?: string; aviso?: string }> = ({ destino = '/adm
 
       if (datos?.code_sent) {
         setCodigoEnviado(true);
+        setEsperaReenvio(120);
         setPassword('');
         setError('');
         return;
@@ -210,8 +240,13 @@ const Login: React.FC<{ destino?: string; aviso?: string }> = ({ destino = '/adm
                 data-testid="input-admin-email-code"
               />
             </label>
-            <button type="button" className="admin-nota" onClick={() => { setCodigoEnviado(false); setCodigoCorreo(''); setError(''); }}>
-              Cambiar correo o enviar otro código
+            <button type="button" className="admin-nota" onClick={reenviarCodigo} disabled={entrando || esperaReenvio > 0}>
+              {esperaReenvio > 0
+                ? `Podrás reenviar el código en ${Math.floor(esperaReenvio / 60)}:${String(esperaReenvio % 60).padStart(2, '0')}`
+                : 'Reenviar código'}
+            </button>
+            <button type="button" className="admin-nota" onClick={() => { setCodigoEnviado(false); setCodigoCorreo(''); setEsperaReenvio(0); setError(''); }}>
+              Cambiar correo o volver al inicio
             </button>
           </>
         )}

@@ -141,6 +141,26 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     return;
   }
 
+  if (action === 'resend_admin_email_code') {
+    if (!email || !esCorreoAdministracion(email)) { responder(res, { error: 'Usa el correo autorizado de Administración.' }, 403); return; }
+    const pendingToken = tokenPendiente(req);
+    if (!pendingToken) { responder(res, { error: 'La verificación ha caducado. Inicia sesión otra vez.' }, 401); return; }
+    try {
+      const pendingUser = await usuarioDeToken(pendingToken);
+      if (!pendingUser || String(pendingUser.email ?? '').toLowerCase() !== email || rolDeUsuario(pendingUser) !== 'admin') {
+        res.setHeader('Set-Cookie', cookiePendiente('', 0));
+        responder(res, { error: 'La verificación ha caducado. Inicia sesión otra vez.' }, 401); return;
+      }
+      await authCall('otp', 'POST', { email, create_user: false });
+      responder(res, { code_sent: true });
+    } catch (error) {
+      const detalle = error as Error & { status?: number; code?: string };
+      g.console?.error?.('[admin-login] error al reenviar código:', { status: detalle?.status, code: detalle?.code, message: detalle?.message });
+      responder(res, { error: errorDeEnvio(error) }, 502);
+    }
+    return;
+  }
+
   if (action === 'verify_admin_email_code') {
     const code = String(body.code ?? '').replace(/\s/g, '');
     if (!email || !esCorreoAdministracion(email) || !/^\d{6,8}$/.test(code)) {
