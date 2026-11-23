@@ -22,7 +22,6 @@ export default function PanelAcceso({ panel, children }: { panel: Panel; childre
         const data = await response.json().catch(() => ({}));
         if (!vigente) return;
         if (response.status === 403 && data.device_required && data.role === panel) {
-          borrarToken();
           setAviso(data.error ?? 'Este dispositivo necesita autorización de Administración.');
           setEstado('dispositivo');
           return;
@@ -54,6 +53,18 @@ export default function PanelAcceso({ panel, children }: { panel: Panel; childre
   }, [panel]);
 
   if (estado === 'permitido') return <>{children}</>;
+  if (panel !== 'admin' && estado !== 'cargando') {
+    return (
+      <div className="admin-login" role="status" aria-live="polite">
+        <div className="admin-card admin-card-corta">
+          <ShieldAlert size={24} aria-hidden="true" />
+          <span className="admin-eyebrow">Acceso restringido</span>
+          <h1>Dispositivo no autorizado</h1>
+          <p>Este dispositivo no está vinculado a {TITULOS[panel]}. No se pueden mostrar los pedidos desde este enlace.</p>
+        </div>
+      </div>
+    );
+  }
   if (estado === 'sin-sesion' || estado === 'denegado' || estado === 'dispositivo') return <Login destino={destino} aviso={aviso} />;
 
   return (

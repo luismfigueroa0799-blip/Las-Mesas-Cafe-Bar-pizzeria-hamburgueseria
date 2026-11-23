@@ -117,6 +117,7 @@ function App() {
   const rutaActual = location.replace(/\/+$/, '').toLowerCase();
   const esInicio = rutaActual === '' || rutaActual === '/';
   const esRutaLogin = rutaActual === '/login';
+  const esRutaVinculacion = rutaActual === '/admin/vincular';
   const esRutaOpciones = rutaActual === '/admin/opciones';
   const esRutaCocina = rutaActual === '/admin/cocina';
   const esRutaBarra = rutaActual === '/admin/barra';
@@ -335,6 +336,11 @@ function App() {
   }
 
   if (esRutaLogin) return <Login />;
+  if (esRutaVinculacion) {
+    const panel = new URLSearchParams(window.location.search).get('panel');
+    const destino = panel === 'barra' ? '/admin/barra' : '/admin/cocina';
+    return <Login destino={destino} />;
+  }
   if (esRutaCocina) return <PanelAcceso panel="cocina"><Cocina /></PanelAcceso>;
   if (esRutaBarra) return <PanelAcceso panel="barra"><Barra /></PanelAcceso>;
   if (esRutaOpciones) return <PanelAcceso panel="admin"><GestionOpciones /></PanelAcceso>;

@@ -4,10 +4,9 @@ import { useEffect, useState } from 'react';
 import { LockKeyhole, Mail } from 'lucide-react';
 
 /**
- * Pantalla de acceso rapido al panel de inventario (/admin/inventario).
- *
- * Administración valida el acceso con un código enviado al correo; Barra y
- * Cocina conservan el acceso de correo y contraseña autorizado por servidor.
+ * Acceso de Administración y vinculación temporal de dispositivos de Cocina/Barra.
+ * Los paneles de staff solo muestran su contenido después de validar la cookie
+ * de dispositivo en el servidor.
  */
 
 /**
