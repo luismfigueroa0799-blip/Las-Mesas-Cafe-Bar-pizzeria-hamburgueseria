@@ -143,8 +143,8 @@ export default async function handler(req: Req, res: Res): Promise<void> {
 
   if (action === 'verify_admin_email_code') {
     const code = String(body.code ?? '').replace(/\s/g, '');
-    if (!email || !esCorreoAdministracion(email) || !/^\d{6}$/.test(code)) {
-      responder(res, { error: 'Escribe el código de seis cifras enviado al correo autorizado.' }, 400); return;
+    if (!email || !esCorreoAdministracion(email) || !/^\d{6,8}$/.test(code)) {
+      responder(res, { error: 'Escribe el código de 6 u 8 cifras enviado al correo autorizado.' }, 400); return;
     }
     const pendingToken = tokenPendiente(req);
     if (!pendingToken) { responder(res, { error: 'La verificación ha caducado. Vuelve a escribir tu contraseña para recibir otro código.' }, 401); return; }

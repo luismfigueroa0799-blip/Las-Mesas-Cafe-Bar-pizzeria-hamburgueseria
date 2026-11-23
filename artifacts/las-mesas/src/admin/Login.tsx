@@ -195,16 +195,16 @@ const Login: React.FC<{ destino?: string; aviso?: string }> = ({ destino = '/adm
           <>
             <p className="admin-ok" role="status">Te hemos enviado un código a tu correo. Revisa también la carpeta de spam.</p>
             <label className="admin-field">
-              <span>Código de seis cifras</span>
+              <span>Código de verificación</span>
               <input
                 type="text"
                 name="one-time-code"
                 inputMode="numeric"
                 autoComplete="one-time-code"
-                pattern="[0-9]{6}"
-                maxLength={6}
+                pattern="[0-9]{6,8}"
+                maxLength={8}
                 value={codigoCorreo}
-                onChange={(e) => setCodigoCorreo(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                onChange={(e) => setCodigoCorreo(e.target.value.replace(/\D/g, '').slice(0, 8))}
                 autoFocus
                 required
                 data-testid="input-admin-email-code"
