@@ -12,6 +12,10 @@ function listaCorreos(nombre: string): string[] {
   return configurados;
 }
 
+export function esCorreoAdministracion(email: string): boolean {
+  return listaCorreos('ADMIN_EMAILS').includes(String(email ?? '').trim().toLowerCase());
+}
+
 /** Los roles se asignan solo desde listas privadas del servidor o app_metadata confiable. */
 export function rolDeUsuario(usuario: any): RolPanel | null {
   const email = String(usuario?.email ?? '').trim().toLowerCase();
@@ -40,15 +44,6 @@ export function origenDelMismoSitio(req: any): boolean {
   const host = header(req, 'x-forwarded-host').split(',')[0].trim() || header(req, 'host');
   if (!origin || !host) return false;
   try { return new URL(origin).host.toLowerCase() === host.toLowerCase(); } catch { return false; }
-}
-
-function tieneAal2(token: string): boolean {
-  try {
-    const payload = token.split('.')[1];
-    if (!payload) return false;
-    const decoded = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
-    return decoded?.aal === 'aal2';
-  } catch { return false; }
 }
 
 function esSeguro(): boolean { return env().VERCEL === '1' || env().NODE_ENV === 'production'; }
@@ -101,7 +96,7 @@ export async function usuarioDeSolicitud(req: any, res: any): Promise<any | null
   const jar = cookies(req);
   const access = jar[nombreCookie('access')] ?? '';
   const user = await usuarioDelToken(access);
-  if (user) return rolDeUsuario(user) === 'admin' && !tieneAal2(access) ? null : user;
+  if (user) return user;
   const refresh = jar[nombreCookie('refresh')] ?? '';
   const key = env().SUPABASE_SECRET_KEY ?? env().SUPABASE_SERVICE_ROLE_KEY ?? '';
   const url = String(env().SUPABASE_URL ?? 'https://fohxajfpnriusuybdteu.supabase.co').replace(/\/+$/, '');
@@ -115,7 +110,6 @@ export async function usuarioDeSolicitud(req: any, res: any): Promise<any | null
     if (!session?.access_token || !session?.refresh_token) { borrarCookies(res); return null; }
     escribirCookies(res, String(session.access_token), String(session.refresh_token), Number(session.expires_in));
     const refreshedUser = session.user ?? await usuarioDelToken(String(session.access_token));
-    if (rolDeUsuario(refreshedUser) === 'admin' && !tieneAal2(String(session.access_token))) { borrarCookies(res); return null; }
     return refreshedUser;
   } catch { return null; }
 }
@@ -123,8 +117,6 @@ export async function usuarioDeSolicitud(req: any, res: any): Promise<any | null
 export function guardarSesion(res: any, session: any): void {
   escribirCookies(res, String(session?.access_token ?? ''), String(session?.refresh_token ?? ''), Number(session?.expires_in));
 }
-
-export function tokenAal2(token: string): boolean { return tieneAal2(token); }
 
 export async function cerrarSesion(req: any, res: any): Promise<void> {
   const jar = cookies(req);

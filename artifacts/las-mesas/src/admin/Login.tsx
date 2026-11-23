@@ -6,8 +6,8 @@ import { LockKeyhole, Mail } from 'lucide-react';
 /**
  * Pantalla de acceso rapido al panel de inventario (/admin/inventario).
  *
- * Correo y contraseña se validan en el servidor; la API decide si esa cuenta
- * puede abrir Administración, Barra o Cocina.
+ * Administración valida el acceso con un código enviado al correo; Barra y
+ * Cocina conservan el acceso de correo y contraseña autorizado por servidor.
  */
 
 /**
@@ -69,10 +69,11 @@ const Login: React.FC<{ destino?: string; aviso?: string }> = ({ destino = '/adm
   const [error, setError] = useState('');
   const [detalle, setDetalle] = useState('');
   const [entrando, setEntrando] = useState(false);
-  const [mfa, setMfa] = useState<{ pending_token: string; factor_id: string; challenge_id?: string; qr_code?: string; secret?: string; setup: boolean } | null>(null);
-  const [codigoMfa, setCodigoMfa] = useState('');
+  const [codigoEnviado, setCodigoEnviado] = useState(false);
+  const [codigoCorreo, setCodigoCorreo] = useState('');
 
   const sinApi = sitioSinApi();
+  const accesoAdmin = destino !== '/admin/cocina' && destino !== '/admin/barra';
 
   async function entrar(e: React.FormEvent) {
     e.preventDefault();
@@ -83,11 +84,14 @@ const Login: React.FC<{ destino?: string; aviso?: string }> = ({ destino = '/adm
 
     try {
       const panel = destino === '/admin/cocina' ? 'cocina' : destino === '/admin/barra' ? 'barra' : 'admin';
+      const action = accesoAdmin
+        ? codigoEnviado ? 'verify_admin_email_code' : 'send_admin_email_code'
+        : 'login';
       const r = await fetch('/api/admin-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(mfa
-          ? { action: 'verify_mfa', pending_token: mfa.pending_token, factor_id: mfa.factor_id, challenge_id: mfa.challenge_id, code: codigoMfa }
+        body: JSON.stringify(accesoAdmin
+          ? { action, email, ...(codigoEnviado ? { code: codigoCorreo } : {}) }
           : { email, password, panel }),
       });
 
@@ -112,16 +116,10 @@ const Login: React.FC<{ destino?: string; aviso?: string }> = ({ destino = '/adm
         return;
       }
 
-      if (datos?.mfa_required || datos?.mfa_setup) {
-        setMfa({
-          pending_token: String(datos.pending_token),
-          factor_id: String(datos.factor_id),
-          challenge_id: datos.challenge_id ? String(datos.challenge_id) : undefined,
-          qr_code: datos.qr_code ? String(datos.qr_code) : undefined,
-          secret: datos.secret ? String(datos.secret) : undefined,
-          setup: Boolean(datos.mfa_setup),
-        });
+      if (datos?.code_sent) {
+        setCodigoEnviado(true);
         setPassword('');
+        setError('');
         return;
       }
 
@@ -158,32 +156,10 @@ const Login: React.FC<{ destino?: string; aviso?: string }> = ({ destino = '/adm
         <span className="admin-eyebrow">
           Panel interno
         </span>
-        <h1>{mfa ? 'Verificación de acceso' : 'Iniciar sesión'}</h1>
-        {!mfa && <p className="admin-sub">Accede con tu cuenta de personal para entrar al panel correspondiente.</p>}
-
-        {mfa ? (
-          <div className="admin-mfa" aria-live="polite">
-            {mfa.setup ? (
-              <>
-                <h2>Protege Administración</h2>
-                <p>Escanea este código QR con Google Authenticator, Microsoft Authenticator o una app compatible.</p>
-                {mfa.qr_code && <img className="admin-mfa-qr" src={mfa.qr_code} alt="Código QR para configurar la autenticación" />}
-                <p className="admin-mfa-secret">Si no puedes escanearlo, introduce esta clave en la app: <strong>{mfa.secret}</strong></p>
-              </>
-            ) : (
-              <>
-                <h2>Confirma tu identidad</h2>
-                <p>Escribe el código de 6 dígitos que aparece en tu app autenticadora.</p>
-              </>
-            )}
-            <label className="admin-field">
-              <span>Código de autenticación</span>
-              <input type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9 ]{6,8}" maxLength={8} value={codigoMfa} onChange={(e) => setCodigoMfa(e.target.value.replace(/[^0-9 ]/g, ''))} required />
-            </label>
-            <button type="button" className="admin-nota" onClick={() => { setMfa(null); setCodigoMfa(''); setError(''); }}>Volver al inicio de sesión</button>
-          </div>
-        ) : (
-          <>
+        <h1>Iniciar sesión</h1>
+        <p className="admin-sub">{accesoAdmin
+          ? 'Te enviaremos un código de acceso al correo de Administración.'
+          : 'Accede con tu cuenta de personal para entrar al panel correspondiente.'}</p>
 
         {aviso && <p className="admin-error" role="status">{aviso}</p>}
 
@@ -194,14 +170,39 @@ const Login: React.FC<{ destino?: string; aviso?: string }> = ({ destino = '/adm
             name="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            readOnly={accesoAdmin && codigoEnviado}
             placeholder="tu@correo.com"
             autoComplete="username"
-            autoFocus
+            autoFocus={!codigoEnviado}
             required
             data-testid="input-admin-email"
           />
         </label>
-        <label className="admin-field">
+        {accesoAdmin && codigoEnviado && (
+          <>
+            <p className="admin-ok" role="status">Te hemos enviado un código a tu correo. Revisa también la carpeta de spam.</p>
+            <label className="admin-field">
+              <span>Código de seis cifras</span>
+              <input
+                type="text"
+                name="one-time-code"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                pattern="[0-9]{6}"
+                maxLength={6}
+                value={codigoCorreo}
+                onChange={(e) => setCodigoCorreo(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                autoFocus
+                required
+                data-testid="input-admin-email-code"
+              />
+            </label>
+            <button type="button" className="admin-nota" onClick={() => { setCodigoEnviado(false); setCodigoCorreo(''); setError(''); }}>
+              Cambiar correo o enviar otro código
+            </button>
+          </>
+        )}
+        {!accesoAdmin && <label className="admin-field">
           <span><LockKeyhole size={15} aria-hidden="true" /> Contraseña</span>
           <input
             type="password"
@@ -213,9 +214,7 @@ const Login: React.FC<{ destino?: string; aviso?: string }> = ({ destino = '/adm
             required
             data-testid="input-admin-password"
           />
-        </label>
-          </>
-        )}
+        </label>}
 
         {error && (
           <p className="admin-error" data-testid="admin-login-error">
@@ -230,7 +229,7 @@ const Login: React.FC<{ destino?: string; aviso?: string }> = ({ destino = '/adm
           disabled={entrando}
           data-testid="button-admin-login"
         >
-          {entrando ? 'Comprobando…' : mfa ? 'Verificar código' : 'Entrar'}
+          {entrando ? 'Comprobando…' : accesoAdmin ? codigoEnviado ? 'Verificar código' : 'Enviar código al correo' : 'Entrar'}
         </button>
 
         <p className="admin-nota">

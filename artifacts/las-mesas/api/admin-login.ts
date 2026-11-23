@@ -1,4 +1,4 @@
-import { cerrarSesion, guardarSesion, origenDelMismoSitio, puedeEntrar, rolDeUsuario, tokenAal2, usuarioDeSolicitud } from './_admin-auth.js';
+import { cerrarSesion, esCorreoAdministracion, guardarSesion, origenDelMismoSitio, puedeEntrar, rolDeUsuario, usuarioDeSolicitud } from './_admin-auth.js';
 
 type Global = Record<string, any>;
 const g = globalThis as unknown as Global;
@@ -31,12 +31,12 @@ function apiAuth(): { key: string; url: string } {
     url: String(env().SUPABASE_URL ?? 'https://fohxajfpnriusuybdteu.supabase.co').replace(/\/+$/, ''),
   };
 }
-async function authCall(path: string, token: string, method = 'GET', body?: unknown): Promise<any> {
+async function authCall(path: string, method: string, body: unknown): Promise<any> {
   const { key, url } = apiAuth();
   const response = await g.fetch(`${url}/auth/v1/${path}`, {
     method,
-    headers: { apikey: key, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    headers: { apikey: key, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
   });
   const text = await response.text();
   let data: any = {};
@@ -44,28 +44,6 @@ async function authCall(path: string, token: string, method = 'GET', body?: unkn
   if (!response.ok) throw new Error(String(data?.msg ?? data?.message ?? data?.error_description ?? data?.error_code ?? data?.error ?? 'No se pudo completar la verificación.'));
   return data;
 }
-async function obtenerFactores(token: string): Promise<any[]> {
-  // Supabase expone los factores del usuario dentro de GET /auth/v1/user.
-  // El cliente oficial listFactors() también los lee desde user.factors.
-  const user = await authCall('user', token);
-  return Array.isArray(user?.factors) ? user.factors : [];
-}
-async function crearDesafio(token: string, factorId: string): Promise<string> {
-  const data = await authCall(`factors/${encodeURIComponent(factorId)}/challenge`, token, 'POST', {});
-  return String(data?.id ?? data?.challenge_id ?? '');
-}
-async function verificarCodigo(token: string, factorId: string, challengeId: string, code: string): Promise<any> {
-  return authCall(`factors/${encodeURIComponent(factorId)}/verify`, token, 'POST', { challenge_id: challengeId, code });
-}
-function sesionValida(session: any): boolean {
-  return Boolean(session?.access_token && session?.refresh_token && tokenAal2(String(session.access_token)));
-}
-function terminarMfa(res: Res, session: any, email: string, role: string): void {
-  if (!sesionValida(session)) { responder(res, { error: 'Supabase no confirmó el segundo factor. Inténtalo de nuevo.' }, 401); return; }
-  guardarSesion(res, session);
-  responder(res, { email, role, expira_en: Number(session.expires_in ?? 3600) });
-}
-
 export default async function handler(req: Req, res: Res): Promise<void> {
   const method = String(req.method ?? 'GET').toUpperCase();
   if (method === 'DELETE') {
@@ -85,37 +63,49 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   const body = leerCuerpo(req);
   const action = String(body.action ?? 'login');
 
-  if (action === 'verify_mfa') {
-    const token = String(body.pending_token ?? '');
-    const factorId = String(body.factor_id ?? '');
-    let challengeId = String(body.challenge_id ?? '');
-    const code = String(body.code ?? '').replace(/\s/g, '');
-    if (!token || !factorId || !/^\d{6,8}$/.test(code)) { responder(res, { error: 'Escribe el código de tu app autenticadora.' }, 400); return; }
-    const user = await (async () => {
-      const { key, url } = apiAuth();
-      const r = await g.fetch(`${url}/auth/v1/user`, { headers: { apikey: key, Authorization: `Bearer ${token}` } });
-      return r.ok ? r.json() : null;
-    })();
-    const role = rolDeUsuario(user);
-    if (!user || role !== 'admin') { responder(res, { error: 'La sesión de verificación ha caducado. Inicia sesión otra vez.' }, 401); return; }
+  const email = String(body.email ?? '').trim().toLowerCase();
+  const { key, url } = apiAuth();
+  if (!key) { responder(res, { error: 'Supabase no está configurado.' }, 503); return; }
+
+  if (action === 'send_admin_email_code') {
+    if (!email || !email.includes('@')) { responder(res, { error: 'Escribe el correo de Administración.' }, 400); return; }
+    // Solo el correo autorizado de Administración puede solicitar el acceso.
+    if (!esCorreoAdministracion(email)) { responder(res, { error: 'Usa el correo autorizado de Administración.' }, 403); return; }
     try {
-      if (!challengeId) challengeId = await crearDesafio(token, factorId);
-      if (!challengeId) throw new Error('No se pudo iniciar la verificación.');
-      const session = await verificarCodigo(token, factorId, challengeId, code);
-      terminarMfa(res, session, String(user.email), role);
-    } catch (error) { responder(res, { error: (error as Error)?.message ?? 'Código no válido.' }, 401); }
+      const data = await authCall('otp', 'POST', { email, create_user: false });
+      responder(res, { code_sent: true, ...(data?.message_id ? { message_id: data.message_id } : {}) });
+    } catch (error) {
+      g.console?.error?.('[admin-login] no se pudo solicitar el código de correo');
+      responder(res, { error: 'No se pudo enviar el código. Espera un momento e inténtalo otra vez.' }, 502);
+    }
+    return;
+  }
+
+  if (action === 'verify_admin_email_code') {
+    const code = String(body.code ?? '').replace(/\s/g, '');
+    if (!email || !esCorreoAdministracion(email) || !/^\d{6}$/.test(code)) {
+      responder(res, { error: 'Escribe el código de seis cifras enviado al correo autorizado.' }, 400); return;
+    }
+    try {
+      const session = await authCall('verify', 'POST', { type: 'email', email, token: code });
+      const user = session?.user;
+      const role = rolDeUsuario(user);
+      if (!session?.access_token || !session?.refresh_token || role !== 'admin') {
+        responder(res, { error: 'El código no es válido o ha caducado. Solicita uno nuevo.' }, 401); return;
+      }
+      guardarSesion(res, session);
+      responder(res, { email: user.email, role, expira_en: Number(session.expires_in ?? 3600) });
+    } catch {
+      responder(res, { error: 'El código no es válido o ha caducado. Solicita uno nuevo.' }, 401);
+    }
     return;
   }
 
   if (action !== 'login') { responder(res, { error: 'Acción no válida.' }, 400); return; }
-  const email = String(body.email ?? '').trim().toLowerCase();
   const password = String(body.password ?? '');
   const panelSolicitado = String(body.panel ?? 'admin').toLowerCase();
   const panel = panelSolicitado === 'barra' || panelSolicitado === 'cocina' ? panelSolicitado : 'admin';
   if (!email || !password) { responder(res, { error: 'Escribe tu correo y tu contraseña.' }, 400); return; }
-  const { key, url } = apiAuth();
-  if (!key) { responder(res, { error: 'Supabase no está configurado.' }, 503); return; }
-
   try {
     const auth = await g.fetch(`${url}/auth/v1/token?grant_type=password`, {
       method: 'POST', headers: { apikey: key, 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }),
@@ -130,30 +120,11 @@ export default async function handler(req: Req, res: Res): Promise<void> {
       responder(res, { error: `Esta cuenta no tiene permiso para entrar en ${nombre}.` }, 403); return;
     }
 
-    if (role !== 'admin') {
-      guardarSesion(res, data);
-      responder(res, { email: user.email, role, expira_en: Number(data?.expires_in ?? 3600) });
-      return;
+    if (role === 'admin') {
+      responder(res, { error: 'Administración ahora inicia sesión con un código enviado al correo.' }, 400); return;
     }
-
-    const factors = await obtenerFactores(String(data.access_token));
-    const verified = factors.find((factor) => factor?.factor_type === 'totp' && factor?.status === 'verified');
-    if (verified) {
-      const challengeId = await crearDesafio(String(data.access_token), String(verified.id));
-      if (!challengeId) throw new Error('Supabase no devolvió el reto de autenticación.');
-      responder(res, { mfa_required: true, pending_token: data.access_token, factor_id: verified.id, challenge_id: challengeId });
-      return;
-    }
-    if (factors.some((factor) => factor?.factor_type === 'totp' && factor?.status !== 'verified')) {
-      responder(res, { error: 'Hay una configuración de autenticación incompleta. Elimina el factor TOTP pendiente en Supabase Auth y vuelve a entrar.' }, 409);
-      return;
-    }
-    const enrolled = await authCall('factors', String(data.access_token), 'POST', { factor_type: 'totp', friendly_name: 'Las Mesas Administración' });
-    const factorId = String(enrolled?.id ?? '');
-    const qrRaw = String(enrolled?.totp?.qr_code ?? '');
-    const qrCode = qrRaw.startsWith('data:') ? qrRaw : qrRaw ? `data:image/svg+xml;utf-8,${qrRaw}` : '';
-    if (!factorId || !qrCode) throw new Error('Supabase no devolvió el código QR de configuración.');
-    responder(res, { mfa_setup: true, pending_token: data.access_token, factor_id: factorId, qr_code: qrCode, secret: String(enrolled?.totp?.secret ?? '') });
+    guardarSesion(res, data);
+    responder(res, { email: user.email, role, expira_en: Number(data?.expires_in ?? 3600) });
   } catch (error) {
     g.console?.error?.('[admin-login] error:', error);
     responder(res, { error: (error as Error)?.message ?? 'No se pudo iniciar sesión.' }, 502);
