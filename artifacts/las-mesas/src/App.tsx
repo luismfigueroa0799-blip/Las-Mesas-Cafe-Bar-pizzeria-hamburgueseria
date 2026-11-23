@@ -11,6 +11,7 @@ import ProductCard from '@/ProductCard';
 import { CLAVES_DIAS, HORARIO_PREDETERMINADO, fechaCanarias, normalizarHorario, obtenerEstadoHorario, textoTramos, type ConfiguracionHorario } from '@/horarios';
 import Inventario from '@/admin/Inventario';
 import CelebracionesAdmin from '@/admin/CelebracionesAdmin';
+import ReservasAdmin from '@/admin/ReservasAdmin';
 import GestionOpciones from '@/admin/GestionOpciones';
 import Cocina from '@/admin/Cocina';
 import Barra from '@/admin/Barra';
@@ -86,6 +87,7 @@ function App() {
   const [reservationStatus, setReservationStatus] = useState('');
   const [eventStatus, setEventStatus] = useState('');
   const [enviandoCelebracion, setEnviandoCelebracion] = useState(false);
+  const [enviandoReserva, setEnviandoReserva] = useState(false);
   const [compactHeader, setCompactHeader] = useState(false);
   // Menú móvil: Escape, clic fuera y bloqueo de scroll del fondo.
   const menuRef = useRef<HTMLDivElement>(null);
@@ -121,6 +123,7 @@ function App() {
   const esRutaVinculacion = rutaActual === '/admin/vincular';
   const esRutaOpciones = rutaActual === '/admin/opciones';
   const esRutaCelebracionesAdmin = rutaActual === '/admin/celebraciones';
+  const esRutaReservasAdmin = rutaActual === '/admin/reservas';
   const esRutaCocina = rutaActual === '/admin/cocina';
   const esRutaBarra = rutaActual === '/admin/barra';
   const esRutaAdmin = rutaActual.startsWith('/admin');
@@ -324,6 +327,44 @@ function App() {
     }
   }
 
+  async function enviarReserva(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formulario = event.currentTarget;
+    if (!formulario.reportValidity() || enviandoReserva) return;
+    const data = new FormData(formulario);
+    setEnviandoReserva(true);
+    setReservationStatus('');
+    try {
+      const respuesta = await fetch('/api/solicitud-celebracion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tipoSolicitud: 'reserva',
+          nombre: String(data.get('name') ?? ''),
+          contacto: String(data.get('contact') ?? ''),
+          fecha: String(data.get('date') ?? ''),
+          hora: String(data.get('time') ?? ''),
+          numeroPersonas: Number(data.get('people') ?? 0),
+          comentarios: String(data.get('comments') ?? ''),
+        }),
+      });
+      const datos = await respuesta.json().catch(() => ({}));
+      if (!respuesta.ok) {
+        setReservationStatus(datos?.error ?? 'No se pudo enviar la solicitud. Inténtalo de nuevo.');
+        return;
+      }
+      const aviso = datos?.alertaEnviada === false ? ' Hemos guardado tu solicitud, pero el aviso al local no se pudo enviar; llámanos para confirmar que la hemos visto.' : ' El equipo del local revisará la disponibilidad y te confirmará.';
+      setReservationStatus(`Solicitud recibida${datos?.codigo ? ` · Referencia ${datos.codigo}` : ''}.${aviso} La mesa todavía no está confirmada.`);
+      formulario.reset();
+      setReservationDate('');
+      setReservationTime('');
+    } catch {
+      setReservationStatus('No se pudo enviar la solicitud. Inténtalo de nuevo o llámanos al +34 928 896 097.');
+    } finally {
+      setEnviandoReserva(false);
+    }
+  }
+
   function sendWhatsApp(event: FormEvent<HTMLFormElement>, kind: 'reserva' | 'evento') {
     event.preventDefault();
     const form = event.currentTarget;
@@ -346,6 +387,7 @@ function App() {
   if (esRutaCocina) return <PanelAcceso panel="cocina"><Cocina /></PanelAcceso>;
   if (esRutaBarra) return <PanelAcceso panel="barra"><Barra /></PanelAcceso>;
   if (esRutaCelebracionesAdmin) return <PanelAcceso panel="admin"><CelebracionesAdmin /></PanelAcceso>;
+  if (esRutaReservasAdmin) return <PanelAcceso panel="admin"><ReservasAdmin /></PanelAcceso>;
   if (esRutaOpciones) return <PanelAcceso panel="admin"><GestionOpciones /></PanelAcceso>;
   if (esRutaAdmin) return <PanelAcceso panel="admin"><Inventario /></PanelAcceso>;
 
@@ -621,19 +663,19 @@ function App() {
     <>
       <section className="reservation section-pad" id="reserva">
         <div className="shell reservation-grid">
-          <div className="reservation-intro"><p className="eyebrow">{t('reserva.titulo1')}</p><h2>{t('reserva.titulo2')}<br /><em>{t('reserva.titulo3')}</em></h2><p>Cuéntanos cuándo vienes y cuántos sois. Te enviaremos la solicitud por WhatsApp para que puedas confirmarla con el equipo.</p><div className="direct-call"><span>{t('reserva.prefieres')}</span><a href={phoneHref} data-testid="link-call-reservation"><Phone size={16} /> {phone}</a></div></div>
-          <form className="form-card reservation-form" onSubmit={(e) => sendWhatsApp(e, 'reserva')}>
+          <div className="reservation-intro"><p className="eyebrow">{t('reserva.titulo1')}</p><h2>{t('reserva.titulo2')}<br /><em>{t('reserva.titulo3')}</em></h2><p>Cuéntanos cuándo vienes y cuántos sois. Guardaremos tu solicitud y el equipo te confirmará la disponibilidad.</p><div className="direct-call"><span>{t('reserva.prefieres')}</span><a href={phoneHref} data-testid="link-call-reservation"><Phone size={16} /> {phone}</a></div></div>
+          <form className="form-card reservation-form" onSubmit={(e) => void enviarReserva(e)}>
             <span className="eyebrow">{t('reserva.submit')}</span>
             <div className="field-grid">
               <label>{t('form.nombre')}<input name="name" required autoComplete="name" placeholder={t('form.nombre.ph')} data-testid="input-reservation-name" /></label>
-              <label>{t('form.contacto')}<input name="contact" required autoComplete="email" pattern="(?:[^@ ]+@[^@ ]+\\.[^@ ]+|\\+?[0-9][0-9 \\-]{6,})" title="Introduce un teléfono válido o un correo electrónico." placeholder={t('form.nombre.ph')} data-testid="input-reservation-contact" /></label>
+              <label>{t('form.contacto')}<input name="contact" required autoComplete="on" pattern="(?:[^@ ]+@[^@ ]+\\.[^@ ]+|\\+?[0-9][0-9 .()\\-]{7,})" title="Introduce un teléfono válido o un correo electrónico." placeholder={t('form.nombre.ph')} data-testid="input-reservation-contact" /></label>
               <label>{t('form.fechaReserva')}<input type="date" name="date" min={minDate} required value={reservationDate} onChange={(event) => { setReservationDate(event.target.value); setReservationTime(''); }} data-testid="input-reservation-date" /></label>
               <label>{t('form.hora')}<select name="time" required value={reservationTime} onChange={(event) => setReservationTime(event.target.value)} disabled={!reservationDate || !reservationTimes.length} data-testid="select-reservation-time"><option value="" disabled>{!reservationDate ? 'Elige primero una fecha' : reservationTimes.length ? 'Elige una hora' : t('form.horaNoDisponible')}</option>{reservationTimes.map((time) => <option key={time}>{time}</option>)}</select></label>
               <label>{t('form.personas')}<input type="number" min="1" max="20" name="people" required placeholder="Ej. 4" data-testid="input-reservation-people" /></label>
               <label className="full-field">{t('form.comentarios')} <span className="optional">{t('form.opcional')}</span><textarea name="comments" rows={2} placeholder={t('form.comentarios.ph')} data-testid="input-reservation-comments" /></label>
             </div>
-            <button className="button button-gold form-submit" type="submit" data-testid="button-reservation-submit">{t('reserva.preparar')} <ArrowRight size={16} /></button>
-            <p className="form-disclaimer">{t('form.reserva.desc')}</p>
+            <button className="button button-gold form-submit" type="submit" disabled={enviandoReserva} data-testid="button-reservation-submit">{enviandoReserva ? 'Enviando…' : 'Enviar solicitud'} <ArrowRight size={16} /></button>
+            <p className="form-disclaimer">Recibirás un aviso de que la solicitud llegó. La reserva solo queda confirmada cuando el local te responda.</p>
             {reservationStatus && <p className="form-status" role="status" data-testid="status-reservation">{reservationStatus}</p>}
           </form>
         </div>

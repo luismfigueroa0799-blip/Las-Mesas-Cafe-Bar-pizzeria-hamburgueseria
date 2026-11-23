@@ -397,6 +397,9 @@ const Inventario: React.FC = () => {
           <Link className="admin-boton admin-boton-claro" href="/admin/celebraciones">
             <PartyPopper size={16} /> Celebraciones
           </Link>
+          <Link className="admin-boton admin-boton-claro" href="/admin/reservas">
+            <CalendarClock size={16} /> Reservas
+          </Link>
           <button
             type="button"
             className="admin-boton admin-boton-claro"

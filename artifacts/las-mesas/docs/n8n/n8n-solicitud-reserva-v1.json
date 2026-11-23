@@ -1,0 +1,74 @@
+{
+  "name": "Solicitud de reserva (Neon) v1",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "solicitud-reserva",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "3b9a2a4c-10f7-4be2-b3ac-6fc52a50a001",
+      "name": "Recibir solicitud",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [0, 200]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const entrada = $input.first()?.json ?? {};\nlet datos = entrada.body ?? entrada;\nif (typeof datos === 'string') { try { datos = JSON.parse(datos); } catch { datos = {}; } }\nconst f = { ...entrada, ...datos };\nconst codigo = String(f.codigo ?? '');\nconst nombre = String(f.nombre ?? '');\nconst contacto = String(f.contacto ?? '');\nconst fecha = String(f.fecha ?? '');\nconst hora = String(f.hora ?? '');\nconst personas = Number(f.numeroPersonas ?? 0);\nconst comentarios = String(f.comentarios ?? '').trim();\nif (!codigo || !nombre || !contacto || !fecha || !hora || !Number.isInteger(personas)) throw new Error('La solicitud de reserva está incompleta.');\nconst mensaje = '📅 NUEVA SOLICITUD DE RESERVA\\n\\n' + 'Referencia: ' + codigo + '\\n' + '👤 ' + nombre + '\\n' + '📞 ' + contacto + '\\n' + '🗓 ' + fecha + ' · ' + hora + '\\n' + '👥 ' + personas + ' personas' + (comentarios ? '\\n\\n📝 ' + comentarios : '') + '\\n\\nPendiente de confirmar en Administración.';\nreturn [{ json: { codigo, nombre, contacto, fecha, hora, personas, comentarios, mensaje } }];"
+      },
+      "id": "3b9a2a4c-10f7-4be2-b3ac-6fc52a50a002",
+      "name": "Preparar aviso",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [240, 200]
+    },
+    {
+      "parameters": {
+        "chatId": "8279256563",
+        "text": "={{ $json.mensaje }}",
+        "additionalFields": {}
+      },
+      "id": "3b9a2a4c-10f7-4be2-b3ac-6fc52a50a003",
+      "name": "Avisar al local por Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [500, 200],
+      "credentials": {
+        "telegramApi": {
+          "id": "sIFKDmcGc2Y9u7TU",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, alertaEnviada: true }) }}",
+        "options": {}
+      },
+      "id": "3b9a2a4c-10f7-4be2-b3ac-6fc52a50a004",
+      "name": "Confirmar aviso enviado",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [760, 200]
+    }
+  ],
+  "connections": {
+    "Recibir solicitud": {
+      "main": [[{ "node": "Preparar aviso", "type": "main", "index": 0 }]]
+    },
+    "Preparar aviso": {
+      "main": [[{ "node": "Avisar al local por Telegram", "type": "main", "index": 0 }]]
+    },
+    "Avisar al local por Telegram": {
+      "main": [[{ "node": "Confirmar aviso enviado", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1", "binaryMode": "separate" },
+  "pinData": {},
+  "tags": []
+}

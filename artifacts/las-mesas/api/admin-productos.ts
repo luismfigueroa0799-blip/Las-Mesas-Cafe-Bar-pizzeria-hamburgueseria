@@ -115,6 +115,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   const accion = String(cuerpo.accion ?? '').toLowerCase();
   const vistaPedidos = Array.isArray(req.query?.vista) ? req.query?.vista[0] : req.query?.vista;
   const vistaCelebraciones = Array.isArray(req.query?.vista) ? req.query?.vista[0] : req.query?.vista;
+  const vistaReservas = Array.isArray(req.query?.vista) ? req.query?.vista[0] : req.query?.vista;
   const usuario = await usuarioDeSolicitud(req, res);
   let rol = rolDeUsuario(usuario);
   let panelSolicitado: 'barra' | 'cocina' | null = null;
@@ -330,6 +331,35 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     return;
   }
 
+  if (metodo === 'GET' && vistaReservas === 'reservas') {
+    const pool = await poolDeNeon();
+    if (!pool) { responder(res, { error: 'Neon no está configurado (falta DATABASE_URL)' }, 503); return; }
+    try {
+      await pool.query(`create table if not exists public.solicitudes_reserva (
+        id serial primary key, codigo text, nombre varchar(120) not null, contacto varchar(120) not null,
+        fecha date not null, hora time not null, numero_personas integer not null, comentarios text,
+        estado text not null default 'pendiente', fecha_creacion timestamp without time zone not null default now(),
+        actualizada_en timestamptz)`);
+      await pool.query(`alter table public.solicitudes_reserva
+        add column if not exists codigo text,
+        add column if not exists estado text not null default 'pendiente',
+        add column if not exists actualizada_en timestamptz`);
+      await pool.query(`update public.solicitudes_reserva
+        set codigo = 'RES-' || upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 12))
+        where codigo is null or btrim(codigo) = ''`);
+      await pool.query(`create unique index if not exists solicitudes_reserva_codigo_idx
+        on public.solicitudes_reserva (codigo)`);
+      const resultado = await pool.query(`select id, codigo, nombre, contacto, fecha::text as fecha,
+        to_char(hora, 'HH24:MI') as hora, numero_personas, comentarios, estado, fecha_creacion, actualizada_en
+        from public.solicitudes_reserva order by fecha_creacion desc nulls last, id desc limit 250`);
+      responder(res, { reservas: resultado.rows ?? [] });
+    } catch (error) {
+      g.console?.error?.('[admin] no se pudieron cargar las reservas:', error);
+      responder(res, { error: 'No se pudieron cargar las solicitudes de reserva' }, 502);
+    }
+    return;
+  }
+
   if (metodo === 'GET' && vistaCelebraciones === 'celebraciones') {
     const pool = await poolDeNeon();
     if (!pool) {
@@ -391,6 +421,29 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   if (req.method === 'POST' || req.method === 'DELETE') {
     const body = leerCuerpo(req);
     const accion = String(body.accion ?? '').toLowerCase();
+
+    if (accion === 'actualizar_reserva') {
+      const id = Number(body.id);
+      const estado = String(body.estado ?? '');
+      const estadosPermitidos = ['pendiente', 'confirmada', 'rechazada'];
+      if (!Number.isInteger(id) || id < 1 || !estadosPermitidos.includes(estado)) {
+        responder(res, { error: 'La reserva o el estado no son válidos' }, 400);
+        return;
+      }
+      const pool = await poolDeNeon();
+      if (!pool) { responder(res, { error: 'Neon no está configurado (falta DATABASE_URL)' }, 503); return; }
+      try {
+        const r = await pool.query(`update public.solicitudes_reserva
+          set estado = $2, actualizada_en = now()
+          where id = $1 returning id, estado, actualizada_en`, [id, estado]);
+        if (!r.rows?.length) { responder(res, { error: 'No se encontró esa reserva' }, 404); return; }
+        responder(res, { ok: true, solicitud: r.rows[0] });
+      } catch (error) {
+        g.console?.error?.('[admin] no se pudo actualizar la reserva:', error);
+        responder(res, { error: 'No se pudo actualizar el estado de la reserva' }, 502);
+      }
+      return;
+    }
 
     if (accion === 'actualizar_celebracion') {
       const id = Number(body.id);
