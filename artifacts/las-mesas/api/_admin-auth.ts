@@ -7,7 +7,7 @@ function env(): Record<string, string | undefined> {
 }
 
 function listaCorreos(nombre: string): string[] {
-  if (nombre === 'ADMIN_EMAILS') return ['admin@lasmesas.com'];
+  if (nombre === 'ADMIN_EMAILS') return ['lasmesascafeteriabar@gmail.com'];
   const configurados = String(env()[nombre] ?? '').split(',').map((correo) => correo.trim().toLowerCase()).filter(Boolean);
   return configurados;
 }
