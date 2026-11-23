@@ -41,12 +41,14 @@ async function authCall(path: string, token: string, method = 'GET', body?: unkn
   const text = await response.text();
   let data: any = {};
   try { data = text ? JSON.parse(text) : {}; } catch { /* no JSON */ }
-  if (!response.ok) throw new Error(String(data?.msg ?? data?.message ?? data?.error_description ?? 'No se pudo completar la verificación.'));
+  if (!response.ok) throw new Error(String(data?.msg ?? data?.message ?? data?.error_description ?? data?.error_code ?? data?.error ?? 'No se pudo completar la verificación.'));
   return data;
 }
 async function obtenerFactores(token: string): Promise<any[]> {
-  const data = await authCall('factors', token);
-  return Array.isArray(data) ? data : Array.isArray(data?.all) ? data.all : Array.isArray(data?.factors) ? data.factors : [];
+  // Supabase expone los factores del usuario dentro de GET /auth/v1/user.
+  // El cliente oficial listFactors() también los lee desde user.factors.
+  const user = await authCall('user', token);
+  return Array.isArray(user?.factors) ? user.factors : [];
 }
 async function crearDesafio(token: string, factorId: string): Promise<string> {
   const data = await authCall(`factors/${encodeURIComponent(factorId)}/challenge`, token, 'POST', {});
@@ -88,7 +90,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     const factorId = String(body.factor_id ?? '');
     let challengeId = String(body.challenge_id ?? '');
     const code = String(body.code ?? '').replace(/\s/g, '');
-    if (!token || !factorId || !challengeId || !/^\d{6,8}$/.test(code)) { responder(res, { error: 'Escribe el código de tu app autenticadora.' }, 400); return; }
+    if (!token || !factorId || !/^\d{6,8}$/.test(code)) { responder(res, { error: 'Escribe el código de tu app autenticadora.' }, 400); return; }
     const user = await (async () => {
       const { key, url } = apiAuth();
       const r = await g.fetch(`${url}/auth/v1/user`, { headers: { apikey: key, Authorization: `Bearer ${token}` } });
@@ -148,7 +150,8 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     }
     const enrolled = await authCall('factors', String(data.access_token), 'POST', { factor_type: 'totp', friendly_name: 'Las Mesas Administración' });
     const factorId = String(enrolled?.id ?? '');
-    const qrCode = String(enrolled?.totp?.qr_code ?? '');
+    const qrRaw = String(enrolled?.totp?.qr_code ?? '');
+    const qrCode = qrRaw.startsWith('data:') ? qrRaw : qrRaw ? `data:image/svg+xml;utf-8,${qrRaw}` : '';
     if (!factorId || !qrCode) throw new Error('Supabase no devolvió el código QR de configuración.');
     responder(res, { mfa_setup: true, pending_token: data.access_token, factor_id: factorId, qr_code: qrCode, secret: String(enrolled?.totp?.secret ?? '') });
   } catch (error) {
