@@ -1079,7 +1079,15 @@ html .admin-login .admin-card {
 html .admin-login h1 { color: #29251f !important; }
 html .admin-login .admin-sub { color: #6b655b !important; }
 html .admin-login .admin-eyebrow { color: #96762d !important; }
-html .admin-login .admin-field > span { color: #655b45 !important; }
+html .admin-login .admin-field > span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #493d2b !important;
+  font-size: .78rem;
+  letter-spacing: 0;
+  text-transform: none;
+}
 html .admin-login input {
   background: #fff !important;
   color: #28251f !important;

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { LogIn, UtensilsCrossed } from 'lucide-react';
+import { LockKeyhole, Mail } from 'lucide-react';
 
 /**
  * Pantalla de acceso rapido al panel de inventario (/admin/inventario).
@@ -156,10 +156,10 @@ const Login: React.FC<{ destino?: string; aviso?: string }> = ({ destino = '/adm
 
       <form className="admin-card admin-card-corta" onSubmit={entrar}>
         <span className="admin-eyebrow">
-          <UtensilsCrossed size={16} /> Las Mesas
+          Panel interno
         </span>
-        <h1>Acceso staff</h1>
-        <p className="admin-sub">Acceso seguro para Administración, Barra y Cocina.</p>
+        <h1>{mfa ? 'Verificación de acceso' : 'Iniciar sesión'}</h1>
+        {!mfa && <p className="admin-sub">Accede con tu cuenta de personal para entrar al panel correspondiente.</p>}
 
         {mfa ? (
           <div className="admin-mfa" aria-live="polite">
@@ -188,13 +188,13 @@ const Login: React.FC<{ destino?: string; aviso?: string }> = ({ destino = '/adm
         {aviso && <p className="admin-error" role="status">{aviso}</p>}
 
         <label className="admin-field">
-          <span>Correo</span>
+          <span><Mail size={15} aria-hidden="true" /> Correo electrónico</span>
           <input
             type="email"
             name="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="nombre@lasmesas.com"
+            placeholder="tu@correo.com"
             autoComplete="username"
             autoFocus
             required
@@ -202,13 +202,13 @@ const Login: React.FC<{ destino?: string; aviso?: string }> = ({ destino = '/adm
           />
         </label>
         <label className="admin-field">
-          <span>Contraseña</span>
+          <span><LockKeyhole size={15} aria-hidden="true" /> Contraseña</span>
           <input
             type="password"
             name="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="••••••••"
+            placeholder="Tu contraseña"
             autoComplete="current-password"
             required
             data-testid="input-admin-password"
@@ -230,7 +230,7 @@ const Login: React.FC<{ destino?: string; aviso?: string }> = ({ destino = '/adm
           disabled={entrando}
           data-testid="button-admin-login"
         >
-          <LogIn size={16} /> {entrando ? 'Comprobando…' : mfa ? 'Verificar código' : 'Entrar'}
+          {entrando ? 'Comprobando…' : mfa ? 'Verificar código' : 'Entrar'}
         </button>
 
         <p className="admin-nota">
