@@ -54,7 +54,7 @@ export default function PanelAcceso({ panel, children }: { panel: Panel; childre
   }, [panel]);
 
   if (estado === 'permitido') return <>{children}</>;
-  if (estado === 'sin-sesion' || estado === 'denegado' || estado === 'dispositivo') return <Login destino={destino} aviso={aviso} requiereCodigoDispositivo={estado === 'dispositivo'} />;
+  if (estado === 'sin-sesion' || estado === 'denegado' || estado === 'dispositivo') return <Login destino={destino} aviso={aviso} />;
 
   return (
     <div className="admin-login" role="status" aria-live="polite">

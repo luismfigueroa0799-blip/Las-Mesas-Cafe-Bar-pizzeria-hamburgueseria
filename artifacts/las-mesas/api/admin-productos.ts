@@ -106,30 +106,41 @@ async function consultarNeon(sql: string, valores: unknown[] = []): Promise<any[
 }
 
 export default async function handler(req: Req, res: Res): Promise<void> {
-  if (String(req?.method ?? 'GET').toUpperCase() !== 'GET' && !origenDelMismoSitio(req)) {
+  const metodo = String(req?.method ?? 'GET').toUpperCase();
+  if (metodo !== 'GET' && !origenDelMismoSitio(req)) {
     responder(res, { error: 'Origen no autorizado.' }, 403);
     return;
   }
+  const cuerpo = metodo === 'POST' ? leerCuerpo(req) : {};
+  const accion = String(cuerpo.accion ?? '').toLowerCase();
+  const vistaPedidos = Array.isArray(req.query?.vista) ? req.query?.vista[0] : req.query?.vista;
   const usuario = await usuarioDeSolicitud(req, res);
-  if (!usuario) {
-    responder(res, { error: 'La sesión ha caducado: vuelve a entrar' }, 401);
+  let rol = rolDeUsuario(usuario);
+  let panelSolicitado: 'barra' | 'cocina' | null = null;
+  if (metodo === 'GET' && (vistaPedidos === 'barra' || vistaPedidos === 'cocina')) panelSolicitado = vistaPedidos;
+  if (metodo === 'POST' && (accion === 'registrar_push' || accion === 'eliminar_push')) {
+    const panelPush = String(cuerpo.panel ?? '').toLowerCase();
+    if (panelPush === 'barra' || panelPush === 'cocina') panelSolicitado = panelPush;
+  }
+  if (metodo === 'POST' && accion === 'actualizar_cocina') panelSolicitado = 'cocina';
+  if (rol !== 'admin' && panelSolicitado && await autorizarDispositivo(req, panelSolicitado)) rol = panelSolicitado;
+  if (!rol) {
+    responder(res, { error: usuario ? 'Esta cuenta no está autorizada para usar los paneles' : 'El dispositivo no está autorizado.' }, usuario ? 403 : 401);
     return;
   }
-  const rol = rolDeUsuario(usuario);
-  if (!rol) {
+  if (rolDeUsuario(usuario) === null && !panelSolicitado) {
     responder(res, { error: 'Esta cuenta no está autorizada para usar los paneles' }, 403);
     return;
   }
 
   // Vista de cocina dentro de la misma función para no superar el límite de
   // funciones serverless del proyecto.
-  const vistaPedidos = Array.isArray(req.query?.vista) ? req.query?.vista[0] : req.query?.vista;
   if ((!req?.method || req.method === 'GET') && (vistaPedidos === 'cocina' || vistaPedidos === 'barra')) {
     if (!puedeEntrar(rol, vistaPedidos)) {
       responder(res, { error: 'Esta cuenta no tiene acceso a este panel' }, 403);
       return;
     }
-    if (rol !== 'admin' && !await autorizarDispositivo(req, vistaPedidos)) {
+    if (!await autorizarDispositivo(req, vistaPedidos)) {
       responder(res, { error: 'Este dispositivo no está autorizado para recibir pedidos de este panel.' }, 403);
       return;
     }
@@ -194,8 +205,8 @@ export default async function handler(req: Req, res: Res): Promise<void> {
         responder(res, { error: 'Esta cuenta no puede gestionar los avisos de ese panel' }, 403);
         return;
       }
-      const deviceId = rol === 'admin' ? null : await idDispositivoAutorizado(req, panelPush);
-      if (rol !== 'admin' && !deviceId) { responder(res, { error: 'Este dispositivo no está autorizado para los avisos de ese panel.' }, 403); return; }
+      const deviceId = await idDispositivoAutorizado(req, panelPush);
+      if (!deviceId) { responder(res, { error: 'Este dispositivo no está autorizado para los avisos de ese panel.' }, 403); return; }
       const subscription = body.subscription && typeof body.subscription === 'object' ? body.subscription : null;
       const endpoint = String(subscription?.endpoint ?? '').trim();
       if (!endpoint || !/^https:\/\//i.test(endpoint)) {
@@ -257,7 +268,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
         responder(res, { error: 'Solo Cocina o Administración puede cambiar el estado de preparación' }, 403);
         return;
       }
-      if (rol !== 'admin' && !await autorizarDispositivo(req, 'cocina')) {
+      if (!await autorizarDispositivo(req, 'cocina')) {
         responder(res, { error: 'Este dispositivo no está autorizado para Cocina.' }, 403);
         return;
       }

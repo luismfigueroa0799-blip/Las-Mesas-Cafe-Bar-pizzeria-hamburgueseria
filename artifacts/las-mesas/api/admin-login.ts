@@ -105,21 +105,39 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   if (method === 'GET') {
     const user = await usuarioDeSolicitud(req, res);
     const role = rolDeUsuario(user);
-    if (!user || !role) { responder(res, { error: 'La sesión no es válida o esta cuenta no tiene acceso a los paneles.' }, user ? 403 : 401); return; }
-    if (role !== 'admin') {
-      const requestedPanel = Array.isArray(req.query?.panel) ? req.query?.panel[0] : req.query?.panel;
-      if (requestedPanel !== role || !await autorizarDispositivo(req, role)) {
-        responder(res, { error: 'Este dispositivo aún no está autorizado para ese panel.', device_required: true, role }, 403);
+    const requestedPanel = Array.isArray(req.query?.panel) ? req.query?.panel[0] : req.query?.panel;
+    if (requestedPanel === 'cocina' || requestedPanel === 'barra') {
+      if (await autorizarDispositivo(req, requestedPanel)) {
+        responder(res, { role: requestedPanel, device_authorized: true });
         return;
       }
+      responder(res, { error: 'Este dispositivo necesita autorización de Administración.', device_required: true, role: requestedPanel }, 403);
+      return;
     }
-    responder(res, { email: user.email, role });
+    if (role === 'admin') { responder(res, { email: user?.email, role }); return; }
+    if (role === 'barra' || role === 'cocina') { responder(res, { error: 'Esta cuenta no tiene acceso a Administración.' }, 403); return; }
+    responder(res, { error: 'La sesión no es válida o esta cuenta no tiene acceso a los paneles.' }, user ? 403 : 401);
     return;
   }
   if (method !== 'POST') { responder(res, { error: 'Método no permitido' }, 405); return; }
   if (!origenDelMismoSitio(req)) { responder(res, { error: 'Origen no autorizado.' }, 403); return; }
   const body = leerCuerpo(req);
   const action = String(body.action ?? 'login');
+
+  if (action === 'vincular_dispositivo') {
+    const panel = String(body.panel ?? '').toLowerCase();
+    if (panel !== 'barra' && panel !== 'cocina') { responder(res, { error: 'El panel indicado no es válido.' }, 400); return; }
+    try {
+      const pairing = await vincularDispositivo(String(body.device_code ?? ''), panel, 'Vinculación por código de Administración');
+      if (!pairing) { responder(res, { error: 'El código no es válido, ya se usó o caducó. Pide uno nuevo a Administración.' }, 403); return; }
+      res.setHeader('Set-Cookie', crearCookieDispositivo(pairing.secret));
+      responder(res, { role: panel, device_authorized: true, device_name: pairing.deviceName });
+    } catch (error) {
+      g.console?.error?.('[admin-login] no se pudo vincular el dispositivo:', error);
+      responder(res, { error: (error as Error)?.message ?? 'No se pudo vincular este dispositivo.' }, 503);
+    }
+    return;
+  }
 
   if (action === 'listar_dispositivos' || action === 'crear_codigo_dispositivo' || action === 'revocar_dispositivo') {
     const admin = await usuarioDeSolicitud(req, res);

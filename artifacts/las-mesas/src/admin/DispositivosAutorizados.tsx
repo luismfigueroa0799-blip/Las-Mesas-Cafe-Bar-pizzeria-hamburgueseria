@@ -78,7 +78,7 @@ export default function DispositivosAutorizados({ abierto, cerrar }: { abierto: 
           {error && <p className="admin-error" role="alert">{error}</p>}
           <div className="dispositivos-lista-cabecera"><h3>Tablets activas</h3><button type="button" className="admin-boton admin-boton-claro" onClick={() => void cargarDispositivos()} disabled={cargando}>{cargando ? <LoaderCircle size={15} className="animate-spin" /> : 'Actualizar'}</button></div>
           {cargando && dispositivos.length === 0 ? <p className="dispositivos-vacio">Cargando dispositivos…</p> : dispositivos.length === 0 ? <p className="dispositivos-vacio">Todavía no hay tablets autorizadas.</p> : <ul className="dispositivos-lista">{dispositivos.map((device) => <li key={device.id}><Smartphone size={18} /><div><strong>{device.name}</strong><span>{etiquetaPanel(device.panel)} · Autorizada {new Intl.DateTimeFormat('es-ES', { dateStyle: 'medium' }).format(new Date(device.created_at))}{device.last_seen ? ` · Último acceso ${new Intl.DateTimeFormat('es-ES', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(device.last_seen))}` : ''}</span></div><button type="button" className="admin-boton-peligro" disabled={cargando} onClick={() => void revocar(device)}>Revocar</button></li>)}</ul>}
-          <p className="dispositivos-nota">Barra y Cocina siguen necesitando su propia cuenta de personal. Administración conserva acceso a todos los paneles.</p>
+          <p className="dispositivos-nota">No hace falta crear una cuenta de correo para Cocina ni Barra. El código vincula este dispositivo solo al panel elegido; Administración también necesita vincular el dispositivo desde el que abrirá esos paneles.</p>
         </div>
       </section>
     </div>

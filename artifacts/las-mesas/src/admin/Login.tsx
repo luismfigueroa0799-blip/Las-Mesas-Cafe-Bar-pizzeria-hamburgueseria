@@ -63,7 +63,7 @@ export function borrarToken() {
   void fetch('/api/admin-login', { method: 'DELETE', keepalive: true }).catch(() => undefined);
 }
 
-const Login: React.FC<{ destino?: string; aviso?: string; requiereCodigoDispositivo?: boolean }> = ({ destino = '/admin/inventario', aviso = '', requiereCodigoDispositivo = false }) => {
+const Login: React.FC<{ destino?: string; aviso?: string }> = ({ destino = '/admin/inventario', aviso = '' }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -73,7 +73,6 @@ const Login: React.FC<{ destino?: string; aviso?: string; requiereCodigoDisposit
   const [codigoCorreo, setCodigoCorreo] = useState('');
   const [esperaReenvio, setEsperaReenvio] = useState(0);
   const [codigoDispositivo, setCodigoDispositivo] = useState('');
-  const [necesitaVincular, setNecesitaVincular] = useState(requiereCodigoDispositivo);
 
   const sinApi = sitioSinApi();
   const accesoAdmin = destino !== '/admin/cocina' && destino !== '/admin/barra';
@@ -117,13 +116,13 @@ const Login: React.FC<{ destino?: string; aviso?: string; requiereCodigoDisposit
       const panel = destino === '/admin/cocina' ? 'cocina' : destino === '/admin/barra' ? 'barra' : 'admin';
       const action = accesoAdmin
         ? codigoEnviado ? 'verify_admin_email_code' : 'begin_admin_email_code'
-        : 'login';
+        : 'vincular_dispositivo';
       const r = await fetch('/api/admin-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(accesoAdmin
           ? { action, email, ...(codigoEnviado ? { code: codigoCorreo } : { password }) }
-          : { email, password, panel, ...(codigoDispositivo ? { device_code: codigoDispositivo } : {}) }),
+          : { action, panel, device_code: codigoDispositivo }),
       });
 
       const texto = await r.text();
@@ -143,7 +142,6 @@ const Login: React.FC<{ destino?: string; aviso?: string; requiereCodigoDisposit
         return;
       }
       if (!r.ok) {
-        if (datos?.device_required) setNecesitaVincular(true);
         setError(datos?.error ?? 'No se pudo iniciar sesión');
         return;
       }
@@ -186,17 +184,15 @@ const Login: React.FC<{ destino?: string; aviso?: string; requiereCodigoDisposit
       )}
 
       <form className="admin-card admin-card-corta" onSubmit={entrar}>
-        <span className="admin-eyebrow">
-          Panel interno
-        </span>
-        <h1>Iniciar sesión</h1>
+        <span className="admin-eyebrow">{accesoAdmin ? 'Panel interno' : 'Dispositivo autorizado'}</span>
+        <h1>{accesoAdmin ? 'Iniciar sesión' : 'Autorizar dispositivo'}</h1>
         <p className="admin-sub">{accesoAdmin
           ? 'Escribe tu correo y contraseña. Después te enviaremos un código para confirmar el acceso.'
-          : 'Accede con tu cuenta de personal para entrar al panel correspondiente.'}</p>
+          : `Este panel solo se abre en dispositivos autorizados. Pide a Administración el código temporal de ${destino === '/admin/barra' ? 'Barra' : 'Cocina'} para vincular este dispositivo.`}</p>
 
         {aviso && <p className="admin-error" role="status">{aviso}</p>}
 
-        <label className="admin-field">
+        {accesoAdmin && <label className="admin-field">
           <span><Mail size={15} aria-hidden="true" /> Correo electrónico</span>
           <input
             type="email"
@@ -210,7 +206,7 @@ const Login: React.FC<{ destino?: string; aviso?: string; requiereCodigoDisposit
             required
             data-testid="input-admin-email"
           />
-        </label>
+        </label>}
         {accesoAdmin && !codigoEnviado && <label className="admin-field">
           <span><LockKeyhole size={15} aria-hidden="true" /> Contraseña</span>
           <input
@@ -253,33 +249,19 @@ const Login: React.FC<{ destino?: string; aviso?: string; requiereCodigoDisposit
             </button>
           </>
         )}
-        {!accesoAdmin && <label className="admin-field">
-          <span><LockKeyhole size={15} aria-hidden="true" /> Contraseña</span>
-          <input
-            type="password"
-            name="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Tu contraseña"
-            autoComplete="current-password"
-            required
-            data-testid="input-admin-password"
-          />
-        </label>}
-
-        {!accesoAdmin && necesitaVincular && <>
-          <p className="admin-ok" role="status">Administración debe autorizar esta tablet. Escribe el código temporal del panel {destino === '/admin/barra' ? 'Barra' : 'Cocina'}.</p>
+        {!accesoAdmin && <>
           <label className="admin-field">
-            <span>Código de autorización del dispositivo</span>
+            <span>Código de vinculación</span>
             <input
               type="text"
               name="device-code"
               value={codigoDispositivo}
               onChange={(e) => setCodigoDispositivo(e.target.value.replace(/[^a-f\d]/gi, '').toUpperCase().slice(0, 10))}
-              placeholder="Código de 10 caracteres"
+              placeholder="10 caracteres"
               autoComplete="one-time-code"
               maxLength={10}
               required
+              autoFocus
             />
           </label>
         </>}
@@ -297,7 +279,7 @@ const Login: React.FC<{ destino?: string; aviso?: string; requiereCodigoDisposit
           disabled={entrando}
           data-testid="button-admin-login"
         >
-          {entrando ? 'Comprobando…' : accesoAdmin ? codigoEnviado ? 'Verificar código' : 'Validar y enviar código' : 'Entrar'}
+          {entrando ? 'Comprobando…' : accesoAdmin ? codigoEnviado ? 'Verificar código' : 'Validar y enviar código' : 'Autorizar dispositivo'}
         </button>
 
         <p className="admin-nota">
