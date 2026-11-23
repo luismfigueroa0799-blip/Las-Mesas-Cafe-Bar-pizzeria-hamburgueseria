@@ -5,14 +5,14 @@
 //
 // Actualiza la columna is_available de la tabla products de NEON.
 //
-// Solo puede entrar el usuario staff: se valida el token contra Supabase Auth
-// y se comprueba que tenga el rol 'staff' (en raw_app_meta_data, en
-// app_metadata o en user_metadata) o que su correo este en STAFF_EMAILS.
+// Solo Administración puede modificar el catálogo.
 //
 // Las urls de retorno no aplican aqui (esto es Vite, no Next.js): la pagina
 // publica de la carta no cachea el catalogo, asi que en cuanto se cambia algo
 // la siguiente carga ya ve el producto como agotado. Ademas el panel avisa a
 // las pestanas abiertas para que la carta se refresque sola.
+import { rolDeUsuario, tokenDeCabecera, usuarioDelToken } from '../../server/admin-auth.js';
+
 type Global = Record<string, any>;
 
 const g = globalThis as unknown as Global;
@@ -35,86 +35,6 @@ interface Res {
 
 function entorno(): Record<string, string | undefined> {
   return (g.process?.env ?? {}) as Record<string, string | undefined>;
-}
-
-/**
- * Lee una cabecera de la peticion.
- *
- * En las serverless functions de Vercel (runtime Node) req.headers es un
- * objeto plano, no un Headers: headers.get() no existe y el token de
- * Authorization nunca llegaba (el panel devolvia 401 siempre).
- */
-function valorCabecera(req: Req, nombre: string): string {
-  const cabeceras: any = req?.headers;
-  if (!cabeceras) return '';
-  if (typeof cabeceras.get === 'function') return String(cabeceras.get(nombre) ?? '');
-  const valor = cabeceras[nombre];
-  return Array.isArray(valor) ? String(valor[0] ?? '') : String(valor ?? '');
-}
-
-
-// ── Supabase Auth ──
-
-const SUPABASE_URL_POR_DEFECTO = 'https://fohxajfpnriusuybdteu.supabase.co';
-
-function urlSupabase(): string {
-  const configurada = String(entorno().SUPABASE_URL ?? '').trim();
-  if (/^https?:\/\/[^\s]+$/.test(configurada)) return configurada.replace(/\/+$/, '');
-  return SUPABASE_URL_POR_DEFECTO;
-}
-
-function claveSupabase(): string {
-  const env = entorno();
-  return env.SUPABASE_SECRET_KEY ?? env.SUPABASE_SERVICE_ROLE_KEY ?? '';
-}
-
-/** Correos con acceso al panel (STAFF_EMAILS). */
-function correosStaff(): string[] {
-  return String(entorno().STAFF_EMAILS ?? '')
-    .split(',')
-    .map((c) => c.trim().toLowerCase())
-    .filter(Boolean);
-}
-
-/**
- * El rol 'staff' puede estar en:
- *   - raw_app_meta_data.role  (donde lo ha puesto el usuario)
- *   - app_metadata.role       (alias)
- *   - user_metadata.role      (metadatos del usuario)
- */
-function esStaff(usuario: any): boolean {
-  const email = String(usuario?.email ?? '').trim().toLowerCase();
-  if (!email) return false;
-
-  const lista = correosStaff();
-  if (lista.length && lista.includes(email)) return true;
-
-  const roles = [
-    usuario?.raw_app_meta_data?.role,
-    usuario?.app_metadata?.role,
-    usuario?.user_metadata?.role,
-  ];
-  return roles.some((r) => String(r ?? '').toLowerCase() === 'staff');
-}
-
-async function usuarioDelToken(token: string): Promise<any | null> {
-  const key = claveSupabase();
-  if (!key || !token) return null;
-  try {
-    const r = await g.fetch(urlSupabase() + '/auth/v1/user', {
-      headers: { apikey: key, Authorization: 'Bearer ' + token },
-    });
-    if (!r.ok) return null;
-    return await r.json();
-  } catch {
-    return null;
-  }
-}
-
-function tokenDeCabecera(req: Req): string {
-  const cruda = valorCabecera(req, 'authorization');
-  const partes = cruda.split(' ').filter(Boolean);
-  return partes.length > 1 && partes[0].toLowerCase() === 'bearer' ? partes.slice(1).join(' ') : '';
 }
 
 function responder(res: Res, cuerpo: unknown, estado = 200): void {
@@ -179,8 +99,8 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     responder(res, { error: 'La sesión ha caducado: vuelve a entrar' }, 401);
     return;
   }
-  if (!esStaff(usuario)) {
-    responder(res, { error: 'Acceso denegado: esta cuenta no es staff' }, 403);
+  if (rolDeUsuario(usuario) !== 'admin') {
+    responder(res, { error: 'Solo Administración puede cambiar la disponibilidad de productos' }, 403);
     return;
   }
 

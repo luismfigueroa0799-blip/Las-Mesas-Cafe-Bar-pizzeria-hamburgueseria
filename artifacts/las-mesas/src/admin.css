@@ -1038,6 +1038,28 @@ html.dark .admin:not(.admin-opciones-page) :is(.admin-card,.admin-table-wrap,.ad
 }
 html.dark .admin:not(.admin-opciones-page) :is(.admin-item-info strong,.admin-item-info p,.admin-item-precio,.admin-switch-texto,.admin-sub,.admin-vacio) { color: #eee8dc !important; }
 html.dark .admin:not(.admin-opciones-page) :is(input,select,textarea) { background: #252321 !important; color: #f5f0e6 !important; border-color: rgba(212,175,55,.28) !important; }
+/* El editor de producto sigue el tema activo del panel. */
+html:not(.dark) .admin .admin-modal {
+  background: #fffdf8 !important; color: #302c25 !important; border-color: #dfd4ba !important;
+  box-shadow: 0 24px 70px rgba(43,35,20,.24) !important;
+}
+html:not(.dark) .admin .admin-modal-cabecera { border-bottom-color: #e8dfce !important; }
+html:not(.dark) .admin .admin-modal-cabecera h2 { color: #302c25 !important; }
+html:not(.dark) .admin .admin-modal-cuerpo { color: #302c25 !important; }
+html:not(.dark) .admin .admin-modal-pie { border-top-color: #e8dfce !important; }
+html:not(.dark) .admin .admin-imagen-previa { background: #f5f1e7 !important; border-color: #d8c797 !important; }
+html:not(.dark) .admin .admin-imagen-vacia { color: #716b60 !important; border-color: #cfc6b5 !important; background: #faf8f2 !important; }
+html:not(.dark) .admin .admin-pista { color: #716b60 !important; }
+html:not(.dark) .admin .admin-modal .admin-error { color: #8f2e28 !important; background: #fff0ed !important; border-left-color: #c5473d !important; }
+html.dark .admin .admin-modal {
+  background: #1d1b19 !important; color: #f5f0e6 !important; border-color: rgba(212,175,55,.32) !important;
+}
+html.dark .admin .admin-modal-cabecera { border-bottom-color: rgba(212,175,55,.22) !important; }
+html.dark .admin .admin-modal-cabecera h2,
+html.dark .admin .admin-modal-cuerpo .admin-field > span,
+html.dark .admin .admin-modal .admin-check { color: #f5f0e6 !important; }
+html.dark .admin .admin-modal-pie { border-top-color: rgba(255,255,255,.1) !important; }
+html.dark .admin .admin-modal .admin-error { color: #ffd0cb !important; background: rgba(190,58,48,.18) !important; border-left-color: #f0786d !important; }
 @media (max-width: 760px) {
   .admin-head { align-items: flex-start; }
   .admin-acciones { width: 100%; justify-content: flex-start; }

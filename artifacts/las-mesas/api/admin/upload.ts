@@ -6,13 +6,14 @@
 // La imagen la optimiza Vercel (webp y ancho maximo) para que la carta
 // cargue rapido en el movil.
 //
-// Solo puede entrar el usuario staff: se valida el token contra Supabase Auth
-// y se comprueba el rol 'staff'.
+// Solo Administración puede subir imágenes al catálogo.
 //
 // Variables de entorno:
 //   BLOB_READ_WRITE_TOKEN   token del Blob store (Vercel -> Storage)
 //   SUPABASE_URL / SUPABASE_SECRET_KEY   para validar al usuario
-//   STAFF_EMAILS            correos con acceso (o rol 'staff' en app_metadata)
+//   ADMIN_EMAILS                 correos de Administración
+import { rolDeUsuario, tokenDeCabecera, usuarioDelToken } from '../../server/admin-auth.js';
+
 type Global = Record<string, any>;
 
 const g = globalThis as unknown as Global;
@@ -39,47 +40,6 @@ const TAMANO_MAXIMO = 4 * 1024 * 1024;
 
 function entorno(): Record<string, string | undefined> {
   return (g.process?.env ?? {}) as Record<string, string | undefined>;
-}
-
-const SUPABASE_URL_POR_DEFECTO = 'https://fohxajfpnriusuybdteu.supabase.co';
-
-function urlSupabase(): string {
-  const configurada = String(entorno().SUPABASE_URL ?? '').trim();
-  if (/^https?:\/\/[^\s]+$/.test(configurada)) return configurada.replace(/\/+$/, '');
-  return SUPABASE_URL_POR_DEFECTO;
-}
-
-function claveSupabase(): string {
-  const env = entorno();
-  return env.SUPABASE_SECRET_KEY ?? env.SUPABASE_SERVICE_ROLE_KEY ?? '';
-}
-
-function correosStaff(): string[] {
-  return String(entorno().STAFF_EMAILS ?? '')
-    .split(',')
-    .map((c) => c.trim().toLowerCase())
-    .filter(Boolean);
-}
-
-function esStaff(usuario: any): boolean {
-  const email = String(usuario?.email ?? '').trim().toLowerCase();
-  if (!email) return false;
-  const lista = correosStaff();
-  if (lista.length && lista.includes(email)) return true;
-  const roles = [
-    usuario?.raw_app_meta_data?.role,
-    usuario?.app_metadata?.role,
-    usuario?.user_metadata?.role,
-  ];
-  return roles.some((r) => String(r ?? '').toLowerCase() === 'staff');
-}
-
-function valorCabecera(req: Req, nombre: string): string {
-  const cabeceras: any = req?.headers;
-  if (!cabeceras) return '';
-  if (typeof cabeceras.get === 'function') return String(cabeceras.get(nombre) ?? '');
-  const valor = cabeceras[nombre];
-  return Array.isArray(valor) ? String(valor[0] ?? '') : String(valor ?? '');
 }
 
 function responder(res: Res, cuerpo: unknown, estado = 200): void {
@@ -119,27 +79,18 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   }
 
   // ── 1) Solo el staff ──
-  const token = valorCabecera(req, 'authorization');
+  const token = tokenDeCabecera(req);
   if (!token) {
     responder(res, { error: 'Necesitas iniciar sesión' }, 401);
     return;
   }
-  const key = claveSupabase();
-  let usuario: any = null;
-  try {
-    const r = await g.fetch(urlSupabase() + '/auth/v1/user', {
-      headers: { apikey: key, Authorization: 'Bearer ' + token.replace(/^Bearer\s+/i, '') },
-    });
-    if (r.ok) usuario = await r.json();
-  } catch {
-    /* sin usuario */
-  }
+  const usuario = await usuarioDelToken(token);
   if (!usuario) {
     responder(res, { error: 'La sesión ha caducado: vuelve a entrar' }, 401);
     return;
   }
-  if (!esStaff(usuario)) {
-    responder(res, { error: 'Acceso denegado: esta cuenta no es staff' }, 403);
+  if (rolDeUsuario(usuario) !== 'admin') {
+    responder(res, { error: 'Solo Administración puede subir imágenes de productos' }, 403);
     return;
   }
 
@@ -190,8 +141,8 @@ export default async function handler(req: Req, res: Res): Promise<void> {
       res,
       {
         error:
-          'El almacen de imagenes no esta configurado. Crea un Blob store en ' +
-          'Vercel (Storage) y añade la variable BLOB_READ_WRITE_TOKEN.',
+          'El almacenamiento de imágenes no está configurado. Crea un almacén Blob en ' +
+          'Vercel Storage y añade BLOB_READ_WRITE_TOKEN en las variables del proyecto.',
       },
       503,
     );

@@ -9,7 +9,9 @@
 //  POST   -> { accion: 'editar_opcion', id, name, extra_price, available }
 //  POST   -> { accion: 'borrar_opcion', id }
 //
-// Solo staff (token de Supabase Auth).
+// Solo Administración (token de Supabase Auth).
+import { rolDeUsuario, tokenDeCabecera, usuarioDelToken } from '../server/admin-auth.js';
+
 type Global = Record<string, any>;
 const g = globalThis as unknown as Global;
 
@@ -113,28 +115,6 @@ async function leerHorario(pool: any) {
   return filas[0]?.config ?? HORARIO_INICIAL;
 }
 
-/** Validar token de staff con Supabase Auth. */
-const SUPABASE_URL_POR_DEFECTO = 'https://fohxajfpnriusuybdteu.supabase.co';
-async function usuarioDelToken(token: string): Promise<any | null> {
-  try {
-    const url = String(entorno().SUPABASE_URL ?? SUPABASE_URL_POR_DEFECTO).replace(/\/$/, '');
-    const key = String(entorno().SUPABASE_ANON_KEY ?? entorno().SUPABASE_SECRET_KEY ?? '');
-    const r = await g.fetch(url + '/auth/v1/user', {
-      headers: { Authorization: 'Bearer ' + token, apikey: key },
-    });
-    if (!r.ok) return null;
-    return await r.json();
-  } catch {
-    return null;
-  }
-}
-function esStaff(user: any): boolean {
-  const permitidos = String(entorno().STAFF_EMAILS ?? 'lasmesascafeteriabar@gmail.com')
-    .split(',').map((x) => x.trim().toLowerCase()).filter(Boolean);
-  const correo = String(user?.email ?? '').toLowerCase();
-  return permitidos.includes(correo) || user?.app_metadata?.role === 'staff';
-}
-
 async function listarGrupos(): Promise<any[]> {
   const grupos = await consultar('select * from public.option_groups order by name, id');
   const ops = await consultar('select * from public.product_options order by group_id, name, id');
@@ -155,12 +135,13 @@ async function listarGrupos(): Promise<any[]> {
 }
 
 export default async function handler(req: Req, res: Res): Promise<void> {
-  const cabeceras: any = req.headers;
-  const authorization = typeof cabeceras?.get === 'function' ? cabeceras.get('authorization') : cabeceras?.authorization;
-  const token = String(Array.isArray(authorization) ? authorization[0] : authorization ?? '').replace(/^Bearer\s+/i, '').trim();
-  const user = await usuarioDelToken(token);
-  if (!user || !esStaff(user)) {
-    responder(res, { error: 'No autorizado' }, 401);
+  const user = await usuarioDelToken(tokenDeCabecera(req));
+  if (!user) {
+    responder(res, { error: 'La sesión ha caducado: vuelve a entrar' }, 401);
+    return;
+  }
+  if (rolDeUsuario(user) !== 'admin') {
+    responder(res, { error: 'Solo Administración puede gestionar estas opciones' }, 403);
     return;
   }
 

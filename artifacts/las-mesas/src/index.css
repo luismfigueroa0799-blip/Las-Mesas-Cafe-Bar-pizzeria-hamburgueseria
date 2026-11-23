@@ -2689,6 +2689,7 @@ html.dark .social-editable a { color: #f0d37a; }
 .home-about-copy > p:not(.eyebrow) { max-width: 570px; color: #625d52; font-size: 1rem; line-height: 1.8; }
 .home-about-tags { display: flex; flex-wrap: wrap; gap: 8px; margin: 23px 0 20px; }
 .home-about-tags span { padding: 8px 11px; border: 1px solid #ddd0ad; border-radius: 999px; color: #67542c; background: #fbf8f0; font-size: .72rem; font-weight: 700; }
+html.dark .home-about-tags span { border-color: rgba(212,175,55,.38) !important; color: #f0d987 !important; background: #2a2725 !important; }
 .home-about-more { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; color: #5c471c; font-size: .84rem; font-weight: 800; text-underline-offset: 4px; }
 .home-visit { position: relative; overflow: hidden; color: #f5f0e6; background: radial-gradient(ellipse at 94% 7%,rgba(212,175,55,.13),transparent 32%),#1d1b18; }
 .home-visit-heading { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 33px; }

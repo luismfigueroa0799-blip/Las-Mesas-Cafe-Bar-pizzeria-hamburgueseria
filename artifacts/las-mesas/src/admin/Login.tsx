@@ -2,27 +2,13 @@
 
 import { useState } from 'react';
 import { LogIn, UtensilsCrossed } from 'lucide-react';
-import { hayClavePublica, supabaseNavegador } from '@/lib/supabase';
 
 /**
  * Pantalla de acceso rapido al panel de inventario (/admin/inventario).
  *
- * Solo se pide la contrasena: el correo del staff es fijo, asi que no hay
- * ningun boton de registrarse ni de recuperar contrasena (el acceso es
- * exclusivo del personal).
- *
- * El login se hace con supabase.auth.signInWithPassword si hay clave publica
- * de Supabase en el entorno; si no, contra nuestra propia API (/api/admin-login),
- * que hace exactamente lo mismo pero en el servidor: asi la clave secreta de
- * Supabase nunca sale del servidor.
- *
- * Al entrar correctamente se redirige a /admin/inventario.
+ * Correo y contraseña se validan en el servidor; la API decide si esa cuenta
+ * puede abrir Administración, Barra o Cocina.
  */
-
-/** Correo del usuario staff. Se puede cambiar con VITE_STAFF_EMAIL. */
-export const EMAIL_STAFF =
-  (import.meta.env?.VITE_STAFF_EMAIL as string | undefined)?.trim() ||
-  'admin@lasmesas.com';
 
 /**
  * URLs donde vive esta web con la API (el proyecto de Vercel).
@@ -77,7 +63,8 @@ export function borrarToken() {
   }
 }
 
-const Login: React.FC<{ destino?: string }> = ({ destino = '/admin/inventario' }) => {
+const Login: React.FC<{ destino?: string; aviso?: string }> = ({ destino = '/admin/inventario', aviso = '' }) => {
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [detalle, setDetalle] = useState('');
@@ -93,34 +80,11 @@ const Login: React.FC<{ destino?: string }> = ({ destino = '/admin/inventario' }
     setDetalle('');
 
     try {
-      // 1) Supabase Auth desde el navegador (si hay clave publica).
-      const supabase = supabaseNavegador();
-      if (supabase) {
-        const { data, error: errorSupabase } = await supabase.auth.signInWithPassword({
-          email: EMAIL_STAFF,
-          password,
-        });
-
-        if (errorSupabase) {
-          setError('Contraseña incorrecta');
-          setDetalle(errorSupabase.message);
-          return;
-        }
-        if (!data.session?.access_token) {
-          setError('No se ha podido iniciar la sesión');
-          return;
-        }
-        guardarToken(data.session.access_token);
-        window.location.assign(destino);
-        return;
-      }
-
-      // 2) Sin clave publica: login contra nuestra API (mismo Supabase Auth,
-      //    pero en el servidor).
+      const panel = destino === '/admin/cocina' ? 'cocina' : destino === '/admin/barra' ? 'barra' : 'admin';
       const r = await fetch('/api/admin-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: EMAIL_STAFF, password }),
+        body: JSON.stringify({ email, password, panel }),
       });
 
       const texto = await r.text();
@@ -178,7 +142,24 @@ const Login: React.FC<{ destino?: string }> = ({ destino = '/admin/inventario' }
           <UtensilsCrossed size={16} /> Las Mesas
         </span>
         <h1>Acceso staff</h1>
-        <p className="admin-sub">Introduce tu contraseña para entrar.</p>
+        <p className="admin-sub">Acceso seguro para Administración, Barra y Cocina.</p>
+
+        {aviso && <p className="admin-error" role="status">{aviso}</p>}
+
+        <label className="admin-field">
+          <span>Correo</span>
+          <input
+            type="email"
+            name="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="nombre@lasmesas.com"
+            autoComplete="username"
+            autoFocus
+            required
+            data-testid="input-admin-email"
+          />
+        </label>
 
         <label className="admin-field">
           <span>Contraseña</span>
@@ -189,7 +170,6 @@ const Login: React.FC<{ destino?: string }> = ({ destino = '/admin/inventario' }
             onChange={(e) => setPassword(e.target.value)}
             placeholder="••••••••"
             autoComplete="current-password"
-            autoFocus
             required
             data-testid="input-admin-password"
           />

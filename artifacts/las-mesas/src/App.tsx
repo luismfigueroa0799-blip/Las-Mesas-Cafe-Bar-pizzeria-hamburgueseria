@@ -14,6 +14,7 @@ import GestionOpciones from '@/admin/GestionOpciones';
 import Cocina from '@/admin/Cocina';
 import Barra from '@/admin/Barra';
 import Login from '@/admin/Login';
+import PanelAcceso from '@/admin/PanelAcceso';
 import {
   alCambiarMenu,
   CATEGORIES,
@@ -334,10 +335,10 @@ function App() {
   }
 
   if (esRutaLogin) return <Login />;
-  if (esRutaCocina) return <Cocina />;
-  if (esRutaBarra) return <Barra />;
-  if (esRutaOpciones) return <GestionOpciones />;
-  if (esRutaAdmin) return <Inventario />;
+  if (esRutaCocina) return <PanelAcceso panel="cocina"><Cocina /></PanelAcceso>;
+  if (esRutaBarra) return <PanelAcceso panel="barra"><Barra /></PanelAcceso>;
+  if (esRutaOpciones) return <PanelAcceso panel="admin"><GestionOpciones /></PanelAcceso>;
+  if (esRutaAdmin) return <PanelAcceso panel="admin"><Inventario /></PanelAcceso>;
 
 
   // ===== Portada: pedidos, reservas y la información del local =====
