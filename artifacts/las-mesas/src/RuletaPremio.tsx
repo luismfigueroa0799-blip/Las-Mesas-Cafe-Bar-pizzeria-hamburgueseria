@@ -8,7 +8,9 @@ type Sector = { id: string; name: string; image?: string | null; weight: number;
 type Premio = { id: string; name: string; price: number; image?: string | null };
 
 const CLIENTE_KEY = 'lm_ruleta_cliente_v1';
-const RULETA_SESION_VISTA_KEY = 'lm_ruleta_vista_sesion_v1';
+// Nueva clave para no heredar la marca de “ya se mostró” de la versión previa
+// al consentimiento, que podía dejar la ruleta cerrada durante toda la pestaña.
+const RULETA_SESION_VISTA_KEY = 'lm_ruleta_vista_sesion_v2';
 function idCliente(): string {
   let id = window.localStorage.getItem(CLIENTE_KEY);
   if (!id) {
