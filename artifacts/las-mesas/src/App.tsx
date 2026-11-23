@@ -17,6 +17,10 @@ import Cocina from '@/admin/Cocina';
 import Barra from '@/admin/Barra';
 import Login from '@/admin/Login';
 import PanelAcceso from '@/admin/PanelAcceso';
+import CondicionesVenta from '@/CondicionesVenta';
+import PoliticaCookies from '@/PoliticaCookies';
+import AvisoPrivacidad from '@/AvisoPrivacidad';
+import DeclaracionAccesibilidad from '@/DeclaracionAccesibilidad';
 import {
   alCambiarMenu,
   CATEGORIES,
@@ -806,12 +810,16 @@ function App() {
         <Route path="/local">{paginaLocal}</Route>
         <Route path="/celebraciones">{paginaCelebraciones}</Route>
         <Route path="/reservas">{paginaReservas}</Route>
+        <Route path="/condiciones-de-venta"><CondicionesVenta /></Route>
+        <Route path="/politica-de-cookies"><PoliticaCookies /></Route>
+        <Route path="/privacidad"><AvisoPrivacidad /></Route>
+        <Route path="/accesibilidad"><DeclaracionAccesibilidad /></Route>
         <Route>{paginaInicio}</Route>
       </Switch>
       </main>
 
       <footer className="site-footer">
-        <div className="shell footer-main"><a href="/" className="footer-brand"><img src="/assets/logo-las-mesas.jpeg" alt="" /><span>Pizzeria Las Mesas</span></a><p>{t('footer.lema')}</p><nav aria-label="Navegación de pie">{[[t('nav.casa'),'/local#esencia'],[t('nav.local'),'/local#local-galeria'],[t('nav.carta'),'/carta'],[t('nav.celebraciones'),'/celebraciones'],[t('nav.reserva'),'/reservas']].map(([label,href]) => <a key={href} href={href}>{label}</a>)}</nav></div>
+        <div className="shell footer-main"><a href="/" className="footer-brand"><img src="/assets/logo-las-mesas.jpeg" alt="" /><span>Pizzeria Las Mesas</span></a><p>{t('footer.lema')}</p><nav aria-label="Navegación de pie">{[[t('nav.casa'),'/local#esencia'],[t('nav.local'),'/local#local-galeria'],[t('nav.carta'),'/carta'],[t('nav.celebraciones'),'/celebraciones'],[t('nav.reserva'),'/reservas'],['Condiciones de venta','/condiciones-de-venta'],['Privacidad','/privacidad'],['Cookies','/politica-de-cookies'],['Accesibilidad','/accesibilidad']].map(([label,href]) => <a key={href} href={href}>{label}</a>)}</nav></div>
         <div className="shell footer-details">
           <div className="footer-hours"><span className="footer-label">{t('contacto.horario')}</span>{hours.map(([day, time]) => <p key={day}><span>{t(day)}</span><strong>{time}</strong></p>)}{listaFestivos}</div>
           <div className="footer-contact"><span className="footer-label">{t('nav.contacto')}</span><a href={phoneHref}>{phone}</a><a href={mapsUrl} target="_blank" rel="noreferrer">Pintor Antonio Padrón, 59 · {t('contacto.comoLlegar')}</a></div>
