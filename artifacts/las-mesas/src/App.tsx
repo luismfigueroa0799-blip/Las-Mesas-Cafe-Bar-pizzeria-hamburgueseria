@@ -72,6 +72,51 @@ type AvisoPedido =
   | { tipo: 'error'; mensaje: string }
   | null;
 
+function PizzaHeroScene() {
+  const scene = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const element = scene.current;
+    const hero = element?.closest('.home-hero');
+    if (!element || !hero) return;
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    let frame = 0;
+
+    function update() {
+      frame = 0;
+      if (!hero || !element) return;
+      const { top, height } = hero.getBoundingClientRect();
+      const progress = reducedMotion.matches ? 0 : Math.min(1, Math.max(0, -top / (height * .8)));
+      element.style.setProperty('--scene-scroll', String(progress));
+    }
+
+    function schedule() {
+      if (!frame) frame = window.requestAnimationFrame(update);
+    }
+
+    update();
+    window.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', schedule);
+    reducedMotion.addEventListener('change', schedule);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener('scroll', schedule);
+      window.removeEventListener('resize', schedule);
+      reducedMotion.removeEventListener('change', schedule);
+    };
+  }, []);
+
+  return (
+    <div className="home-hero-scene" ref={scene} aria-hidden="true">
+      <img className="home-hero-scene-image" src="/assets/hero-pizza-oven-optimized.jpg" alt="" fetchPriority="high" />
+      <div className="home-hero-scene-light" />
+      <div className="home-hero-scene-ingredients">
+        <span /><span /><span />
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const [horarioSemanalVisible, setHorarioSemanalVisible] = useState(false);
   const [horaActual, setHoraActual] = useState(() => new Date());
@@ -430,9 +475,7 @@ function App() {
           <Link href="/celebraciones" data-testid="link-celebraciones-inicio">{t('home.acceso.celebraciones')}</Link>
         </div>
       </div>
-      <div className="home-hero-oven-scene" aria-hidden="true">
-        <img className="home-hero-cinematic-photo" src="/assets/hero-pizza-oven.png" alt="" fetchPriority="high" />
-      </div>
+      <PizzaHeroScene />
     </section>
     <section className="home-about section-pad" id="conocenos" aria-labelledby="home-about-title">
       <div className="shell home-about-grid">
