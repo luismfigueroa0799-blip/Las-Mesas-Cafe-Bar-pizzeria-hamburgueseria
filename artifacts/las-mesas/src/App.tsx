@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link, Route, Switch, useLocation } from 'wouter';
-import { ArrowDown, ArrowRight, ArrowUpRight, CalendarDays, Clock3, MapPin, Menu as MenuIcon, Moon, PartyPopper, Phone, Search, ShoppingBag, Star, Sun, X } from 'lucide-react';
+import { ArrowDown, ArrowRight, ArrowUpRight, Clock3, MapPin, Menu as MenuIcon, Moon, Phone, Search, ShoppingBag, Star, Sun, X } from 'lucide-react';
 import './index.css';
 import { useCart } from '@/CartContext';
 import { useTheme } from '@/ThemeContext';
@@ -406,44 +406,31 @@ function App() {
   // ===== Portada: pedidos, reservas y la información del local =====
   const paginaInicio = (
     <>
-    <section className="home-hero home-compact" aria-labelledby="home-title">
-      <div className="home-hero-bg" aria-hidden="true" />
-      <div className="home-hero-overlay" aria-hidden="true" />
-      <div className="shell home-hero-content">
-        <p className="eyebrow"><span className="gold-dot" /> Pizzeria Las Mesas · Gran Canaria</p>
-        <h1 className="home-hero-title" id="home-title">{t('home.hero.titulo1')}<br /><em>{t('home.hero.titulo2')}</em></h1>
+    <section className="home-hero" aria-labelledby="home-title">
+      <div className="home-hero-content">
+        <h1 className="home-hero-title" id="home-title">
+          {t('home.hero.titulo1')}<br /><em>{t('home.hero.titulo2')}</em>
+        </h1>
         <p className="home-hero-desc">{t('home.hero.desc2')}</p>
-
-        <div className="home-actions-grid" aria-label={t('home.acceso.titulo')}>
-          <Link className="home-action-card home-action-primary" href={mesaActual ? `/carta?mesa=${encodeURIComponent(mesaActual)}` : '/carta?entrega=domicilio'} data-testid="link-pedir-domicilio-inicio">
-            <span className="home-action-icon"><ShoppingBag size={21} aria-hidden="true" /></span>
-            <span className="home-action-copy"><strong>{mesaActual ? `${t('home.hero.pedirMesa')} ${mesaActual}` : t('home.hero.pedirDomicilio')}</strong><small>{mesaActual ? t('home.hero.hintMesa') : t('home.acceso.domicilio.desc')}</small></span>
-            <ArrowRight className="home-action-arrow" size={19} aria-hidden="true" />
-          </Link>
-          <Link className="home-action-card" href={mesaActual ? `/carta?mesa=${encodeURIComponent(mesaActual)}` : '/carta?entrega=recogida'} data-testid="link-pedir-recogida-inicio">
-            <span className="home-action-icon"><ShoppingBag size={21} aria-hidden="true" /></span>
-            <span className="home-action-copy"><strong>{mesaActual ? t('home.hero.verCarta') : t('home.hero.recoger')}</strong><small>{mesaActual ? t('home.acceso.pedir.desc') : t('home.acceso.recogida.desc')}</small></span>
-            <ArrowRight className="home-action-arrow" size={19} aria-hidden="true" />
-          </Link>
-          <Link className="home-action-card" href="/reservas" data-testid="link-reservar-inicio">
-            <span className="home-action-icon"><CalendarDays size={21} aria-hidden="true" /></span>
-            <span className="home-action-copy"><strong>{t('home.acceso.reserva')}</strong><small>{t('home.acceso.reserva.desc')}</small></span>
-            <ArrowRight className="home-action-arrow" size={19} aria-hidden="true" />
-          </Link>
-          <Link className="home-action-card" href="/celebraciones" data-testid="link-celebraciones-inicio">
-            <span className="home-action-icon"><PartyPopper size={21} aria-hidden="true" /></span>
-            <span className="home-action-copy"><strong>{t('home.acceso.celebraciones')}</strong><small>{t('home.acceso.celebraciones.desc')}</small></span>
-            <ArrowRight className="home-action-arrow" size={19} aria-hidden="true" />
-          </Link>
-        </div>
-        <Link className="home-menu-link" href={mesaActual ? `/carta?mesa=${encodeURIComponent(mesaActual)}` : '/carta'} data-testid="link-ver-carta-inicio">
-          {t('home.hero.verCarta')} <ArrowRight size={16} aria-hidden="true" />
+        <Link className="home-hero-reserve" href="/reservas" data-testid="link-reservar-inicio">
+          {t('home.acceso.reserva')} <ArrowRight size={18} aria-hidden="true" />
         </Link>
-
-        <div className="home-info-strip">
-          <div className="home-info-hours"><span className={`home-open-dot ${estadoHorario.abierto ? 'is-open' : ''}`} aria-hidden="true" /><span>{textoEstadoHorario}</span><a href="#horario-inicio">{t('home.acceso.horarioCompleto')}</a></div>
-          <a className="home-info-phone" href={phoneHref}><Phone size={17} aria-hidden="true" /><span>{phone}</span></a>
+        <div className="home-hero-links">
+          {mesaActual ? (
+            <Link href={`/carta?mesa=${encodeURIComponent(mesaActual)}`} data-testid="link-pedir-domicilio-inicio">
+              {t('home.hero.pedirMesa')} {mesaActual}
+            </Link>
+          ) : (
+            <>
+              <Link href="/carta?entrega=domicilio" data-testid="link-pedir-domicilio-inicio">{t('home.hero.pedirDomicilio')}</Link>
+              <Link href="/carta?entrega=recogida" data-testid="link-pedir-recogida-inicio">{t('home.hero.recoger')}</Link>
+            </>
+          )}
+          <Link href="/celebraciones" data-testid="link-celebraciones-inicio">{t('home.acceso.celebraciones')}</Link>
         </div>
+      </div>
+      <div className="home-hero-media">
+        <img className="home-hero-photo" src="/assets/hero-las-mesas.webp" alt="" fetchPriority="high" />
       </div>
     </section>
     <section className="home-about section-pad" id="conocenos" aria-labelledby="home-about-title">
@@ -853,7 +840,7 @@ function App() {
       <footer className="site-footer">
         <div className="shell footer-main"><a href="/" className="footer-brand"><img src="/assets/logo-las-mesas.jpeg" alt="" /><span>Pizzeria Las Mesas</span></a><p>{t('footer.lema')}</p><nav aria-label="Navegación de pie">{[[t('nav.casa'),'/local#esencia'],[t('nav.local'),'/local#local-galeria'],[t('nav.carta'),'/carta'],[t('nav.celebraciones'),'/celebraciones'],[t('nav.reserva'),'/reservas'],['Condiciones de venta','/condiciones-de-venta'],['Privacidad','/privacidad'],['Cookies','/politica-de-cookies'],['Accesibilidad','/accesibilidad']].map(([label,href]) => <a key={href} href={href}>{label}</a>)}<button className="footer-privacy-settings" type="button" onClick={() => window.dispatchEvent(new Event('lm:abrir-preferencias-privacidad'))}>Preferencias de privacidad</button></nav></div>
         <div className="shell footer-details">
-          <div className="footer-hours"><span className="footer-label">{t('contacto.horario')}</span>{hours.map(([day, time]) => <p key={day}><span>{t(day)}</span><strong>{time}</strong></p>)}{listaFestivos}</div>
+          <div className="footer-hours"><span className="footer-label">{t('contacto.horario')}</span><div className="footer-hours-status"><span className="footer-status-dot" data-open={estadoHorario.abierto} aria-hidden="true" />{textoEstadoHorario}</div>{hours.map(([day, time]) => <p key={day}><span>{t(day)}</span><strong>{time}</strong></p>)}{listaFestivos}</div>
           <div className="footer-contact"><span className="footer-label">{t('nav.contacto')}</span><a href={phoneHref}>{phone}</a><a href={mapsUrl} target="_blank" rel="noreferrer">Pintor Antonio Padrón, 59 · {t('contacto.comoLlegar')}</a></div>
           <div className="footer-social min-w-0"><span className="footer-label">{t('contacto.social')}</span>{instagramUrl && <span>{t('contacto.instagram')}: <a href={instagramUrl} target="_blank" rel="noreferrer">{t('contacto.verPerfil')}</a></span>}{facebookUrl && <span>{t('contacto.facebook')}: <a href={facebookUrl} target="_blank" rel="noreferrer">{t('contacto.verPerfil')}</a></span>}{reviewsUrl && <span>{t('contacto.googleResenas')}: <a href={reviewsUrl} target="_blank" rel="noreferrer">{t('contacto.compartir')}</a></span>}</div>
         </div>
