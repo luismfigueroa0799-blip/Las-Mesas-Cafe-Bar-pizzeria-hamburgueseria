@@ -430,7 +430,7 @@ function App() {
         </div>
       </div>
       <div className="home-hero-media">
-        <img className="home-hero-photo" src="/assets/hero-las-mesas.webp" alt="" fetchPriority="high" />
+        <img className="home-hero-photo" src="/assets/platos-compartir.jpg" alt="" fetchPriority="high" />
       </div>
     </section>
     <section className="home-about section-pad" id="conocenos" aria-labelledby="home-about-title">
