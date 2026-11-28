@@ -1894,38 +1894,49 @@ html.dark .home-hero .home-hero-reserve { color: #2C2A26 !important; }
 }
 .home-hero a:focus-visible { outline: 2px solid var(--hero-ink); outline-offset: 4px; }
 .home-hero-media {
+  --hero-frame-width: clamp(14px, 2vw, 20px);
   position: relative;
+  align-self: center;
   min-width: 0;
   margin: clamp(20px, 3vw, 48px) clamp(20px, 3vw, 48px) clamp(20px, 3vw, 48px) 0;
-  overflow: hidden;
-  border-radius: 24px;
-  box-shadow: 0 16px 34px rgba(44, 34, 25, .18);
+  padding: var(--hero-frame-width);
+  border-radius: 2px;
+  background:
+    repeating-linear-gradient(3deg, transparent 0 4px, rgba(250, 216, 177, .05) 5px, transparent 7px 11px),
+    linear-gradient(135deg, #765034, #5C3A21 45%, #4A2E1B);
+  box-shadow: 10px 10px 30px rgba(44, 25, 12, .22),
+    inset 1px 1px 0 rgba(248, 218, 178, .36), inset -2px -2px 0 rgba(46, 26, 13, .42);
 }
-html.dark .home-hero-media { box-shadow: 0 16px 34px rgba(0, 0, 0, .32); }
+html.dark .home-hero-media {
+  box-shadow: 10px 10px 30px rgba(0, 0, 0, .42),
+    inset 1px 1px 0 rgba(248, 218, 178, .36), inset -2px -2px 0 rgba(46, 26, 13, .42);
+}
 .home-hero-media::after {
   position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, var(--hero-surface), transparent 26%);
-  opacity: .16;
+  inset: 1px;
+  background: linear-gradient(90deg, var(--hero-surface), transparent 20%);
+  opacity: .12;
   pointer-events: none;
   content: "";
 }
+.home-hero-mat {
+  padding: clamp(5px, 1vw, 10px);
+  background: #F9F6F0;
+  box-shadow: 0 0 0 1px #3B2415, inset 0 1px 3px rgba(60, 38, 22, .25);
+}
 .home-hero-photo {
-  position: absolute;
-  inset: 0;
+  display: block;
   width: 100%;
-  height: 100%;
+  aspect-ratio: 5 / 4;
   object-fit: cover;
-  object-position: 76% 34%;
-  transform: scale(1.24);
-  transform-origin: 82% 32%;
-  filter: contrast(1.045) saturate(1.07);
+  object-position: center;
+  border-radius: 0;
+  filter: contrast(1.035) saturate(1.05);
 }
 @media (max-width: 700px) {
   .home-hero { grid-template-columns: 1fr; min-height: 0; }
   .home-hero-content { padding: 40px 24px 26px; }
-  .home-hero-media { margin: 0 24px 28px; aspect-ratio: 16 / 10; border-radius: 20px; }
-  .home-hero-media::after { background: linear-gradient(180deg, var(--hero-surface), transparent 30%); }
+  .home-hero-media { margin: 0 24px 28px; }
 }
 .home-hero-btn { min-height: 60px; padding: 0 40px; font-size: 1rem; }
 
