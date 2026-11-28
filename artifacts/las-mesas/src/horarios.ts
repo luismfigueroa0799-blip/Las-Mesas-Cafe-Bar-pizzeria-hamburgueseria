@@ -48,4 +48,9 @@ export function obtenerEstadoHorario(fechaActual: Date, config: ConfiguracionHor
   }
   return { abierto: false, apertura: '', dia: 0, hoy: false };
 }
+export function horarioDeHoy(fechaActual: Date, config: ConfiguracionHorario) {
+  const { dia, fecha } = partesCanarias(fechaActual);
+  return { dia, tramos: tramosDelDia(config, dia, fecha) };
+}
+
 export function fechaCanarias(fecha: Date): string { return partesCanarias(fecha).fecha; }

@@ -8,7 +8,7 @@ import { useI18n, type Idioma } from '@/I18nContext';
 import CartSidebar from '@/CartSidebar';
 import RuletaPremio from '@/RuletaPremio';
 import ProductCard from '@/ProductCard';
-import { CLAVES_DIAS, HORARIO_PREDETERMINADO, fechaCanarias, normalizarHorario, obtenerEstadoHorario, textoTramos, type ConfiguracionHorario } from '@/horarios';
+import { CLAVES_DIAS, HORARIO_PREDETERMINADO, fechaCanarias, horarioDeHoy, normalizarHorario, obtenerEstadoHorario, textoTramos, type ConfiguracionHorario } from '@/horarios';
 import Inventario from '@/admin/Inventario';
 import CelebracionesAdmin from '@/admin/CelebracionesAdmin';
 import ReservasAdmin from '@/admin/ReservasAdmin';
@@ -33,6 +33,9 @@ import {
 
 const address = 'Pintor Antonio Padrón, 59, Las Mesas Bajas, Las Palmas de Gran Canaria';
 const mapsUrl = 'https://www.google.com/maps/place/C.+Pintor+Antonio+Padr%C3%B3n,+59,+35018+Las+Mesas,+Las+Palmas/@28.0991469,-15.4976894,17z/data=!3m1!4b1!4m6!3m5!1s0xc4094784d2465e5:0x2e61ab7822fd4801!8m2!3d28.0991469!4d-15.4976894!16s%2Fg%2F11bw44jbyw?entry=ttu&g_ep=EgoyMDI2MTEwNC4wIKXMDSoASAFQAw%3D%3D';
+// Añadir la ruta de una foto real cuando esté disponible en public/assets.
+const visitFacadePhoto: string | undefined = undefined;
+const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`;
 const phone = '+34 928 896 097';
 const phoneHref = 'tel:+34928896097';
 const whatsapp = '34928896097';
@@ -70,6 +73,7 @@ type AvisoPedido =
   | null;
 
 function App() {
+  const [horarioSemanalVisible, setHorarioSemanalVisible] = useState(false);
   const [horaActual, setHoraActual] = useState(() => new Date());
   const [configuracionHorario, setConfiguracionHorario] = useState<ConfiguracionHorario>(() => HORARIO_PREDETERMINADO);
   useEffect(() => {
@@ -145,6 +149,8 @@ function App() {
         ? ` · ${t('contacto.estado.proxima').replace('{dia}', t(DIAS_SEMANA[estadoHorario.dia])).replace('{hora}', estadoHorario.apertura)}`
         : ` · ${t('contacto.estado.sinProxima')}`}`;
   const hours: [string, string][] = configuracionHorario.semanal.map((tramos, indice) => [CLAVES_DIAS[indice], tramos.length ? textoTramos(tramos) : t('contacto.horario.cerrado')] as [string, string]);
+  const horarioHoy = useMemo(() => horarioDeHoy(horaActual, configuracionHorario), [horaActual, configuracionHorario]);
+  const textoHorarioHoy = horarioHoy.tramos.length ? textoTramos(horarioHoy.tramos) : t('contacto.horario.cerrado');
   const festivosVisibles = configuracionHorario.festivos.filter((festivo) => festivo.fecha >= fechaCanarias(horaActual)).slice(0, 4);
   const idiomaFecha = idioma === 'en' ? 'en-GB' : idioma === 'fr' ? 'fr-FR' : idioma === 'de' ? 'de-DE' : 'es-ES';
   const listaFestivos = festivosVisibles.length > 0 && <div className="home-holiday-hours"><span>{t('contacto.horario.especiales')}</span>{festivosVisibles.map((festivo) => <p key={festivo.fecha}><strong>{festivo.nombre}</strong><time dateTime={festivo.fecha}>{new Intl.DateTimeFormat(idiomaFecha, { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Atlantic/Canary' }).format(new Date(`${festivo.fecha}T12:00:00Z`))}</time><b>{festivo.cerrado || !festivo.tramos.length ? t('contacto.horario.cerrado') : textoTramos(festivo.tramos)}</b></p>)}</div>;
@@ -463,15 +469,40 @@ function App() {
         </div>
         <div className="home-visit-grid">
           <article className="home-visit-card home-visit-address">
-            <span className="home-visit-icon"><MapPin size={22} aria-hidden="true" /></span>
-            <p className="eyebrow">{t('contacto.direccion')}</p>
-            <address>{address}</address>
-            <a href={mapsUrl} target="_blank" rel="noreferrer">{t('contacto.comoLlegar')} <ArrowUpRight size={15} aria-hidden="true" /></a>
+            <div>
+              <span className="home-visit-icon"><MapPin size={22} aria-hidden="true" /></span>
+              <p className="eyebrow">{t('contacto.direccion')}</p>
+              <address>{address}</address>
+              <div className="home-visit-actions">
+                <a className="home-visit-directions" href={directionsUrl} target="_blank" rel="noreferrer">
+                  {t('contacto.comoLlegar')} <ArrowUpRight size={16} aria-hidden="true" />
+                </a>
+                <a className="home-visit-call" href={phoneHref}>
+                  <Phone size={16} aria-hidden="true" /> {t('home.visita.llamar')}
+                </a>
+              </div>
+            </div>
+            {visitFacadePhoto && <img className="home-visit-facade" src={visitFacadePhoto} alt={t('home.visita.fachada')} loading="lazy" decoding="async" />}
           </article>
           <article className="home-visit-card home-visit-hours" id="horario-inicio">
             <div className="home-visit-card-title"><span className="home-visit-icon"><Clock3 size={22} aria-hidden="true" /></span><div><p className="eyebrow">{t('contacto.horario')}</p><p className={`hours-status ${estadoHorario.abierto ? 'is-open' : 'is-closed'}`} role="status" aria-live="polite"><span aria-hidden="true" />{textoEstadoHorario}</p></div></div>
-            <dl className="home-visit-schedule">{hours.map(([day, time]) => <div className="hours-row" key={day}><dt>{t(day)}</dt><dd>{time}</dd></div>)}</dl>{listaFestivos}
-            <a className="home-visit-phone" href={phoneHref}><Phone size={17} aria-hidden="true" />{phone}</a>
+            <dl className="home-visit-schedule" id="home-visit-weekly-hours" data-expanded={horarioSemanalVisible}>
+              {hours.map(([day, time], index) => {
+                const esHoy = index === horarioHoy.dia;
+                return (
+                  <div className={esHoy ? 'hours-row is-today' : 'hours-row'} key={day} aria-current={esHoy ? 'date' : undefined}>
+                    <dt>{t(day)}{esHoy && <span className="home-visit-today">{t('home.visita.hoy')}</span>}</dt>
+                    <dd>{esHoy ? textoHorarioHoy : time}</dd>
+                  </div>
+                );
+              })}
+            </dl>
+            <button className="home-visit-hours-toggle" type="button" aria-expanded={horarioSemanalVisible}
+              aria-controls="home-visit-weekly-hours" onClick={() => setHorarioSemanalVisible((visible) => !visible)}>
+              {t(horarioSemanalVisible ? 'home.visita.ocultarSemana' : 'home.visita.verSemana')}
+              <ArrowDown size={16} aria-hidden="true" />
+            </button>
+            {listaFestivos}
           </article>
         </div>
       </div>
