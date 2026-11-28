@@ -412,10 +412,11 @@ function App() {
           {t('home.hero.titulo1')}<br /><em>{t('home.hero.titulo2')}</em>
         </h1>
         <p className="home-hero-desc">{t('home.hero.desc2')}</p>
-        <Link className="home-hero-reserve" href="/reservas" data-testid="link-reservar-inicio">
-          {t('home.acceso.reserva')} <ArrowRight size={18} aria-hidden="true" />
+        <Link className="home-hero-cta" href={mesaActual ? `/carta?mesa=${encodeURIComponent(mesaActual)}` : '/carta'} data-testid="link-ver-carta-inicio">
+          {t('home.hero.verCarta')} <ArrowRight size={18} aria-hidden="true" />
         </Link>
         <div className="home-hero-links">
+          <Link href="/reservas" data-testid="link-reservar-inicio">{t('home.acceso.reserva')}</Link>
           {mesaActual ? (
             <Link href={`/carta?mesa=${encodeURIComponent(mesaActual)}`} data-testid="link-pedir-domicilio-inicio">
               {t('home.hero.pedirMesa')} {mesaActual}
@@ -429,27 +430,12 @@ function App() {
           <Link href="/celebraciones" data-testid="link-celebraciones-inicio">{t('home.acceso.celebraciones')}</Link>
         </div>
       </div>
-      <div
-        className="home-hero-media"
-        onPointerMove={({ currentTarget, pointerType, clientX, clientY }) => {
-          if (pointerType !== 'mouse') return;
-          const { left, top, width, height } = currentTarget.getBoundingClientRect();
-          currentTarget.style.setProperty('--plate-tilt-x', `${(0.5 - (clientY - top) / height) * 8}deg`);
-          currentTarget.style.setProperty('--plate-tilt-y', `${((clientX - left) / width - 0.5) * 10}deg`);
-        }}
-        onPointerLeave={({ currentTarget }) => {
-          currentTarget.style.removeProperty('--plate-tilt-x');
-          currentTarget.style.removeProperty('--plate-tilt-y');
-        }}
-      >
-        <svg className="home-hero-clip" width="0" height="0" aria-hidden="true">
-          <defs>
-            <clipPath id="home-hero-plate-outline" clipPathUnits="objectBoundingBox">
-              <path d="M .25,.326 C .261,.275 .283,.229 .315,.204 C .351,.193 .427,.196 .487,.199 C .551,.201 .609,.211 .651,.234 C .712,.265 .743,.294 .745,.335 C .817,.365 .874,.417 .897,.472 C .919,.527 .9,.594 .863,.645 C .795,.742 .665,.796 .514,.8 C .38,.803 .273,.773 .189,.715 C .122,.67 .093,.611 .098,.554 C .101,.481 .156,.415 .214,.374 L .241,.356 Z" />
-            </clipPath>
-          </defs>
-        </svg>
-        <img className="home-hero-photo" src="/images/Burger-Pizza.jpg" alt="" fetchPriority="high" />
+      <div className="home-hero-oven-scene" aria-hidden="true">
+        <div className="home-hero-oven"><div className="home-hero-oven-mouth" /></div>
+        <div className="home-hero-peel">
+          <div className="home-hero-pizza" />
+          <div className="home-hero-pizza-slice" />
+        </div>
       </div>
     </section>
     <section className="home-about section-pad" id="conocenos" aria-labelledby="home-about-title">
