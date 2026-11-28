@@ -431,11 +431,7 @@ function App() {
         </div>
       </div>
       <div className="home-hero-oven-scene" aria-hidden="true">
-        <div className="home-hero-oven"><div className="home-hero-oven-mouth" /></div>
-        <div className="home-hero-peel">
-          <div className="home-hero-pizza" />
-          <div className="home-hero-pizza-slice" />
-        </div>
+        <img className="home-hero-cinematic-photo" src="/assets/hero-pizza-oven.png" alt="" fetchPriority="high" />
       </div>
     </section>
     <section className="home-about section-pad" id="conocenos" aria-labelledby="home-about-title">

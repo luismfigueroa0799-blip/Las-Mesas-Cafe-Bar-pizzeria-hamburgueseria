@@ -1894,7 +1894,6 @@ html.dark .home-hero .home-hero-cta { color: #2C2A26 !important; }
 }
 .home-hero a:focus-visible { outline: 2px solid var(--hero-ink); outline-offset: 4px; }
 .home-hero-oven-scene {
-  isolation: isolate;
   position: relative;
   align-self: center;
   width: min(calc(100% - 32px), 660px);
@@ -1902,78 +1901,24 @@ html.dark .home-hero .home-hero-cta { color: #2C2A26 !important; }
   aspect-ratio: 5 / 4;
   overflow: hidden;
   border-radius: 20px;
-  background: radial-gradient(ellipse at 50% 54%, #82543c, transparent 65%), linear-gradient(145deg, #412920, #1d130f 75%);
+  background: #342015;
 }
-.home-hero-oven-scene::before {
-  position: absolute;
-  inset: 68% 0 0;
-  background: linear-gradient(160deg, #845439, #44271d 44%, #241714);
-  box-shadow: 0 -1px 0 #ad7452;
-  content: "";
-}
-.home-hero-oven {
-  position: absolute;
-  inset: 10% 19% 29%;
-  padding: 4%;
-  border-radius: 50% 50% 5% 5% / 72% 72% 6% 6%;
-  background: repeating-conic-gradient(from 0deg at 50% 100%, #67392b 0deg 2deg, transparent 2deg 19deg),
-    linear-gradient(145deg, #c38a64, #93583e 43%, #522e24);
-  box-shadow: 0 13px 22px #1c100e, inset 0 2px 2px #deac88;
-}
-.home-hero-oven-mouth {
+.home-hero-cinematic-photo {
+  display: block;
+  width: 100%;
   height: 100%;
-  border-radius: inherit;
-  background: radial-gradient(ellipse at 34% 94%, #fff4b0, #ff9a3f 10%, transparent 29%),
-    radial-gradient(ellipse at 72% 96%, #ffcc6b, #da4f22 18%, transparent 36%),
-    linear-gradient(0deg, #a64322, #34150d 48%, #160d0b);
-  box-shadow: inset 0 5px 15px #1e0c08, 0 3px 15px #f29d4a55;
+  object-fit: cover;
+  object-position: 50% 58%;
 }
-.home-hero-peel { position: absolute; isolation: isolate; inset: 45% 16% 12% 11%; }
-.home-hero-peel::before {
-  position: absolute;
-  inset: 21% 8% 0 3%;
-  border-radius: 50%;
-  background: repeating-linear-gradient(5deg, #b57b51 0 2px, #c58d60 3px 6px);
-  box-shadow: 0 8px 0 #71452e, 0 18px 23px #150c0aab;
-  content: "";
-}
-.home-hero-peel::after {
-  position: absolute;
-  z-index: -1;
-  inset: 59% -17% 27% 72%;
-  border-radius: 24px;
-  transform: rotate(12deg);
-  background: linear-gradient(#c68d60, #a9714a 55%, #603b29);
-  content: "";
-}
-.home-hero-pizza, .home-hero-pizza-slice {
-  position: absolute;
-  inset: 0 12% 12% 6%;
-  border-radius: 50%;
-  border: clamp(5px, 1.1vw, 10px) solid #d89952;
-  background:
-    radial-gradient(ellipse at 70% 77%, #55743b 0 4%, transparent 5%),
-    radial-gradient(ellipse at 47% 26%, #55743b 0 3%, transparent 4%),
-    radial-gradient(ellipse at 32% 68%, #a53020 0 7%, transparent 8%),
-    radial-gradient(ellipse at 65% 41%, #9d271b 0 8%, transparent 9%),
-    radial-gradient(ellipse at 87% 58%, #bc3521 0 5%, transparent 6%),
-    radial-gradient(ellipse at 22% 33%, #af351d 0 6%, transparent 7%),
-    radial-gradient(ellipse at 52% 56%, #f9db87 0 45%, #d45b28 73%);
-  box-shadow: inset 0 0 9px #a93722;
-}
-.home-hero-pizza { clip-path: polygon(50% 50%, 100% 31%, 100% 0, 0 0, 0 100%, 100% 100%, 100% 76%); }
-.home-hero-pizza-slice { clip-path: polygon(50% 50%, 100% 31%, 100% 76%); transform: translate(8%, 3%); }
 @media (prefers-reduced-motion: no-preference) {
-  .home-hero-peel { animation: home-hero-serve 1s cubic-bezier(.2,.75,.3,1) both; }
-  .home-hero-pizza-slice { animation: home-hero-slice .35s .63s ease-out both; }
+  .home-hero-cinematic-photo {
+    transform-origin: 50% 66%;
+    animation: home-hero-oven-push 3.2s cubic-bezier(.18,.65,.32,1) both;
+  }
 }
-@keyframes home-hero-serve {
-  from { opacity: .45; transform: translate(5%, -31%) scale(.75); }
-  to { opacity: 1; transform: translate(0, 0) scale(1); }
-}
-@keyframes home-hero-slice {
-  from { transform: translate(0, 0); }
-  to { transform: translate(8%, 3%); }
+@keyframes home-hero-oven-push {
+  from { transform: scale(1); }
+  to { transform: scale(1.09); }
 }
 @media (max-width: 700px) {
   .home-hero { grid-template-columns: 1fr; min-height: 0; }
